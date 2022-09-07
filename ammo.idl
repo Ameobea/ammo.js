@@ -433,6 +433,8 @@ interface btTriangleMesh {
   void addTriangle([Const, Ref] btVector3 vertex0, [Const, Ref] btVector3 vertex1, [Const, Ref] btVector3 vertex2, optional boolean removeDuplicateVertices);
   long findOrAddVertex([Const, Ref] btVector3 vertex, boolean removeDuplicateVertices);
   void addIndex(long index);
+  void preallocateIndices(long numindices);
+  void preallocateVertices(long numverts);
  [Ref] btIndexedMeshArray getIndexedMeshArray();
 };
 btTriangleMesh implements btStridingMeshInterface;
@@ -1013,9 +1015,9 @@ interface btActionInterface {
 };
 
 interface btKinematicCharacterController {
-  void btKinematicCharacterController(btPairCachingGhostObject ghostObject, btConvexShape convexShape, float stepHeight, optional long upAxis);
+  void btKinematicCharacterController(btPairCachingGhostObject ghostObject, btConvexShape convexShape, float stepHeight, [Const,Ref] optional btVector3 up);
 
-  void setUpAxis (long axis);
+  void setUp ([Const,Ref] btVector3 up);
   void setWalkDirection ([Const,Ref] btVector3 walkDirection);
   void setVelocityForTimeInterval ([Const,Ref] btVector3 velocity, float timeInterval);
   //void reset ();
@@ -1026,9 +1028,9 @@ interface btKinematicCharacterController {
   void setJumpSpeed (float jumpSpeed);
   void setMaxJumpHeight (float maxJumpHeight);
   boolean canJump ();
-  void jump ();
-  void setGravity (float gravity);
-  float getGravity ();
+  void jump ([Const,Ref] optional btVector3 up);
+  void setGravity ([Const,Ref]btVector3 gravity);
+  [Value] btVector3 getGravity ();
   void setMaxSlope (float slopeRadians);
   float getMaxSlope ();
   btPairCachingGhostObject getGhostObject ();
