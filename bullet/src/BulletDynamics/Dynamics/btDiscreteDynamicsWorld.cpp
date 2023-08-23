@@ -281,6 +281,7 @@ void	btDiscreteDynamicsWorld::saveKinematicState(btScalar timeStep)
 
 void	btDiscreteDynamicsWorld::debugDrawWorld()
 {
+	return;
 	BT_PROFILE("debugDrawWorld");
 
 	btCollisionWorld::debugDrawWorld();
@@ -1142,11 +1143,6 @@ void	btDiscreteDynamicsWorld::startProfiling(btScalar timeStep)
 #endif //BT_NO_PROFILE
 
 }
-
-
-
-
-	
 
 void btDiscreteDynamicsWorld::debugDrawConstraint(btTypedConstraint* constraint)
 {

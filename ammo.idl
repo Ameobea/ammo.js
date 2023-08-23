@@ -383,17 +383,17 @@ btCapsuleShape implements btCollisionShape;
 //   [Value] attribute btFaceArray m_faces;
 // };
 
-// interface btConvexHullShape {
-//   void btConvexHullShape([Const] optional float[] points, optional long numPoints);
-//   void addPoint([Const, Ref] btVector3 point, optional boolean recalculateLocalAABB);
-//   void setMargin(float margin);
-//   float getMargin();
-//   long getNumVertices();
-//   boolean initializePolyhedralFeatures(long shiftVerticesByMargin);
-//   void recalcLocalAabb();
-//   [Const] btConvexPolyhedron getConvexPolyhedron();
-// };
-// btConvexHullShape implements btCollisionShape;
+interface btConvexHullShape {
+  void btConvexHullShape([Const] optional float[] points, optional long numPoints);
+  void addPoint([Const, Ref] btVector3 point, optional boolean recalculateLocalAABB);
+  void setMargin(float margin);
+  // float getMargin();
+  // long getNumVertices();
+  // boolean initializePolyhedralFeatures(long shiftVerticesByMargin);
+  // void recalcLocalAabb();
+  // [Const] btConvexPolyhedron getConvexPolyhedron();
+};
+btConvexHullShape implements btCollisionShape;
 
 // interface btShapeHull {
 //   void btShapeHull(btConvexShape shape);
@@ -671,6 +671,7 @@ interface btCollisionConfiguration {
 
 interface btDbvtBroadphase {
   void btDbvtBroadphase();
+  void optimize();
 };
 
 interface btBroadphaseProxy {
@@ -1039,6 +1040,7 @@ interface btKinematicCharacterController {
   void setUpInterpolate (boolean value);
   void setMaxPenetrationDepth (float d);
   float getMaxPenetrationDepth ();
+  void setStepHeight (float h);
 };
 btKinematicCharacterController implements btActionInterface;
 

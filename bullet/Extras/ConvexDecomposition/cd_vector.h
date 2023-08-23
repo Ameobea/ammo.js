@@ -161,6 +161,7 @@ public:
 	void SetX(float t)   { x   = t; };
 	void SetY(float t)   { y   = t; };
 	void SetZ(float t)   { z   = t; };
+	void Set(float a,float b,float c) { x = a; y = b; z = c; };
 
 	bool IsSame(const Vector3d &v,float epsilon) const
 	{
@@ -411,7 +412,7 @@ public:
 	{
 		return float(sqrtf( x*x + y*y + z*z ));
 	};
-	
+
 
 	float FasterLength(void) const          // length of vector.
 	{
@@ -435,7 +436,7 @@ public:
 		Vector3d d(a.x-x,a.y-y,a.z-z);
 		return d.FastLength();
 	}
-	
+
 	float FasterDistance(const Vector3d &a) const   // distance between two points.
 	{
 		Vector3d d(a.x-x,a.y-y,a.z-z);
@@ -968,7 +969,7 @@ public:
 	Vector2d operator*(float c) const
 	{
 		Vector2d a;
-		
+
 		a.x = x * c;
 		a.y = y * c;
 
@@ -1022,7 +1023,7 @@ public:
 	{
 		return (float) sqrtf(x * x + y * y );
 	}
-	
+
 	float fastermagnitude(void) const
 	{
 		return (float) sqrtf( x * x + y * y );
@@ -1169,15 +1170,15 @@ typedef std::vector< Vector3d > Vector3dVector;
 typedef std::vector< Vector2d > Vector2dVector;
 
 inline  Vector3d operator * (float s, const Vector3d &v )
-{ 
+{
 	Vector3d	Scaled(v.x*s, v.y*s, v.z*s);
-	return(Scaled); 
+	return(Scaled);
 }
 
 inline  Vector2d	operator * (float s, const Vector2d &v )
- { 
+ {
 	 Vector2d	Scaled(v.x*s, v.y*s);
-	return(Scaled); 
+	return(Scaled);
  }
 
 }

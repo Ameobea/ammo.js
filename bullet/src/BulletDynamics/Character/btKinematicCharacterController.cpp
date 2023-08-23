@@ -23,6 +23,9 @@ subject to the following restrictions:
 #include "LinearMath/btDefaultMotionState.h"
 #include "btKinematicCharacterController.h"
 
+#define KINEMATIC_CHARACTER_CONTROLLER_DEBUG 0
+#define debug_printf if (KINEMATIC_CHARACTER_CONTROLLER_DEBUG) printf
+
 // static helper method
 static btVector3
 getNormalizedVector(const btVector3& v)
@@ -235,7 +238,7 @@ bool btKinematicCharacterController::recoverFromPenetration(btCollisionWorld* co
 					//	m_touchingNormal = pt.m_normalWorldOnB * directionSign;//??
 
 					//}
-					m_currentPosition += pt.m_normalWorldOnB * directionSign * dist * btScalar(0.2);
+					m_currentPosition += pt.m_normalWorldOnB * directionSign * dist * btScalar(1. / 8.);
 					penetration = true;
 				}
 				else
@@ -314,9 +317,9 @@ void btKinematicCharacterController::stepUp(btCollisionWorld* world)
 		{
 			numPenetrationLoops++;
 			m_touchingContact = true;
-			if (numPenetrationLoops > 4)
+			if (numPenetrationLoops > 8)
 			{
-				//printf("character could not recover from penetration = %d\n", numPenetrationLoops);
+				printf("character could not recover from penetration in `stepUp` = %d\n", numPenetrationLoops);
 				break;
 			}
 		}
@@ -509,7 +512,7 @@ void btKinematicCharacterController::stepDown(btCollisionWorld* collisionWorld, 
 		start.setRotation(m_currentOrientation);
 		end.setRotation(m_targetOrientation);
 
-		//set double test for 2x the step drop, to check for a large drop vs small drop
+		// set double test for 2x the step drop, to check for a large drop vs small drop
 		end_double.setOrigin(m_targetPosition - step_drop);
 
 		if (m_useGhostObjectSweepTest)
@@ -518,36 +521,36 @@ void btKinematicCharacterController::stepDown(btCollisionWorld* collisionWorld, 
 
 			if (!callback.hasHit() && m_ghostObject->hasContactResponse())
 			{
-				//test a double fall height, to see if the character should interpolate it's fall (full) or not (partial)
+				// test a double fall height, to see if the character should interpolate its fall (full) or not (partial)
 				m_ghostObject->convexSweepTest(m_convexShape, start, end_double, callback2, collisionWorld->getDispatchInfo().m_allowedCcdPenetration);
 			}
 		}
-		else
-		{
-			collisionWorld->convexSweepTest(m_convexShape, start, end, callback, collisionWorld->getDispatchInfo().m_allowedCcdPenetration);
+		// else
+		// {
+		// 	collisionWorld->convexSweepTest(m_convexShape, start, end, callback, collisionWorld->getDispatchInfo().m_allowedCcdPenetration);
 
-			if (!callback.hasHit() && m_ghostObject->hasContactResponse())
-			{
-				//test a double fall height, to see if the character should interpolate it's fall (large) or not (small)
-				collisionWorld->convexSweepTest(m_convexShape, start, end_double, callback2, collisionWorld->getDispatchInfo().m_allowedCcdPenetration);
-			}
-		}
+		// 	if (!callback.hasHit() && m_ghostObject->hasContactResponse())
+		// 	{
+		// 		//test a double fall height, to see if the character should interpolate its fall (large) or not (small)
+		// 		collisionWorld->convexSweepTest(m_convexShape, start, end_double, callback2, collisionWorld->getDispatchInfo().m_allowedCcdPenetration);
+		// 	}
+		// }
 
 		btScalar downVelocity2 = (m_verticalVelocity < 0.f ? -m_verticalVelocity : 0.f) * dt;
 		bool has_hit;
-		if (bounce_fix == true)
-			has_hit = (callback.hasHit() || callback2.hasHit()) && m_ghostObject->hasContactResponse() && needsCollision(m_ghostObject, callback.m_hitCollisionObject);
-		else
-			has_hit = callback2.hasHit() && m_ghostObject->hasContactResponse() && needsCollision(m_ghostObject, callback2.m_hitCollisionObject);
+		// if (bounce_fix == true)
+		// 	has_hit = (callback.hasHit() || callback2.hasHit()) && m_ghostObject->hasContactResponse() && needsCollision(m_ghostObject, callback.m_hitCollisionObject);
+		// else
+		has_hit = callback2.hasHit() && m_ghostObject->hasContactResponse() && needsCollision(m_ghostObject, callback2.m_hitCollisionObject);
 
 		btScalar stepHeight = 0.0f;
 		if (m_verticalVelocity < 0.0)
 			stepHeight = m_stepHeight;
 
-		if (downVelocity2 > 0.0 && downVelocity2 < stepHeight && has_hit == true && runonce == false && (m_wasOnGround || !m_wasJumping))
+		if (downVelocity2 > 0.0 && downVelocity2 < stepHeight && has_hit && !runonce && (m_wasOnGround || !m_wasJumping))
 		{
-			//redo the velocity calculation when falling a small amount, for fast stairs motion
-			//for larger falls, use the smoother/slower interpolated movement by not touching the target position
+			// redo the velocity calculation when falling a small amount, for fast stairs motion
+			// for larger falls, use the smoother/slower interpolated movement by not touching the target position
 
 			m_targetPosition = orig_position;
 			downVelocity = stepHeight;
@@ -560,23 +563,26 @@ void btKinematicCharacterController::stepDown(btCollisionWorld* collisionWorld, 
 		break;
 	}
 
-	if ((m_ghostObject->hasContactResponse() && (callback.hasHit() && needsCollision(m_ghostObject, callback.m_hitCollisionObject))) || runonce == true)
+	if ((m_ghostObject->hasContactResponse() && (callback.hasHit() && needsCollision(m_ghostObject, callback.m_hitCollisionObject))) || runonce)
 	{
 		// we dropped a fraction of the height -> hit floor
 		btScalar fraction = (m_currentPosition.getY() - callback.m_hitPointWorld.getY()) / 2;
 
-		//printf("hitpoint: %g - pos %g\n", callback.m_hitPointWorld.getY(), m_currentPosition.getY());
+		debug_printf("[stepDown] hitpoint: %g - pos %g; fraction: %g\n", callback.m_hitPointWorld.getY(), m_currentPosition.getY(), fraction);
 
-		if (bounce_fix == true)
-		{
-			if (full_drop == true)
-				m_currentPosition.setInterpolate3(m_currentPosition, m_targetPosition, callback.m_closestHitFraction);
-			else
-				//due to errors in the closestHitFraction variable when used with large polygons, calculate the hit fraction manually
-				m_currentPosition.setInterpolate3(m_currentPosition, m_targetPosition, fraction);
-		}
-		else
+		// if (bounce_fix == true)
+		// {
+		// 	if (full_drop == true)
+		// 		m_currentPosition.setInterpolate3(m_currentPosition, m_targetPosition, callback.m_closestHitFraction);
+		// 	else
+		// 		//due to errors in the closestHitFraction variable when used with large polygons, calculate the hit fraction manually
+		// 		m_currentPosition.setInterpolate3(m_currentPosition, m_targetPosition, fraction);
+		// }
+		// else
+			btScalar oldY = m_currentPosition.getY();
 			m_currentPosition.setInterpolate3(m_currentPosition, m_targetPosition, callback.m_closestHitFraction);
+			btScalar newY = m_currentPosition.getY();
+			debug_printf("[stepDown] oldY: %g - newY %g\n", oldY, newY);
 
 		full_drop = false;
 
@@ -590,18 +596,18 @@ void btKinematicCharacterController::stepDown(btCollisionWorld* collisionWorld, 
 
 		full_drop = true;
 
-		if (bounce_fix == true)
-		{
-			downVelocity = (m_verticalVelocity < 0.f ? -m_verticalVelocity : 0.f) * dt;
-			if (downVelocity > m_fallSpeed && (m_wasOnGround || !m_wasJumping))
-			{
-				m_targetPosition += step_drop;  //undo previous target change
-				downVelocity = m_fallSpeed;
-				step_drop = m_up * (m_currentStepOffset + downVelocity);
-				m_targetPosition -= step_drop;
-			}
-		}
-		//printf("full drop - %g, %g\n", m_currentPosition.getY(), m_targetPosition.getY());
+		// if (bounce_fix == true)
+		// {
+		// 	downVelocity = (m_verticalVelocity < 0.f ? -m_verticalVelocity : 0.f) * dt;
+		// 	if (downVelocity > m_fallSpeed && (m_wasOnGround || !m_wasJumping))
+		// 	{
+		// 		m_targetPosition += step_drop;  //undo previous target change
+		// 		downVelocity = m_fallSpeed;
+		// 		step_drop = m_up * (m_currentStepOffset + downVelocity);
+		// 		m_targetPosition -= step_drop;
+		// 	}
+		// }
+		debug_printf("full drop - %g, %g\n", m_currentPosition.getY(), m_targetPosition.getY());
 
 		m_currentPosition = m_targetPosition;
 	}
@@ -843,7 +849,7 @@ void btKinematicCharacterController::playerStep(btCollisionWorld* collisionWorld
 		m_touchingContact = true;
 		if (numPenetrationLoops > 8)
 		{
-			//printf("character could not recover from penetration = %d\n", numPenetrationLoops);
+			printf("character could not recover from penetration in `stepDown` = %d\n", numPenetrationLoops);
 			break;
 		}
 	}
