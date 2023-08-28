@@ -1018,28 +1018,28 @@ interface btActionInterface {
 interface btKinematicCharacterController {
   void btKinematicCharacterController(btPairCachingGhostObject ghostObject, btConvexShape convexShape, float stepHeight, [Const,Ref] optional btVector3 up);
 
-  void setUp ([Const,Ref] btVector3 up);
+  // void setUp ([Const,Ref] btVector3 up);
   void setWalkDirection ([Const,Ref] btVector3 walkDirection);
   // void setVelocityForTimeInterval ([Const,Ref] btVector3 velocity, float timeInterval);
   //void reset ();
   void warp ([Const, Ref]btVector3 origin);
-  void preStep (btCollisionWorld collisionWorld);
-  void playerStep (btCollisionWorld collisionWorld, float dt);
-  void setFallSpeed (float fallSpeed);
+  // void preStep (btCollisionWorld collisionWorld);
+  // void playerStep (btCollisionWorld collisionWorld, float dt);
+  // void setFallSpeed (float fallSpeed);
   void setJumpSpeed (float jumpSpeed);
-  void setMaxJumpHeight (float maxJumpHeight);
-  boolean canJump ();
+  // void setMaxJumpHeight (float maxJumpHeight);
+  // boolean canJump ();
   void jump ([Const,Ref] optional btVector3 up);
   void setGravity ([Const,Ref]btVector3 gravity);
   [Value] btVector3 getGravity ();
   void setMaxSlope (float slopeRadians);
   // float getMaxSlope ();
   // btPairCachingGhostObject getGhostObject ();
-  void setUseGhostSweepTest (boolean useGhostObjectSweepTest);
+  // void setUseGhostSweepTest (boolean useGhostObjectSweepTest);
   boolean onGround ();
-  void setUpInterpolate (boolean value);
+  // void setUpInterpolate (boolean value);
   void setMaxPenetrationDepth (float d);
-  float getMaxPenetrationDepth ();
+  // float getMaxPenetrationDepth ();
   void setStepHeight (float h);
 };
 btKinematicCharacterController implements btActionInterface;

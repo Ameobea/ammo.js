@@ -715,8 +715,8 @@ void btKinematicCharacterController::preStep(btCollisionWorld* collisionWorld)
 
 void btKinematicCharacterController::playerStep(btCollisionWorld* collisionWorld, btScalar dt)
 {
-	//	printf("playerStep(): ");
-	//	printf("  dt = %f", dt);
+	// printf("playerStep(): ");
+	// printf("  dt = %f\n", dt);
 
 	if (m_AngVel.length2() > 0.0f)
 	{
@@ -754,8 +754,7 @@ void btKinematicCharacterController::playerStep(btCollisionWorld* collisionWorld
 	//btVector3 lvel = m_walkDirection;
 	//btScalar c = 0.0f;
 
-	if (m_walkDirection.length2() > 0)
-	{
+	if (m_walkDirection.length2() > 0) {
 		// apply damping
 		m_walkDirection *= btPow(btScalar(1) - m_linearDamping, dt);
 	}
@@ -764,15 +763,25 @@ void btKinematicCharacterController::playerStep(btCollisionWorld* collisionWorld
 
 	// Update fall velocity.
 	m_verticalVelocity -= m_gravity * dt;
-	if (m_verticalVelocity > 0.0 && m_verticalVelocity > m_jumpSpeed)
-	{
+	if (m_verticalVelocity == 0.0) {
+		// It can sometimes happen that the jump velocities and timesteps match up in such ways that
+		// player vertical velocity comes out to exactly 0 at the apogee of the jump. This causes
+		// the us to think that the player is on the ground at that point.
+		//
+		// So we prevent that by adding a tiny amount of downward velocity to the player in that case
+		m_verticalVelocity = -0.0001;
+	} else if (m_verticalVelocity > 0.0 && m_verticalVelocity > m_jumpSpeed) {
 		m_verticalVelocity = m_jumpSpeed;
-	}
-	if (m_verticalVelocity < 0.0 && btFabs(m_verticalVelocity) > btFabs(m_fallSpeed))
-	{
+	} else if (m_verticalVelocity < 0.0 && btFabs(m_verticalVelocity) > btFabs(m_fallSpeed)) {
 		m_verticalVelocity = -btFabs(m_fallSpeed);
 	}
 	m_verticalOffset = m_verticalVelocity * dt;
+
+	if (m_verticalOffset == 0.) {
+		printf("m_verticalVelocity=%f; m_verticalOffset=%f; dt=%f; m_jumpSpeed=%f; m_fallSpeed=%f\n", m_verticalVelocity, m_verticalOffset, dt, m_jumpSpeed, m_fallSpeed);
+		printf("m_linearDamping=%f; m_gravity=%f; m_walkDirection.length2()=%f\n", m_linearDamping, m_gravity, m_walkDirection.length2());
+		// printf("oldOldVerticalVelocity=%f; oldVerticalVelocity=%f\n", oldOldVerticalVelocity, oldVerticalVelocity);
+	}
 
 	btTransform xform;
 	xform = m_ghostObject->getWorldTransform();
