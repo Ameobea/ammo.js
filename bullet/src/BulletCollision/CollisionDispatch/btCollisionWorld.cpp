@@ -64,7 +64,7 @@ subject to the following restrictions:
 #include "BulletCollision/CollisionShapes/btTriangleMeshShape.h"
 #include "BulletCollision/CollisionShapes/btStaticPlaneShape.h"
 
-
+#include <wasm_simd128.h>
 
 btCollisionWorld::btCollisionWorld(btDispatcher* dispatcher,btBroadphaseInterface* pairCache, btCollisionConfiguration* collisionConfiguration)
 :m_dispatcher1(dispatcher),
@@ -72,6 +72,7 @@ m_broadphasePairCache(pairCache),
 m_debugDrawer(0),
 m_forceUpdateAllAabbs(true)
 {
+	v128_t x = wasm_f32x4_splat(0.0);
 }
 
 
@@ -95,26 +96,26 @@ btCollisionWorld::~btCollisionWorld()
 			collisionObject->setBroadphaseHandle(0);
 		}
 	}
-
-
 }
 
+inline void getAabb(btCollisionObject* colObj, btVector3& aabbMin, btVector3& aabbMax) {
+	btCollisionShape* shape = colObj->getCollisionShape();
 
+	// fastpath if shape is instance of `btBoxShape`
+	if (shape->getShapeType() == BOX_SHAPE_PROXYTYPE) {
+		btBoxShape* box = static_cast<btBoxShape*>(shape);
+		btTransformAabb(box->getHalfExtentsWithoutMargin(), box->getMarginInline(), colObj->getWorldTransform(), aabbMin, aabbMax);
+		return;
+	}
+	
+	shape->getAabb(colObj->getWorldTransform(), aabbMin, aabbMax);
+}
 
-
-
-
-
-
-
-
-void	btCollisionWorld::addCollisionObject(btCollisionObject* collisionObject,short int collisionFilterGroup,short int collisionFilterMask)
-{
-
+void btCollisionWorld::addCollisionObject(btCollisionObject* collisionObject,short int collisionFilterGroup,short int collisionFilterMask) {
 	btAssert(collisionObject);
 
 	//check that the object isn't already added
-	btAssert( m_collisionObjects.findLinearSearch(collisionObject)  == m_collisionObjects.size());
+	btAssert( m_collisionObjects.findLinearSearch(collisionObject) == m_collisionObjects.size());
 
 	m_collisionObjects.push_back(collisionObject);
 
@@ -123,7 +124,8 @@ void	btCollisionWorld::addCollisionObject(btCollisionObject* collisionObject,sho
 
 	btVector3	minAabb;
 	btVector3	maxAabb;
-	collisionObject->getCollisionShape()->getAabb(trans,minAabb,maxAabb);
+	// collisionObject->getCollisionShape()->getAabb(trans,minAabb,maxAabb);
+	getAabb(collisionObject, minAabb, maxAabb);
 
 	int type = collisionObject->getCollisionShape()->getShapeType();
 	collisionObject->setBroadphaseHandle( getBroadphase()->createProxy(
@@ -134,20 +136,12 @@ void	btCollisionWorld::addCollisionObject(btCollisionObject* collisionObject,sho
 		collisionFilterGroup,
 		collisionFilterMask,
 		m_dispatcher1,0
-		))	;
-
-
-
-
-
+		));
 }
 
-
-
-void	btCollisionWorld::updateSingleAabb(btCollisionObject* colObj)
-{
+inline void btCollisionWorld::updateSingleAabb(btCollisionObject* colObj) {
 	btVector3 minAabb,maxAabb;
-	colObj->getCollisionShape()->getAabb(colObj->getWorldTransform(), minAabb,maxAabb);
+	getAabb(colObj, minAabb, maxAabb);
 	//need to increase the aabb for contact thresholds
 	btVector3 contactThreshold(gContactBreakingThreshold,gContactBreakingThreshold,gContactBreakingThreshold);
 	minAabb -= contactThreshold;
@@ -156,7 +150,7 @@ void	btCollisionWorld::updateSingleAabb(btCollisionObject* colObj)
 	if(getDispatchInfo().m_useContinuous && colObj->getInternalType()==btCollisionObject::CO_RIGID_BODY && !colObj->isStaticOrKinematicObject())
 	{
 		btVector3 minAabb2,maxAabb2;
-		colObj->getCollisionShape()->getAabb(colObj->getInterpolationWorldTransform(),minAabb2,maxAabb2);
+		getAabb(colObj, minAabb2, maxAabb2);
 		minAabb2 -= contactThreshold;
 		maxAabb2 += contactThreshold;
 		minAabb.setMin(minAabb2);
@@ -166,13 +160,11 @@ void	btCollisionWorld::updateSingleAabb(btCollisionObject* colObj)
 	btBroadphaseInterface* bp = (btBroadphaseInterface*)m_broadphasePairCache;
 
 	//moving objects should be moderately sized, probably something wrong if not
-	if ( colObj->isStaticObject() || ((maxAabb-minAabb).length2() < btScalar(1e12)))
-	{
+	if ( colObj->isStaticObject() || ((maxAabb-minAabb).length2() < btScalar(1e12))) {
 		bp->setAabb(colObj->getBroadphaseHandle(),minAabb,maxAabb, m_dispatcher1);
-	} else
-	{
+	} else {
 		//something went wrong, investigate
-		//this assert is unwanted in 3D modelers (danger of loosing work)
+		//this assert is unwanted in 3D modelers (danger of losing work)
 		colObj->setActivationState(DISABLE_SIMULATION);
 
 		static bool reportMe = true;
@@ -187,18 +179,15 @@ void	btCollisionWorld::updateSingleAabb(btCollisionObject* colObj)
 	}
 }
 
-void	btCollisionWorld::updateAabbs()
-{
+void btCollisionWorld::updateAabbs() {
 	BT_PROFILE("updateAabbs");
 
 	btTransform predictedTrans;
-	for ( int i=0;i<m_collisionObjects.size();i++)
-	{
+	for (int i=0; i<m_collisionObjects.size(); i++) {
 		btCollisionObject* colObj = m_collisionObjects[i];
 
-		//only update aabb of active objects
-		if (m_forceUpdateAllAabbs || colObj->isActive())
-		{
+		// only update aabb of active objects
+		if (m_forceUpdateAllAabbs || colObj->isActive()) {
 			updateSingleAabb(colObj);
 		}
 	}
@@ -797,8 +786,7 @@ void	btCollisionWorld::objectQuerySingleInternal(const btConvexShape* castShape,
 			}
 		} else {
 			///@todo : use AABB tree or other BVH acceleration structure!
-			if (collisionShape->isCompound())
-			{
+			if (collisionShape->isCompound()) {
 				BT_PROFILE("convexSweepCompound");
 				const btCompoundShape* compoundShape = static_cast<const btCompoundShape*>(collisionShape);
 				int i=0;
@@ -1171,10 +1159,11 @@ struct btSingleContactCallback : public btBroadphaseAabbCallback
 
 ///contactTest performs a discrete collision test against all objects in the btCollisionWorld, and calls the resultCallback.
 ///it reports one or more contact points for every overlapping object (including the one with deepest penetration)
-void	btCollisionWorld::contactTest( btCollisionObject* colObj, ContactResultCallback& resultCallback)
+void btCollisionWorld::contactTest( btCollisionObject* colObj, ContactResultCallback& resultCallback)
 {
 	btVector3 aabbMin,aabbMax;
-	colObj->getCollisionShape()->getAabb(colObj->getWorldTransform(),aabbMin,aabbMax);
+	// colObj->getCollisionShape()->getAabb(colObj->getWorldTransform(),aabbMin,aabbMax);
+	getAabb(colObj,aabbMin,aabbMax);
 	btSingleContactCallback	contactCB(colObj,this,resultCallback);
 	
 	m_broadphasePairCache->aabbTest(aabbMin,aabbMax,contactCB);
@@ -1485,7 +1474,8 @@ void	btCollisionWorld::debugDrawWorld()
 				{
 					btVector3 minAabb,maxAabb;
 					btVector3 colorvec(1,0,0);
-					colObj->getCollisionShape()->getAabb(colObj->getWorldTransform(), minAabb,maxAabb);
+					// colObj->getCollisionShape()->getAabb(colObj->getWorldTransform(), minAabb,maxAabb);
+					getAabb(colObj,minAabb,maxAabb);
 					btVector3 contactThreshold(gContactBreakingThreshold,gContactBreakingThreshold,gContactBreakingThreshold);
 					minAabb -= contactThreshold;
 					maxAabb += contactThreshold;
@@ -1494,7 +1484,8 @@ void	btCollisionWorld::debugDrawWorld()
 
 					if(getDispatchInfo().m_useContinuous && colObj->getInternalType()==btCollisionObject::CO_RIGID_BODY && !colObj->isStaticOrKinematicObject())
 					{
-						colObj->getCollisionShape()->getAabb(colObj->getInterpolationWorldTransform(),minAabb2,maxAabb2);
+						// colObj->getCollisionShape()->getAabb(colObj->getInterpolationWorldTransform(),minAabb2,maxAabb2);
+						getAabb(colObj,minAabb2,maxAabb2);
 						minAabb2 -= contactThreshold;
 						maxAabb2 += contactThreshold;
 						minAabb.setMin(minAabb2);
@@ -1543,6 +1534,7 @@ void	btCollisionWorld::serializeCollisionObjects(btSerializer* serializer)
 
 void	btCollisionWorld::serialize(btSerializer* serializer)
 {
+	return;
 
 	serializer->startSerialization();
 	

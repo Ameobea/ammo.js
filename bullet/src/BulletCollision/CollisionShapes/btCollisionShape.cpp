@@ -35,7 +35,7 @@ void	btCollisionShape::getBoundingSphere(btVector3& center,btScalar& radius) con
 	tr.setIdentity();
 	btVector3 aabbMin,aabbMax;
 
-	getAabb(tr,aabbMin,aabbMax);
+	getAabb(tr, aabbMin, aabbMax);
 
 	radius = (aabbMax-aabbMin).length()*btScalar(0.5);
 	center = (aabbMin+aabbMax)*btScalar(0.5);

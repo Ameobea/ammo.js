@@ -1441,6 +1441,7 @@ void	btDiscreteDynamicsWorld::serializeDynamicsWorldInfo(btSerializer* serialize
 
 void	btDiscreteDynamicsWorld::serialize(btSerializer* serializer)
 {
+	return;
 
 	serializer->startSerialization();
 

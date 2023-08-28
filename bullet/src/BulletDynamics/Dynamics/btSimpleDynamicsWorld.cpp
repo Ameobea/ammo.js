@@ -17,6 +17,7 @@ subject to the following restrictions:
 #include "BulletCollision/CollisionDispatch/btCollisionDispatcher.h"
 #include "BulletCollision/BroadphaseCollision/btSimpleBroadphase.h"
 #include "BulletCollision/CollisionShapes/btCollisionShape.h"
+#include "BulletCollision/CollisionShapes/btBoxShape.h"
 #include "BulletDynamics/Dynamics/btRigidBody.h"
 #include "BulletDynamics/ConstraintSolver/btSequentialImpulseConstraintSolver.h"
 #include "BulletDynamics/ConstraintSolver/btContactSolverInfo.h"
@@ -176,29 +177,31 @@ void	btSimpleDynamicsWorld::addAction(btActionInterface* action)
 
 }
 
-void	btSimpleDynamicsWorld::removeAction(btActionInterface* action)
-{
-
-}
+void btSimpleDynamicsWorld::removeAction(btActionInterface* action) {}
 
 
-void	btSimpleDynamicsWorld::updateAabbs()
-{
-	btTransform predictedTrans;
-	for ( int i=0;i<m_collisionObjects.size();i++)
-	{
+void btSimpleDynamicsWorld::updateAabbs() {
+	btVector3 minAabb, maxAabb;
+	for (int i = 0; i < m_collisionObjects.size(); i++) {
 		btCollisionObject* colObj = m_collisionObjects[i];
 		btRigidBody* body = btRigidBody::upcast(colObj);
-		if (body)
-		{
-			if (body->isActive() && (!body->isStaticObject()))
-			{
-				btVector3 minAabb,maxAabb;
-				colObj->getCollisionShape()->getAabb(colObj->getWorldTransform(), minAabb,maxAabb);
-				btBroadphaseInterface* bp = getBroadphase();
-				bp->setAabb(body->getBroadphaseHandle(),minAabb,maxAabb, m_dispatcher1);
-			}
+
+		if (!body || !body->isActive() || body->isStaticObject()) {
+			continue;
 		}
+
+		btCollisionShape* shape = colObj->getCollisionShape();
+
+		// fastpath if shape is instance of `btBoxShape`
+		if (shape->getShapeType() == BOX_SHAPE_PROXYTYPE) {
+			btBoxShape* box = static_cast<btBoxShape*>(shape);
+			box->getAabbInline(colObj->getWorldTransform(), minAabb, maxAabb);
+		} else {
+			shape->getAabb(colObj->getWorldTransform(), minAabb, maxAabb);
+		}
+
+		btBroadphaseInterface* bp = getBroadphase();
+		bp->setAabb(body->getBroadphaseHandle(), minAabb, maxAabb, m_dispatcher1);
 	}
 }
 

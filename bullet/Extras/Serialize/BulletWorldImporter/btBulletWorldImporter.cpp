@@ -96,6 +96,7 @@ bool	btBulletWorldImporter::loadFileFromMemory(  bParse::btBulletFile* bulletFil
 
 bool	btBulletWorldImporter::convertAllObjects(  bParse::btBulletFile* bulletFile2)
 {
+	return false;
 
 	m_shapeMap.clear();
 	m_bodyMap.clear();

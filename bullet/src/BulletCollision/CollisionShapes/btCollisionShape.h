@@ -108,7 +108,7 @@ public:
 #endif //__SPU__
 
 	
-	int		getShapeType() const { return m_shapeType; }
+	int getShapeType() const { return m_shapeType; }
 
 	///the getAnisotropicRollingFrictionDirection can be used in combination with setAnisotropicFriction
 	///See Bullet/Demos/RollingFrictionDemo for an example

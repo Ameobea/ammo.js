@@ -1164,6 +1164,7 @@ m_bulletVersion(BT_BULLET_VERSION)
 
 void btQuantizedBvh::deSerializeFloat(struct btQuantizedBvhFloatData& quantizedBvhFloatData)
 {
+	return;
 	m_bvhAabbMax.deSerializeFloat(quantizedBvhFloatData.m_bvhAabbMax);
 	m_bvhAabbMin.deSerializeFloat(quantizedBvhFloatData.m_bvhAabbMin);
 	m_bvhQuantization.deSerializeFloat(quantizedBvhFloatData.m_bvhQuantization);
@@ -1235,6 +1236,7 @@ void btQuantizedBvh::deSerializeFloat(struct btQuantizedBvhFloatData& quantizedB
 
 void btQuantizedBvh::deSerializeDouble(struct btQuantizedBvhDoubleData& quantizedBvhDoubleData)
 {
+	return;
 	m_bvhAabbMax.deSerializeDouble(quantizedBvhDoubleData.m_bvhAabbMax);
 	m_bvhAabbMin.deSerializeDouble(quantizedBvhDoubleData.m_bvhAabbMin);
 	m_bvhQuantization.deSerializeDouble(quantizedBvhDoubleData.m_bvhQuantization);
@@ -1310,6 +1312,7 @@ void btQuantizedBvh::deSerializeDouble(struct btQuantizedBvhDoubleData& quantize
 ///fills the dataBuffer and returns the struct name (and 0 on failure)
 const char*	btQuantizedBvh::serialize(void* dataBuffer, btSerializer* serializer) const
 {
+	return 0;
 	btQuantizedBvhData* quantizedData = (btQuantizedBvhData*)dataBuffer;
 	
 	m_bvhAabbMax.serialize(quantizedData->m_bvhAabbMax);

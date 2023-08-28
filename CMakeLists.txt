@@ -36,9 +36,12 @@ set(ALLOW_MEMORY_GROWTH 0 CACHE STRING "Allow Memory Growth")
 set(EMCC_ARGS
   --extern-pre-js ${AMMO_FRONT_MATTER_FILE}
   --llvm-lto 1
+  -flto=full
   --post-js glue.js
   --post-js ${AMMO_ONLOAD_FILE}
   -O3
+  -msimd128
+  --cpu-baseline=avx
   -profiling
   -s ALLOW_MEMORY_GROWTH=${ALLOW_MEMORY_GROWTH}
   -s ALLOW_TABLE_GROWTH=1
@@ -79,11 +82,12 @@ set(EMCC_GLUE_ARGS
   -I${BULLET_SRC_DIR}
   -include${AMMO_HEADER_FILE})
 
+# Add CXX flags for Wasm SIMD
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msimd128 -msse2")
 
 #######################################
 project("ammo")
 add_subdirectory(bullet EXCLUDE_FROM_ALL)
-
 
 #######################################
 add_custom_command(

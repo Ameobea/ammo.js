@@ -109,7 +109,7 @@ BT_DECLARE_ALIGNED_ALLOCATOR();
 
 	virtual void getAabb(const btTransform& t,btVector3& aabbMin,btVector3& aabbMax) const;
 
-	
+	void getAabbInline(const btTransform& t,btVector3& aabbMin,btVector3& aabbMax) const;
 
 	virtual void	calculateLocalInertia(btScalar mass,btVector3& inertia) const;
 

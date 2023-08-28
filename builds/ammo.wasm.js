@@ -1,37 +1,27 @@
 // This is ammo.js, a port of Bullet Physics to JavaScript. zlib licensed.
 
-
-var Ammo = (function() {
+var Ammo = (() => {
   var _scriptDir = typeof document !== 'undefined' && document.currentScript ? document.currentScript.src : undefined;
   
   return (
-function(Ammo) {
-  Ammo = Ammo || {};
+function(moduleArg = {}) {
 
-var Module = typeof Ammo !== "undefined" ? Ammo : {};
+var Module = moduleArg;
 
 var readyPromiseResolve, readyPromiseReject;
 
-Module["ready"] = new Promise(function(resolve, reject) {
+Module["ready"] = new Promise((resolve, reject) => {
  readyPromiseResolve = resolve;
  readyPromiseReject = reject;
 });
 
-var moduleOverrides = {};
-
-var key;
-
-for (key in Module) {
- if (Module.hasOwnProperty(key)) {
-  moduleOverrides[key] = Module[key];
- }
-}
+var moduleOverrides = Object.assign({}, Module);
 
 var arguments_ = [];
 
 var thisProgram = "./this.program";
 
-var quit_ = function(status, toThrow) {
+var quit_ = (status, toThrow) => {
  throw toThrow;
 };
 
@@ -53,38 +43,38 @@ var read_, readAsync, readBinary, setWindowTitle;
 if (ENVIRONMENT_IS_WEB || ENVIRONMENT_IS_WORKER) {
  if (ENVIRONMENT_IS_WORKER) {
   scriptDirectory = self.location.href;
- } else if (typeof document !== "undefined" && document.currentScript) {
+ } else if (typeof document != "undefined" && document.currentScript) {
   scriptDirectory = document.currentScript.src;
  }
  if (_scriptDir) {
   scriptDirectory = _scriptDir;
  }
  if (scriptDirectory.indexOf("blob:") !== 0) {
-  scriptDirectory = scriptDirectory.substr(0, scriptDirectory.lastIndexOf("/") + 1);
+  scriptDirectory = scriptDirectory.substr(0, scriptDirectory.replace(/[?#].*/, "").lastIndexOf("/") + 1);
  } else {
   scriptDirectory = "";
  }
  {
-  read_ = function(url) {
-   var xhr = new XMLHttpRequest();
+  read_ = url => {
+   var xhr = new XMLHttpRequest;
    xhr.open("GET", url, false);
    xhr.send(null);
    return xhr.responseText;
   };
   if (ENVIRONMENT_IS_WORKER) {
-   readBinary = function(url) {
-    var xhr = new XMLHttpRequest();
+   readBinary = url => {
+    var xhr = new XMLHttpRequest;
     xhr.open("GET", url, false);
     xhr.responseType = "arraybuffer";
     xhr.send(null);
     return new Uint8Array(xhr.response);
    };
   }
-  readAsync = function(url, onload, onerror) {
-   var xhr = new XMLHttpRequest();
+  readAsync = (url, onload, onerror) => {
+   var xhr = new XMLHttpRequest;
    xhr.open("GET", url, true);
    xhr.responseType = "arraybuffer";
-   xhr.onload = function() {
+   xhr.onload = () => {
     if (xhr.status == 200 || xhr.status == 0 && xhr.response) {
      onload(xhr.response);
      return;
@@ -95,20 +85,14 @@ if (ENVIRONMENT_IS_WEB || ENVIRONMENT_IS_WORKER) {
    xhr.send(null);
   };
  }
- setWindowTitle = function(title) {
-  document.title = title;
- };
+ setWindowTitle = title => document.title = title;
 } else {}
 
 var out = Module["print"] || console.log.bind(console);
 
-var err = Module["printErr"] || console.warn.bind(console);
+var err = Module["printErr"] || console.error.bind(console);
 
-for (key in moduleOverrides) {
- if (moduleOverrides.hasOwnProperty(key)) {
-  Module[key] = moduleOverrides[key];
- }
-}
+Object.assign(Module, moduleOverrides);
 
 moduleOverrides = null;
 
@@ -118,110 +102,13 @@ if (Module["thisProgram"]) thisProgram = Module["thisProgram"];
 
 if (Module["quit"]) quit_ = Module["quit"];
 
-function convertJsFunctionToWasm(func, sig) {
- if (typeof WebAssembly.Function === "function") {
-  var typeNames = {
-   "i": "i32",
-   "j": "i64",
-   "f": "f32",
-   "d": "f64"
-  };
-  var type = {
-   parameters: [],
-   results: sig[0] == "v" ? [] : [ typeNames[sig[0]] ]
-  };
-  for (var i = 1; i < sig.length; ++i) {
-   type.parameters.push(typeNames[sig[i]]);
-  }
-  return new WebAssembly.Function(type, func);
- }
- var typeSection = [ 1, 0, 1, 96 ];
- var sigRet = sig.slice(0, 1);
- var sigParam = sig.slice(1);
- var typeCodes = {
-  "i": 127,
-  "j": 126,
-  "f": 125,
-  "d": 124
- };
- typeSection.push(sigParam.length);
- for (var i = 0; i < sigParam.length; ++i) {
-  typeSection.push(typeCodes[sigParam[i]]);
- }
- if (sigRet == "v") {
-  typeSection.push(0);
- } else {
-  typeSection = typeSection.concat([ 1, typeCodes[sigRet] ]);
- }
- typeSection[1] = typeSection.length - 2;
- var bytes = new Uint8Array([ 0, 97, 115, 109, 1, 0, 0, 0 ].concat(typeSection, [ 2, 7, 1, 1, 101, 1, 102, 0, 0, 7, 5, 1, 1, 102, 0, 0 ]));
- var module = new WebAssembly.Module(bytes);
- var instance = new WebAssembly.Instance(module, {
-  "e": {
-   "f": func
-  }
- });
- var wrappedFunc = instance.exports["f"];
- return wrappedFunc;
-}
-
-var freeTableIndexes = [];
-
-var functionsInTableMap;
-
-function getEmptyTableSlot() {
- if (freeTableIndexes.length) {
-  return freeTableIndexes.pop();
- }
- try {
-  wasmTable.grow(1);
- } catch (err) {
-  if (!(err instanceof RangeError)) {
-   throw err;
-  }
-  throw "Unable to grow wasm table. Set ALLOW_TABLE_GROWTH.";
- }
- return wasmTable.length - 1;
-}
-
-function addFunctionWasm(func, sig) {
- if (!functionsInTableMap) {
-  functionsInTableMap = new WeakMap();
-  for (var i = 0; i < wasmTable.length; i++) {
-   var item = wasmTable.get(i);
-   if (item) {
-    functionsInTableMap.set(item, i);
-   }
-  }
- }
- if (functionsInTableMap.has(func)) {
-  return functionsInTableMap.get(func);
- }
- var ret = getEmptyTableSlot();
- try {
-  wasmTable.set(ret, func);
- } catch (err) {
-  if (!(err instanceof TypeError)) {
-   throw err;
-  }
-  var wrapped = convertJsFunctionToWasm(func, sig);
-  wasmTable.set(ret, wrapped);
- }
- functionsInTableMap.set(func, ret);
- return ret;
-}
-
-function addFunction(func, sig) {
- return addFunctionWasm(func, sig);
-}
-
 var wasmBinary;
 
 if (Module["wasmBinary"]) wasmBinary = Module["wasmBinary"];
 
 var noExitRuntime = Module["noExitRuntime"] || true;
 
-if (typeof WebAssembly !== "object") {
+if (typeof WebAssembly != "object") {
  abort("no native wasm support detected");
 }
 
@@ -233,74 +120,23 @@ var EXITSTATUS;
 
 function assert(condition, text) {
  if (!condition) {
-  abort("Assertion failed: " + text);
+  abort(text);
  }
 }
 
-var UTF8Decoder = typeof TextDecoder !== "undefined" ? new TextDecoder("utf8") : undefined;
+var HEAP8, HEAPU8, HEAP16, HEAPU16, HEAP32, HEAPU32, HEAPF32, HEAPF64;
 
-function UTF8ArrayToString(heap, idx, maxBytesToRead) {
- var endIdx = idx + maxBytesToRead;
- var endPtr = idx;
- while (heap[endPtr] && !(endPtr >= endIdx)) ++endPtr;
- if (endPtr - idx > 16 && heap.subarray && UTF8Decoder) {
-  return UTF8Decoder.decode(heap.subarray(idx, endPtr));
- } else {
-  var str = "";
-  while (idx < endPtr) {
-   var u0 = heap[idx++];
-   if (!(u0 & 128)) {
-    str += String.fromCharCode(u0);
-    continue;
-   }
-   var u1 = heap[idx++] & 63;
-   if ((u0 & 224) == 192) {
-    str += String.fromCharCode((u0 & 31) << 6 | u1);
-    continue;
-   }
-   var u2 = heap[idx++] & 63;
-   if ((u0 & 240) == 224) {
-    u0 = (u0 & 15) << 12 | u1 << 6 | u2;
-   } else {
-    u0 = (u0 & 7) << 18 | u1 << 12 | u2 << 6 | heap[idx++] & 63;
-   }
-   if (u0 < 65536) {
-    str += String.fromCharCode(u0);
-   } else {
-    var ch = u0 - 65536;
-    str += String.fromCharCode(55296 | ch >> 10, 56320 | ch & 1023);
-   }
-  }
- }
- return str;
+function updateMemoryViews() {
+ var b = wasmMemory.buffer;
+ Module["HEAP8"] = HEAP8 = new Int8Array(b);
+ Module["HEAP16"] = HEAP16 = new Int16Array(b);
+ Module["HEAPU8"] = HEAPU8 = new Uint8Array(b);
+ Module["HEAPU16"] = HEAPU16 = new Uint16Array(b);
+ Module["HEAP32"] = HEAP32 = new Int32Array(b);
+ Module["HEAPU32"] = HEAPU32 = new Uint32Array(b);
+ Module["HEAPF32"] = HEAPF32 = new Float32Array(b);
+ Module["HEAPF64"] = HEAPF64 = new Float64Array(b);
 }
-
-function UTF8ToString(ptr, maxBytesToRead) {
- return ptr ? UTF8ArrayToString(HEAPU8, ptr, maxBytesToRead) : "";
-}
-
-function alignUp(x, multiple) {
- if (x % multiple > 0) {
-  x += multiple - x % multiple;
- }
- return x;
-}
-
-var buffer, HEAP8, HEAPU8, HEAP16, HEAPU16, HEAP32, HEAPU32, HEAPF32, HEAPF64;
-
-function updateGlobalBufferAndViews(buf) {
- buffer = buf;
- Module["HEAP8"] = HEAP8 = new Int8Array(buf);
- Module["HEAP16"] = HEAP16 = new Int16Array(buf);
- Module["HEAP32"] = HEAP32 = new Int32Array(buf);
- Module["HEAPU8"] = HEAPU8 = new Uint8Array(buf);
- Module["HEAPU16"] = HEAPU16 = new Uint16Array(buf);
- Module["HEAPU32"] = HEAPU32 = new Uint32Array(buf);
- Module["HEAPF32"] = HEAPF32 = new Float32Array(buf);
- Module["HEAPF64"] = HEAPF64 = new Float64Array(buf);
-}
-
-var INITIAL_MEMORY = Module["INITIAL_MEMORY"] || 67108864;
 
 var wasmTable;
 
@@ -308,17 +144,9 @@ var __ATPRERUN__ = [];
 
 var __ATINIT__ = [];
 
-var __ATMAIN__ = [];
-
 var __ATPOSTRUN__ = [];
 
 var runtimeInitialized = false;
-
-__ATINIT__.push({
- func: function() {
-  ___wasm_call_ctors();
- }
-});
 
 function preRun() {
  if (Module["preRun"]) {
@@ -335,10 +163,6 @@ function initRuntime() {
  callRuntimeCallbacks(__ATINIT__);
 }
 
-function preMain() {
- callRuntimeCallbacks(__ATMAIN__);
-}
-
 function postRun() {
  if (Module["postRun"]) {
   if (typeof Module["postRun"] == "function") Module["postRun"] = [ Module["postRun"] ];
@@ -353,8 +177,8 @@ function addOnPreRun(cb) {
  __ATPRERUN__.unshift(cb);
 }
 
-function addOnPreMain(cb) {
- __ATMAIN__.unshift(cb);
+function addOnInit(cb) {
+ __ATINIT__.unshift(cb);
 }
 
 function addOnPostRun(cb) {
@@ -392,2203 +216,1396 @@ function removeRunDependency(id) {
  }
 }
 
-Module["preloadedImages"] = {};
-
-Module["preloadedAudios"] = {};
-
 function abort(what) {
  if (Module["onAbort"]) {
   Module["onAbort"](what);
  }
- what += "";
+ what = "Aborted(" + what + ")";
  err(what);
  ABORT = true;
  EXITSTATUS = 1;
- what = "abort(" + what + "). Build with -s ASSERTIONS=1 for more info.";
+ what += ". Build with -sASSERTIONS for more info.";
  var e = new WebAssembly.RuntimeError(what);
  readyPromiseReject(e);
  throw e;
 }
 
-function hasPrefix(str, prefix) {
- return String.prototype.startsWith ? str.startsWith(prefix) : str.indexOf(prefix) === 0;
-}
-
 var dataURIPrefix = "data:application/octet-stream;base64,";
 
 function isDataURI(filename) {
- return hasPrefix(filename, dataURIPrefix);
+ return filename.startsWith(dataURIPrefix);
 }
 
-var wasmBinaryFile = "ammo.wasm.wasm";
+var wasmBinaryFile;
+
+wasmBinaryFile = "ammo.wasm.wasm";
 
 if (!isDataURI(wasmBinaryFile)) {
  wasmBinaryFile = locateFile(wasmBinaryFile);
 }
 
-function getBinary(file) {
- try {
-  if (file == wasmBinaryFile && wasmBinary) {
-   return new Uint8Array(wasmBinary);
-  }
-  if (readBinary) {
-   return readBinary(file);
-  } else {
-   throw "both async and sync fetching of the wasm failed";
-  }
- } catch (err) {
-  abort(err);
+function getBinarySync(file) {
+ if (file == wasmBinaryFile && wasmBinary) {
+  return new Uint8Array(wasmBinary);
  }
+ if (readBinary) {
+  return readBinary(file);
+ }
+ throw "both async and sync fetching of the wasm failed";
 }
 
-function getBinaryPromise() {
+function getBinaryPromise(binaryFile) {
  if (!wasmBinary && (ENVIRONMENT_IS_WEB || ENVIRONMENT_IS_WORKER)) {
-  if (typeof fetch === "function") {
-   return fetch(wasmBinaryFile, {
+  if (typeof fetch == "function") {
+   return fetch(binaryFile, {
     credentials: "same-origin"
-   }).then(function(response) {
+   }).then(response => {
     if (!response["ok"]) {
-     throw "failed to load wasm binary file at '" + wasmBinaryFile + "'";
+     throw "failed to load wasm binary file at '" + binaryFile + "'";
     }
     return response["arrayBuffer"]();
-   }).catch(function() {
-    return getBinary(wasmBinaryFile);
-   });
+   }).catch(() => getBinarySync(binaryFile));
   }
  }
- return Promise.resolve().then(function() {
-  return getBinary(wasmBinaryFile);
+ return Promise.resolve().then(() => getBinarySync(binaryFile));
+}
+
+function instantiateArrayBuffer(binaryFile, imports, receiver) {
+ return getBinaryPromise(binaryFile).then(binary => WebAssembly.instantiate(binary, imports)).then(instance => instance).then(receiver, reason => {
+  err(`failed to asynchronously prepare wasm: ${reason}`);
+  abort(reason);
  });
+}
+
+function instantiateAsync(binary, binaryFile, imports, callback) {
+ if (!binary && typeof WebAssembly.instantiateStreaming == "function" && !isDataURI(binaryFile) && typeof fetch == "function") {
+  return fetch(binaryFile, {
+   credentials: "same-origin"
+  }).then(response => {
+   var result = WebAssembly.instantiateStreaming(response, imports);
+   return result.then(callback, function(reason) {
+    err(`wasm streaming compile failed: ${reason}`);
+    err("falling back to ArrayBuffer instantiation");
+    return instantiateArrayBuffer(binaryFile, imports, callback);
+   });
+  });
+ }
+ return instantiateArrayBuffer(binaryFile, imports, callback);
 }
 
 function createWasm() {
  var info = {
-  "a": asmLibraryArg
+  "a": wasmImports
  };
  function receiveInstance(instance, module) {
   var exports = instance.exports;
-  Module["asm"] = exports;
-  wasmMemory = Module["asm"]["f"];
-  updateGlobalBufferAndViews(wasmMemory.buffer);
-  wasmTable = Module["asm"]["ji"];
+  wasmExports = exports;
+  wasmMemory = wasmExports["e"];
+  updateMemoryViews();
+  wasmTable = wasmExports["ti"];
+  addOnInit(wasmExports["f"]);
   removeRunDependency("wasm-instantiate");
+  return exports;
  }
  addRunDependency("wasm-instantiate");
- function receiveInstantiatedSource(output) {
-  receiveInstance(output["instance"]);
- }
- function instantiateArrayBuffer(receiver) {
-  return getBinaryPromise().then(function(binary) {
-   return WebAssembly.instantiate(binary, info);
-  }).then(receiver, function(reason) {
-   err("failed to asynchronously prepare wasm: " + reason);
-   abort(reason);
-  });
- }
- function instantiateAsync() {
-  if (!wasmBinary && typeof WebAssembly.instantiateStreaming === "function" && !isDataURI(wasmBinaryFile) && typeof fetch === "function") {
-   return fetch(wasmBinaryFile, {
-    credentials: "same-origin"
-   }).then(function(response) {
-    var result = WebAssembly.instantiateStreaming(response, info);
-    return result.then(receiveInstantiatedSource, function(reason) {
-     err("wasm streaming compile failed: " + reason);
-     err("falling back to ArrayBuffer instantiation");
-     return instantiateArrayBuffer(receiveInstantiatedSource);
-    });
-   });
-  } else {
-   return instantiateArrayBuffer(receiveInstantiatedSource);
-  }
+ function receiveInstantiationResult(result) {
+  receiveInstance(result["instance"]);
  }
  if (Module["instantiateWasm"]) {
   try {
-   var exports = Module["instantiateWasm"](info, receiveInstance);
-   return exports;
+   return Module["instantiateWasm"](info, receiveInstance);
   } catch (e) {
-   err("Module.instantiateWasm callback failed with error: " + e);
-   return false;
+   err(`Module.instantiateWasm callback failed with error: ${e}`);
+   readyPromiseReject(e);
   }
  }
- instantiateAsync().catch(readyPromiseReject);
+ instantiateAsync(wasmBinary, wasmBinaryFile, info, receiveInstantiationResult).catch(readyPromiseReject);
  return {};
 }
 
-function callRuntimeCallbacks(callbacks) {
+var callRuntimeCallbacks = callbacks => {
  while (callbacks.length > 0) {
-  var callback = callbacks.shift();
-  if (typeof callback == "function") {
-   callback(Module);
-   continue;
-  }
-  var func = callback.func;
-  if (typeof func === "number") {
-   if (callback.arg === undefined) {
-    wasmTable.get(func)();
-   } else {
-    wasmTable.get(func)(callback.arg);
-   }
-  } else {
-   func(callback.arg === undefined ? null : callback.arg);
-  }
+  callbacks.shift()(Module);
  }
-}
+};
 
-function _abort() {
- abort();
-}
+var _abort = () => {
+ abort("");
+};
 
-function _emscripten_memcpy_big(dest, src, num) {
- HEAPU8.copyWithin(dest, src, src + num);
-}
+var _emscripten_memcpy_big = (dest, src, num) => HEAPU8.copyWithin(dest, src, src + num);
 
-function _emscripten_get_heap_size() {
- return HEAPU8.length;
-}
+var getHeapMax = () => 2147483648;
 
-function emscripten_realloc_buffer(size) {
+var growMemory = size => {
+ var b = wasmMemory.buffer;
+ var pages = (size - b.byteLength + 65535) / 65536;
  try {
-  wasmMemory.grow(size - buffer.byteLength + 65535 >>> 16);
-  updateGlobalBufferAndViews(wasmMemory.buffer);
+  wasmMemory.grow(pages);
+  updateMemoryViews();
   return 1;
  } catch (e) {}
-}
+};
 
-function _emscripten_resize_heap(requestedSize) {
- var oldSize = _emscripten_get_heap_size();
- var maxHeapSize = 2147483648;
+var _emscripten_resize_heap = requestedSize => {
+ var oldSize = HEAPU8.length;
+ requestedSize >>>= 0;
+ var maxHeapSize = getHeapMax();
  if (requestedSize > maxHeapSize) {
   return false;
  }
+ var alignUp = (x, multiple) => x + (multiple - x % multiple) % multiple;
  for (var cutDown = 1; cutDown <= 4; cutDown *= 2) {
   var overGrownHeapSize = oldSize * (1 + .2 / cutDown);
   overGrownHeapSize = Math.min(overGrownHeapSize, requestedSize + 100663296);
   var newSize = Math.min(maxHeapSize, alignUp(Math.max(requestedSize, overGrownHeapSize), 65536));
-  var replacement = emscripten_realloc_buffer(newSize);
+  var replacement = growMemory(newSize);
   if (replacement) {
    return true;
   }
  }
  return false;
-}
+};
 
-var SYSCALLS = {
- mappings: {},
- buffers: [ null, [], [] ],
- printChar: function(stream, curr) {
-  var buffer = SYSCALLS.buffers[stream];
-  if (curr === 0 || curr === 10) {
-   (stream === 1 ? out : err)(UTF8ArrayToString(buffer, 0));
-   buffer.length = 0;
-  } else {
-   buffer.push(curr);
+var printCharBuffers = [ null, [], [] ];
+
+var UTF8Decoder = typeof TextDecoder != "undefined" ? new TextDecoder("utf8") : undefined;
+
+var UTF8ArrayToString = (heapOrArray, idx, maxBytesToRead) => {
+ var endIdx = idx + maxBytesToRead;
+ var endPtr = idx;
+ while (heapOrArray[endPtr] && !(endPtr >= endIdx)) ++endPtr;
+ if (endPtr - idx > 16 && heapOrArray.buffer && UTF8Decoder) {
+  return UTF8Decoder.decode(heapOrArray.subarray(idx, endPtr));
+ }
+ var str = "";
+ while (idx < endPtr) {
+  var u0 = heapOrArray[idx++];
+  if (!(u0 & 128)) {
+   str += String.fromCharCode(u0);
+   continue;
   }
- },
- varargs: undefined,
- get: function() {
-  SYSCALLS.varargs += 4;
-  var ret = HEAP32[SYSCALLS.varargs - 4 >> 2];
-  return ret;
- },
- getStr: function(ptr) {
-  var ret = UTF8ToString(ptr);
-  return ret;
- },
- get64: function(low, high) {
-  return low;
+  var u1 = heapOrArray[idx++] & 63;
+  if ((u0 & 224) == 192) {
+   str += String.fromCharCode((u0 & 31) << 6 | u1);
+   continue;
+  }
+  var u2 = heapOrArray[idx++] & 63;
+  if ((u0 & 240) == 224) {
+   u0 = (u0 & 15) << 12 | u1 << 6 | u2;
+  } else {
+   u0 = (u0 & 7) << 18 | u1 << 12 | u2 << 6 | heapOrArray[idx++] & 63;
+  }
+  if (u0 < 65536) {
+   str += String.fromCharCode(u0);
+  } else {
+   var ch = u0 - 65536;
+   str += String.fromCharCode(55296 | ch >> 10, 56320 | ch & 1023);
+  }
+ }
+ return str;
+};
+
+var printChar = (stream, curr) => {
+ var buffer = printCharBuffers[stream];
+ if (curr === 0 || curr === 10) {
+  (stream === 1 ? out : err)(UTF8ArrayToString(buffer, 0));
+  buffer.length = 0;
+ } else {
+  buffer.push(curr);
  }
 };
 
-function _fd_write(fd, iov, iovcnt, pnum) {
+var UTF8ToString = (ptr, maxBytesToRead) => ptr ? UTF8ArrayToString(HEAPU8, ptr, maxBytesToRead) : "";
+
+var SYSCALLS = {
+ varargs: undefined,
+ get() {
+  var ret = HEAP32[SYSCALLS.varargs >> 2];
+  SYSCALLS.varargs += 4;
+  return ret;
+ },
+ getp() {
+  return SYSCALLS.get();
+ },
+ getStr(ptr) {
+  var ret = UTF8ToString(ptr);
+  return ret;
+ }
+};
+
+var _fd_write = (fd, iov, iovcnt, pnum) => {
  var num = 0;
  for (var i = 0; i < iovcnt; i++) {
-  var ptr = HEAP32[iov + i * 8 >> 2];
-  var len = HEAP32[iov + (i * 8 + 4) >> 2];
+  var ptr = HEAPU32[iov >> 2];
+  var len = HEAPU32[iov + 4 >> 2];
+  iov += 8;
   for (var j = 0; j < len; j++) {
-   SYSCALLS.printChar(fd, HEAPU8[ptr + j]);
+   printChar(fd, HEAPU8[ptr + j]);
   }
   num += len;
  }
- HEAP32[pnum >> 2] = num;
+ HEAPU32[pnum >> 2] = num;
  return 0;
-}
-
-function _gettimeofday(ptr) {
- var now = Date.now();
- HEAP32[ptr >> 2] = now / 1e3 | 0;
- HEAP32[ptr + 4 >> 2] = now % 1e3 * 1e3 | 0;
- return 0;
-}
-
-var asmLibraryArg = {
- "e": _abort,
- "d": _emscripten_memcpy_big,
- "c": _emscripten_resize_heap,
- "b": _fd_write,
- "a": _gettimeofday
 };
 
-var asm = createWasm();
-
-var ___wasm_call_ctors = Module["___wasm_call_ctors"] = function() {
- return (___wasm_call_ctors = Module["___wasm_call_ctors"] = Module["asm"]["g"]).apply(null, arguments);
+var uleb128Encode = (n, target) => {
+ if (n < 128) {
+  target.push(n);
+ } else {
+  target.push(n % 128 | 128, n >> 7);
+ }
+};
+
+var sigToWasmTypes = sig => {
+ var typeNames = {
+  "i": "i32",
+  "j": "i64",
+  "f": "f32",
+  "d": "f64",
+  "p": "i32"
+ };
+ var type = {
+  parameters: [],
+  results: sig[0] == "v" ? [] : [ typeNames[sig[0]] ]
+ };
+ for (var i = 1; i < sig.length; ++i) {
+  type.parameters.push(typeNames[sig[i]]);
+ }
+ return type;
+};
+
+var generateFuncType = (sig, target) => {
+ var sigRet = sig.slice(0, 1);
+ var sigParam = sig.slice(1);
+ var typeCodes = {
+  "i": 127,
+  "p": 127,
+  "j": 126,
+  "f": 125,
+  "d": 124
+ };
+ target.push(96);
+ uleb128Encode(sigParam.length, target);
+ for (var i = 0; i < sigParam.length; ++i) {
+  target.push(typeCodes[sigParam[i]]);
+ }
+ if (sigRet == "v") {
+  target.push(0);
+ } else {
+  target.push(1, typeCodes[sigRet]);
+ }
+};
+
+var convertJsFunctionToWasm = (func, sig) => {
+ if (typeof WebAssembly.Function == "function") {
+  return new WebAssembly.Function(sigToWasmTypes(sig), func);
+ }
+ var typeSectionBody = [ 1 ];
+ generateFuncType(sig, typeSectionBody);
+ var bytes = [ 0, 97, 115, 109, 1, 0, 0, 0, 1 ];
+ uleb128Encode(typeSectionBody.length, bytes);
+ bytes.push.apply(bytes, typeSectionBody);
+ bytes.push(2, 7, 1, 1, 101, 1, 102, 0, 0, 7, 5, 1, 1, 102, 0, 0);
+ var module = new WebAssembly.Module(new Uint8Array(bytes));
+ var instance = new WebAssembly.Instance(module, {
+  "e": {
+   "f": func
+  }
+ });
+ var wrappedFunc = instance.exports["f"];
+ return wrappedFunc;
+};
+
+var wasmTableMirror = [];
+
+var getWasmTableEntry = funcPtr => {
+ var func = wasmTableMirror[funcPtr];
+ if (!func) {
+  if (funcPtr >= wasmTableMirror.length) wasmTableMirror.length = funcPtr + 1;
+  wasmTableMirror[funcPtr] = func = wasmTable.get(funcPtr);
+ }
+ return func;
+};
+
+var updateTableMap = (offset, count) => {
+ if (functionsInTableMap) {
+  for (var i = offset; i < offset + count; i++) {
+   var item = getWasmTableEntry(i);
+   if (item) {
+    functionsInTableMap.set(item, i);
+   }
+  }
+ }
+};
+
+var functionsInTableMap = undefined;
+
+var getFunctionAddress = func => {
+ if (!functionsInTableMap) {
+  functionsInTableMap = new WeakMap;
+  updateTableMap(0, wasmTable.length);
+ }
+ return functionsInTableMap.get(func) || 0;
 };
 
-var _emscripten_bind_btCollisionShape_setLocalScaling_1 = Module["_emscripten_bind_btCollisionShape_setLocalScaling_1"] = function() {
- return (_emscripten_bind_btCollisionShape_setLocalScaling_1 = Module["_emscripten_bind_btCollisionShape_setLocalScaling_1"] = Module["asm"]["h"]).apply(null, arguments);
-};
+var freeTableIndexes = [];
 
-var _emscripten_bind_btCollisionShape_getLocalScaling_0 = Module["_emscripten_bind_btCollisionShape_getLocalScaling_0"] = function() {
- return (_emscripten_bind_btCollisionShape_getLocalScaling_0 = Module["_emscripten_bind_btCollisionShape_getLocalScaling_0"] = Module["asm"]["i"]).apply(null, arguments);
+var getEmptyTableSlot = () => {
+ if (freeTableIndexes.length) {
+  return freeTableIndexes.pop();
+ }
+ try {
+  wasmTable.grow(1);
+ } catch (err) {
+  if (!(err instanceof RangeError)) {
+   throw err;
+  }
+  throw "Unable to grow wasm table. Set ALLOW_TABLE_GROWTH.";
+ }
+ return wasmTable.length - 1;
 };
 
-var _emscripten_bind_btCollisionShape_calculateLocalInertia_2 = Module["_emscripten_bind_btCollisionShape_calculateLocalInertia_2"] = function() {
- return (_emscripten_bind_btCollisionShape_calculateLocalInertia_2 = Module["_emscripten_bind_btCollisionShape_calculateLocalInertia_2"] = Module["asm"]["j"]).apply(null, arguments);
+var setWasmTableEntry = (idx, func) => {
+ wasmTable.set(idx, func);
+ wasmTableMirror[idx] = wasmTable.get(idx);
 };
 
-var _emscripten_bind_btCollisionShape_setMargin_1 = Module["_emscripten_bind_btCollisionShape_setMargin_1"] = function() {
- return (_emscripten_bind_btCollisionShape_setMargin_1 = Module["_emscripten_bind_btCollisionShape_setMargin_1"] = Module["asm"]["k"]).apply(null, arguments);
+var addFunction = (func, sig) => {
+ var rtn = getFunctionAddress(func);
+ if (rtn) {
+  return rtn;
+ }
+ var ret = getEmptyTableSlot();
+ try {
+  setWasmTableEntry(ret, func);
+ } catch (err) {
+  if (!(err instanceof TypeError)) {
+   throw err;
+  }
+  var wrapped = convertJsFunctionToWasm(func, sig);
+  setWasmTableEntry(ret, wrapped);
+ }
+ functionsInTableMap.set(func, ret);
+ return ret;
 };
 
-var _emscripten_bind_btCollisionShape_getMargin_0 = Module["_emscripten_bind_btCollisionShape_getMargin_0"] = function() {
- return (_emscripten_bind_btCollisionShape_getMargin_0 = Module["_emscripten_bind_btCollisionShape_getMargin_0"] = Module["asm"]["l"]).apply(null, arguments);
+var wasmImports = {
+ a: _abort,
+ c: _emscripten_memcpy_big,
+ b: _emscripten_resize_heap,
+ d: _fd_write
 };
 
-var _emscripten_bind_btCollisionShape___destroy___0 = Module["_emscripten_bind_btCollisionShape___destroy___0"] = function() {
- return (_emscripten_bind_btCollisionShape___destroy___0 = Module["_emscripten_bind_btCollisionShape___destroy___0"] = Module["asm"]["m"]).apply(null, arguments);
-};
+var wasmExports = createWasm();
 
-var _emscripten_bind_btCollisionObject_getCollisionShape_0 = Module["_emscripten_bind_btCollisionObject_getCollisionShape_0"] = function() {
- return (_emscripten_bind_btCollisionObject_getCollisionShape_0 = Module["_emscripten_bind_btCollisionObject_getCollisionShape_0"] = Module["asm"]["n"]).apply(null, arguments);
-};
+var ___wasm_call_ctors = () => (___wasm_call_ctors = wasmExports["f"])();
 
-var _emscripten_bind_btCollisionObject_isStaticObject_0 = Module["_emscripten_bind_btCollisionObject_isStaticObject_0"] = function() {
- return (_emscripten_bind_btCollisionObject_isStaticObject_0 = Module["_emscripten_bind_btCollisionObject_isStaticObject_0"] = Module["asm"]["o"]).apply(null, arguments);
-};
+var _webidl_free = Module["_webidl_free"] = a0 => (_webidl_free = Module["_webidl_free"] = wasmExports["g"])(a0);
 
-var _emscripten_bind_btCollisionObject_setFriction_1 = Module["_emscripten_bind_btCollisionObject_setFriction_1"] = function() {
- return (_emscripten_bind_btCollisionObject_setFriction_1 = Module["_emscripten_bind_btCollisionObject_setFriction_1"] = Module["asm"]["p"]).apply(null, arguments);
-};
+var _webidl_malloc = Module["_webidl_malloc"] = a0 => (_webidl_malloc = Module["_webidl_malloc"] = wasmExports["h"])(a0);
 
-var _emscripten_bind_btCollisionObject_getWorldTransform_0 = Module["_emscripten_bind_btCollisionObject_getWorldTransform_0"] = function() {
- return (_emscripten_bind_btCollisionObject_getWorldTransform_0 = Module["_emscripten_bind_btCollisionObject_getWorldTransform_0"] = Module["asm"]["q"]).apply(null, arguments);
-};
+var _malloc = Module["_malloc"] = a0 => (_malloc = Module["_malloc"] = wasmExports["i"])(a0);
 
-var _emscripten_bind_btCollisionObject_setCollisionFlags_1 = Module["_emscripten_bind_btCollisionObject_setCollisionFlags_1"] = function() {
- return (_emscripten_bind_btCollisionObject_setCollisionFlags_1 = Module["_emscripten_bind_btCollisionObject_setCollisionFlags_1"] = Module["asm"]["r"]).apply(null, arguments);
-};
+var _emscripten_bind_btCollisionShape_setLocalScaling_1 = Module["_emscripten_bind_btCollisionShape_setLocalScaling_1"] = (a0, a1) => (_emscripten_bind_btCollisionShape_setLocalScaling_1 = Module["_emscripten_bind_btCollisionShape_setLocalScaling_1"] = wasmExports["j"])(a0, a1);
 
-var _emscripten_bind_btCollisionObject_setWorldTransform_1 = Module["_emscripten_bind_btCollisionObject_setWorldTransform_1"] = function() {
- return (_emscripten_bind_btCollisionObject_setWorldTransform_1 = Module["_emscripten_bind_btCollisionObject_setWorldTransform_1"] = Module["asm"]["s"]).apply(null, arguments);
-};
+var _emscripten_bind_btCollisionShape_getLocalScaling_0 = Module["_emscripten_bind_btCollisionShape_getLocalScaling_0"] = a0 => (_emscripten_bind_btCollisionShape_getLocalScaling_0 = Module["_emscripten_bind_btCollisionShape_getLocalScaling_0"] = wasmExports["k"])(a0);
 
-var _emscripten_bind_btCollisionObject_setCollisionShape_1 = Module["_emscripten_bind_btCollisionObject_setCollisionShape_1"] = function() {
- return (_emscripten_bind_btCollisionObject_setCollisionShape_1 = Module["_emscripten_bind_btCollisionObject_setCollisionShape_1"] = Module["asm"]["t"]).apply(null, arguments);
-};
+var _emscripten_bind_btCollisionShape_calculateLocalInertia_2 = Module["_emscripten_bind_btCollisionShape_calculateLocalInertia_2"] = (a0, a1, a2) => (_emscripten_bind_btCollisionShape_calculateLocalInertia_2 = Module["_emscripten_bind_btCollisionShape_calculateLocalInertia_2"] = wasmExports["l"])(a0, a1, a2);
 
-var _emscripten_bind_btCollisionObject___destroy___0 = Module["_emscripten_bind_btCollisionObject___destroy___0"] = function() {
- return (_emscripten_bind_btCollisionObject___destroy___0 = Module["_emscripten_bind_btCollisionObject___destroy___0"] = Module["asm"]["u"]).apply(null, arguments);
-};
+var _emscripten_bind_btCollisionShape_setMargin_1 = Module["_emscripten_bind_btCollisionShape_setMargin_1"] = (a0, a1) => (_emscripten_bind_btCollisionShape_setMargin_1 = Module["_emscripten_bind_btCollisionShape_setMargin_1"] = wasmExports["m"])(a0, a1);
 
-var _emscripten_bind_btConcaveShape_setLocalScaling_1 = Module["_emscripten_bind_btConcaveShape_setLocalScaling_1"] = function() {
- return (_emscripten_bind_btConcaveShape_setLocalScaling_1 = Module["_emscripten_bind_btConcaveShape_setLocalScaling_1"] = Module["asm"]["v"]).apply(null, arguments);
-};
+var _emscripten_bind_btCollisionShape_getMargin_0 = Module["_emscripten_bind_btCollisionShape_getMargin_0"] = a0 => (_emscripten_bind_btCollisionShape_getMargin_0 = Module["_emscripten_bind_btCollisionShape_getMargin_0"] = wasmExports["n"])(a0);
 
-var _emscripten_bind_btConcaveShape_getLocalScaling_0 = Module["_emscripten_bind_btConcaveShape_getLocalScaling_0"] = function() {
- return (_emscripten_bind_btConcaveShape_getLocalScaling_0 = Module["_emscripten_bind_btConcaveShape_getLocalScaling_0"] = Module["asm"]["w"]).apply(null, arguments);
-};
+var _emscripten_bind_btCollisionShape___destroy___0 = Module["_emscripten_bind_btCollisionShape___destroy___0"] = a0 => (_emscripten_bind_btCollisionShape___destroy___0 = Module["_emscripten_bind_btCollisionShape___destroy___0"] = wasmExports["o"])(a0);
 
-var _emscripten_bind_btConcaveShape_calculateLocalInertia_2 = Module["_emscripten_bind_btConcaveShape_calculateLocalInertia_2"] = function() {
- return (_emscripten_bind_btConcaveShape_calculateLocalInertia_2 = Module["_emscripten_bind_btConcaveShape_calculateLocalInertia_2"] = Module["asm"]["x"]).apply(null, arguments);
-};
+var _emscripten_bind_btCollisionObject_getCollisionShape_0 = Module["_emscripten_bind_btCollisionObject_getCollisionShape_0"] = a0 => (_emscripten_bind_btCollisionObject_getCollisionShape_0 = Module["_emscripten_bind_btCollisionObject_getCollisionShape_0"] = wasmExports["p"])(a0);
 
-var _emscripten_bind_btConcaveShape___destroy___0 = Module["_emscripten_bind_btConcaveShape___destroy___0"] = function() {
- return (_emscripten_bind_btConcaveShape___destroy___0 = Module["_emscripten_bind_btConcaveShape___destroy___0"] = Module["asm"]["y"]).apply(null, arguments);
-};
+var _emscripten_bind_btCollisionObject_isStaticObject_0 = Module["_emscripten_bind_btCollisionObject_isStaticObject_0"] = a0 => (_emscripten_bind_btCollisionObject_isStaticObject_0 = Module["_emscripten_bind_btCollisionObject_isStaticObject_0"] = wasmExports["q"])(a0);
 
-var _emscripten_bind_btCollisionAlgorithm___destroy___0 = Module["_emscripten_bind_btCollisionAlgorithm___destroy___0"] = function() {
- return (_emscripten_bind_btCollisionAlgorithm___destroy___0 = Module["_emscripten_bind_btCollisionAlgorithm___destroy___0"] = Module["asm"]["z"]).apply(null, arguments);
-};
+var _emscripten_bind_btCollisionObject_setFriction_1 = Module["_emscripten_bind_btCollisionObject_setFriction_1"] = (a0, a1) => (_emscripten_bind_btCollisionObject_setFriction_1 = Module["_emscripten_bind_btCollisionObject_setFriction_1"] = wasmExports["r"])(a0, a1);
 
-var _emscripten_bind_btCollisionWorld_getDispatcher_0 = Module["_emscripten_bind_btCollisionWorld_getDispatcher_0"] = function() {
- return (_emscripten_bind_btCollisionWorld_getDispatcher_0 = Module["_emscripten_bind_btCollisionWorld_getDispatcher_0"] = Module["asm"]["A"]).apply(null, arguments);
-};
+var _emscripten_bind_btCollisionObject_getWorldTransform_0 = Module["_emscripten_bind_btCollisionObject_getWorldTransform_0"] = a0 => (_emscripten_bind_btCollisionObject_getWorldTransform_0 = Module["_emscripten_bind_btCollisionObject_getWorldTransform_0"] = wasmExports["s"])(a0);
 
-var _emscripten_bind_btCollisionWorld_addCollisionObject_1 = Module["_emscripten_bind_btCollisionWorld_addCollisionObject_1"] = function() {
- return (_emscripten_bind_btCollisionWorld_addCollisionObject_1 = Module["_emscripten_bind_btCollisionWorld_addCollisionObject_1"] = Module["asm"]["B"]).apply(null, arguments);
-};
+var _emscripten_bind_btCollisionObject_setCollisionFlags_1 = Module["_emscripten_bind_btCollisionObject_setCollisionFlags_1"] = (a0, a1) => (_emscripten_bind_btCollisionObject_setCollisionFlags_1 = Module["_emscripten_bind_btCollisionObject_setCollisionFlags_1"] = wasmExports["t"])(a0, a1);
 
-var _emscripten_bind_btCollisionWorld_addCollisionObject_2 = Module["_emscripten_bind_btCollisionWorld_addCollisionObject_2"] = function() {
- return (_emscripten_bind_btCollisionWorld_addCollisionObject_2 = Module["_emscripten_bind_btCollisionWorld_addCollisionObject_2"] = Module["asm"]["C"]).apply(null, arguments);
-};
+var _emscripten_bind_btCollisionObject_setWorldTransform_1 = Module["_emscripten_bind_btCollisionObject_setWorldTransform_1"] = (a0, a1) => (_emscripten_bind_btCollisionObject_setWorldTransform_1 = Module["_emscripten_bind_btCollisionObject_setWorldTransform_1"] = wasmExports["u"])(a0, a1);
 
-var _emscripten_bind_btCollisionWorld_addCollisionObject_3 = Module["_emscripten_bind_btCollisionWorld_addCollisionObject_3"] = function() {
- return (_emscripten_bind_btCollisionWorld_addCollisionObject_3 = Module["_emscripten_bind_btCollisionWorld_addCollisionObject_3"] = Module["asm"]["D"]).apply(null, arguments);
-};
+var _emscripten_bind_btCollisionObject_setCollisionShape_1 = Module["_emscripten_bind_btCollisionObject_setCollisionShape_1"] = (a0, a1) => (_emscripten_bind_btCollisionObject_setCollisionShape_1 = Module["_emscripten_bind_btCollisionObject_setCollisionShape_1"] = wasmExports["v"])(a0, a1);
 
-var _emscripten_bind_btCollisionWorld_removeCollisionObject_1 = Module["_emscripten_bind_btCollisionWorld_removeCollisionObject_1"] = function() {
- return (_emscripten_bind_btCollisionWorld_removeCollisionObject_1 = Module["_emscripten_bind_btCollisionWorld_removeCollisionObject_1"] = Module["asm"]["E"]).apply(null, arguments);
-};
+var _emscripten_bind_btCollisionObject___destroy___0 = Module["_emscripten_bind_btCollisionObject___destroy___0"] = a0 => (_emscripten_bind_btCollisionObject___destroy___0 = Module["_emscripten_bind_btCollisionObject___destroy___0"] = wasmExports["w"])(a0);
 
-var _emscripten_bind_btCollisionWorld_getBroadphase_0 = Module["_emscripten_bind_btCollisionWorld_getBroadphase_0"] = function() {
- return (_emscripten_bind_btCollisionWorld_getBroadphase_0 = Module["_emscripten_bind_btCollisionWorld_getBroadphase_0"] = Module["asm"]["F"]).apply(null, arguments);
-};
+var _emscripten_bind_btConcaveShape_setLocalScaling_1 = Module["_emscripten_bind_btConcaveShape_setLocalScaling_1"] = (a0, a1) => (_emscripten_bind_btConcaveShape_setLocalScaling_1 = Module["_emscripten_bind_btConcaveShape_setLocalScaling_1"] = wasmExports["x"])(a0, a1);
 
-var _emscripten_bind_btCollisionWorld___destroy___0 = Module["_emscripten_bind_btCollisionWorld___destroy___0"] = function() {
- return (_emscripten_bind_btCollisionWorld___destroy___0 = Module["_emscripten_bind_btCollisionWorld___destroy___0"] = Module["asm"]["G"]).apply(null, arguments);
-};
+var _emscripten_bind_btConcaveShape_getLocalScaling_0 = Module["_emscripten_bind_btConcaveShape_getLocalScaling_0"] = a0 => (_emscripten_bind_btConcaveShape_getLocalScaling_0 = Module["_emscripten_bind_btConcaveShape_getLocalScaling_0"] = wasmExports["y"])(a0);
 
-var _emscripten_bind_btVector3_btVector3_0 = Module["_emscripten_bind_btVector3_btVector3_0"] = function() {
- return (_emscripten_bind_btVector3_btVector3_0 = Module["_emscripten_bind_btVector3_btVector3_0"] = Module["asm"]["H"]).apply(null, arguments);
-};
+var _emscripten_bind_btConcaveShape_calculateLocalInertia_2 = Module["_emscripten_bind_btConcaveShape_calculateLocalInertia_2"] = (a0, a1, a2) => (_emscripten_bind_btConcaveShape_calculateLocalInertia_2 = Module["_emscripten_bind_btConcaveShape_calculateLocalInertia_2"] = wasmExports["z"])(a0, a1, a2);
 
-var _emscripten_bind_btVector3_btVector3_3 = Module["_emscripten_bind_btVector3_btVector3_3"] = function() {
- return (_emscripten_bind_btVector3_btVector3_3 = Module["_emscripten_bind_btVector3_btVector3_3"] = Module["asm"]["I"]).apply(null, arguments);
-};
+var _emscripten_bind_btConcaveShape___destroy___0 = Module["_emscripten_bind_btConcaveShape___destroy___0"] = a0 => (_emscripten_bind_btConcaveShape___destroy___0 = Module["_emscripten_bind_btConcaveShape___destroy___0"] = wasmExports["A"])(a0);
 
-var _emscripten_bind_btVector3_length_0 = Module["_emscripten_bind_btVector3_length_0"] = function() {
- return (_emscripten_bind_btVector3_length_0 = Module["_emscripten_bind_btVector3_length_0"] = Module["asm"]["J"]).apply(null, arguments);
-};
+var _emscripten_bind_btCollisionAlgorithm___destroy___0 = Module["_emscripten_bind_btCollisionAlgorithm___destroy___0"] = a0 => (_emscripten_bind_btCollisionAlgorithm___destroy___0 = Module["_emscripten_bind_btCollisionAlgorithm___destroy___0"] = wasmExports["B"])(a0);
 
-var _emscripten_bind_btVector3_x_0 = Module["_emscripten_bind_btVector3_x_0"] = function() {
- return (_emscripten_bind_btVector3_x_0 = Module["_emscripten_bind_btVector3_x_0"] = Module["asm"]["K"]).apply(null, arguments);
-};
+var _emscripten_bind_btCollisionWorld_getDispatcher_0 = Module["_emscripten_bind_btCollisionWorld_getDispatcher_0"] = a0 => (_emscripten_bind_btCollisionWorld_getDispatcher_0 = Module["_emscripten_bind_btCollisionWorld_getDispatcher_0"] = wasmExports["C"])(a0);
 
-var _emscripten_bind_btVector3_y_0 = Module["_emscripten_bind_btVector3_y_0"] = function() {
- return (_emscripten_bind_btVector3_y_0 = Module["_emscripten_bind_btVector3_y_0"] = Module["asm"]["L"]).apply(null, arguments);
-};
+var _emscripten_bind_btCollisionWorld_addCollisionObject_1 = Module["_emscripten_bind_btCollisionWorld_addCollisionObject_1"] = (a0, a1) => (_emscripten_bind_btCollisionWorld_addCollisionObject_1 = Module["_emscripten_bind_btCollisionWorld_addCollisionObject_1"] = wasmExports["D"])(a0, a1);
 
-var _emscripten_bind_btVector3_z_0 = Module["_emscripten_bind_btVector3_z_0"] = function() {
- return (_emscripten_bind_btVector3_z_0 = Module["_emscripten_bind_btVector3_z_0"] = Module["asm"]["M"]).apply(null, arguments);
-};
+var _emscripten_bind_btCollisionWorld_addCollisionObject_2 = Module["_emscripten_bind_btCollisionWorld_addCollisionObject_2"] = (a0, a1, a2) => (_emscripten_bind_btCollisionWorld_addCollisionObject_2 = Module["_emscripten_bind_btCollisionWorld_addCollisionObject_2"] = wasmExports["E"])(a0, a1, a2);
 
-var _emscripten_bind_btVector3_setX_1 = Module["_emscripten_bind_btVector3_setX_1"] = function() {
- return (_emscripten_bind_btVector3_setX_1 = Module["_emscripten_bind_btVector3_setX_1"] = Module["asm"]["N"]).apply(null, arguments);
-};
+var _emscripten_bind_btCollisionWorld_addCollisionObject_3 = Module["_emscripten_bind_btCollisionWorld_addCollisionObject_3"] = (a0, a1, a2, a3) => (_emscripten_bind_btCollisionWorld_addCollisionObject_3 = Module["_emscripten_bind_btCollisionWorld_addCollisionObject_3"] = wasmExports["F"])(a0, a1, a2, a3);
 
-var _emscripten_bind_btVector3_setY_1 = Module["_emscripten_bind_btVector3_setY_1"] = function() {
- return (_emscripten_bind_btVector3_setY_1 = Module["_emscripten_bind_btVector3_setY_1"] = Module["asm"]["O"]).apply(null, arguments);
-};
+var _emscripten_bind_btCollisionWorld_removeCollisionObject_1 = Module["_emscripten_bind_btCollisionWorld_removeCollisionObject_1"] = (a0, a1) => (_emscripten_bind_btCollisionWorld_removeCollisionObject_1 = Module["_emscripten_bind_btCollisionWorld_removeCollisionObject_1"] = wasmExports["G"])(a0, a1);
 
-var _emscripten_bind_btVector3_setZ_1 = Module["_emscripten_bind_btVector3_setZ_1"] = function() {
- return (_emscripten_bind_btVector3_setZ_1 = Module["_emscripten_bind_btVector3_setZ_1"] = Module["asm"]["P"]).apply(null, arguments);
-};
+var _emscripten_bind_btCollisionWorld_getBroadphase_0 = Module["_emscripten_bind_btCollisionWorld_getBroadphase_0"] = a0 => (_emscripten_bind_btCollisionWorld_getBroadphase_0 = Module["_emscripten_bind_btCollisionWorld_getBroadphase_0"] = wasmExports["H"])(a0);
 
-var _emscripten_bind_btVector3_setValue_3 = Module["_emscripten_bind_btVector3_setValue_3"] = function() {
- return (_emscripten_bind_btVector3_setValue_3 = Module["_emscripten_bind_btVector3_setValue_3"] = Module["asm"]["Q"]).apply(null, arguments);
-};
+var _emscripten_bind_btCollisionWorld___destroy___0 = Module["_emscripten_bind_btCollisionWorld___destroy___0"] = a0 => (_emscripten_bind_btCollisionWorld___destroy___0 = Module["_emscripten_bind_btCollisionWorld___destroy___0"] = wasmExports["I"])(a0);
 
-var _emscripten_bind_btVector3_normalize_0 = Module["_emscripten_bind_btVector3_normalize_0"] = function() {
- return (_emscripten_bind_btVector3_normalize_0 = Module["_emscripten_bind_btVector3_normalize_0"] = Module["asm"]["R"]).apply(null, arguments);
-};
+var _emscripten_bind_btVector3_btVector3_0 = Module["_emscripten_bind_btVector3_btVector3_0"] = () => (_emscripten_bind_btVector3_btVector3_0 = Module["_emscripten_bind_btVector3_btVector3_0"] = wasmExports["J"])();
 
-var _emscripten_bind_btVector3_rotate_2 = Module["_emscripten_bind_btVector3_rotate_2"] = function() {
- return (_emscripten_bind_btVector3_rotate_2 = Module["_emscripten_bind_btVector3_rotate_2"] = Module["asm"]["S"]).apply(null, arguments);
-};
+var _emscripten_bind_btVector3_btVector3_3 = Module["_emscripten_bind_btVector3_btVector3_3"] = (a0, a1, a2) => (_emscripten_bind_btVector3_btVector3_3 = Module["_emscripten_bind_btVector3_btVector3_3"] = wasmExports["K"])(a0, a1, a2);
 
-var _emscripten_bind_btVector3_dot_1 = Module["_emscripten_bind_btVector3_dot_1"] = function() {
- return (_emscripten_bind_btVector3_dot_1 = Module["_emscripten_bind_btVector3_dot_1"] = Module["asm"]["T"]).apply(null, arguments);
-};
+var _emscripten_bind_btVector3_length_0 = Module["_emscripten_bind_btVector3_length_0"] = a0 => (_emscripten_bind_btVector3_length_0 = Module["_emscripten_bind_btVector3_length_0"] = wasmExports["L"])(a0);
 
-var _emscripten_bind_btVector3_op_mul_1 = Module["_emscripten_bind_btVector3_op_mul_1"] = function() {
- return (_emscripten_bind_btVector3_op_mul_1 = Module["_emscripten_bind_btVector3_op_mul_1"] = Module["asm"]["U"]).apply(null, arguments);
-};
+var _emscripten_bind_btVector3_x_0 = Module["_emscripten_bind_btVector3_x_0"] = a0 => (_emscripten_bind_btVector3_x_0 = Module["_emscripten_bind_btVector3_x_0"] = wasmExports["M"])(a0);
 
-var _emscripten_bind_btVector3_op_add_1 = Module["_emscripten_bind_btVector3_op_add_1"] = function() {
- return (_emscripten_bind_btVector3_op_add_1 = Module["_emscripten_bind_btVector3_op_add_1"] = Module["asm"]["V"]).apply(null, arguments);
-};
+var _emscripten_bind_btVector3_y_0 = Module["_emscripten_bind_btVector3_y_0"] = a0 => (_emscripten_bind_btVector3_y_0 = Module["_emscripten_bind_btVector3_y_0"] = wasmExports["N"])(a0);
 
-var _emscripten_bind_btVector3_op_sub_1 = Module["_emscripten_bind_btVector3_op_sub_1"] = function() {
- return (_emscripten_bind_btVector3_op_sub_1 = Module["_emscripten_bind_btVector3_op_sub_1"] = Module["asm"]["W"]).apply(null, arguments);
-};
+var _emscripten_bind_btVector3_z_0 = Module["_emscripten_bind_btVector3_z_0"] = a0 => (_emscripten_bind_btVector3_z_0 = Module["_emscripten_bind_btVector3_z_0"] = wasmExports["O"])(a0);
 
-var _emscripten_bind_btVector3___destroy___0 = Module["_emscripten_bind_btVector3___destroy___0"] = function() {
- return (_emscripten_bind_btVector3___destroy___0 = Module["_emscripten_bind_btVector3___destroy___0"] = Module["asm"]["X"]).apply(null, arguments);
-};
+var _emscripten_bind_btVector3_setX_1 = Module["_emscripten_bind_btVector3_setX_1"] = (a0, a1) => (_emscripten_bind_btVector3_setX_1 = Module["_emscripten_bind_btVector3_setX_1"] = wasmExports["P"])(a0, a1);
 
-var _emscripten_bind_btQuadWord_x_0 = Module["_emscripten_bind_btQuadWord_x_0"] = function() {
- return (_emscripten_bind_btQuadWord_x_0 = Module["_emscripten_bind_btQuadWord_x_0"] = Module["asm"]["Y"]).apply(null, arguments);
-};
+var _emscripten_bind_btVector3_setY_1 = Module["_emscripten_bind_btVector3_setY_1"] = (a0, a1) => (_emscripten_bind_btVector3_setY_1 = Module["_emscripten_bind_btVector3_setY_1"] = wasmExports["Q"])(a0, a1);
 
-var _emscripten_bind_btQuadWord_y_0 = Module["_emscripten_bind_btQuadWord_y_0"] = function() {
- return (_emscripten_bind_btQuadWord_y_0 = Module["_emscripten_bind_btQuadWord_y_0"] = Module["asm"]["Z"]).apply(null, arguments);
-};
+var _emscripten_bind_btVector3_setZ_1 = Module["_emscripten_bind_btVector3_setZ_1"] = (a0, a1) => (_emscripten_bind_btVector3_setZ_1 = Module["_emscripten_bind_btVector3_setZ_1"] = wasmExports["R"])(a0, a1);
 
-var _emscripten_bind_btQuadWord_z_0 = Module["_emscripten_bind_btQuadWord_z_0"] = function() {
- return (_emscripten_bind_btQuadWord_z_0 = Module["_emscripten_bind_btQuadWord_z_0"] = Module["asm"]["_"]).apply(null, arguments);
-};
+var _emscripten_bind_btVector3_setValue_3 = Module["_emscripten_bind_btVector3_setValue_3"] = (a0, a1, a2, a3) => (_emscripten_bind_btVector3_setValue_3 = Module["_emscripten_bind_btVector3_setValue_3"] = wasmExports["S"])(a0, a1, a2, a3);
 
-var _emscripten_bind_btQuadWord_w_0 = Module["_emscripten_bind_btQuadWord_w_0"] = function() {
- return (_emscripten_bind_btQuadWord_w_0 = Module["_emscripten_bind_btQuadWord_w_0"] = Module["asm"]["$"]).apply(null, arguments);
-};
+var _emscripten_bind_btVector3_normalize_0 = Module["_emscripten_bind_btVector3_normalize_0"] = a0 => (_emscripten_bind_btVector3_normalize_0 = Module["_emscripten_bind_btVector3_normalize_0"] = wasmExports["T"])(a0);
 
-var _emscripten_bind_btQuadWord_setX_1 = Module["_emscripten_bind_btQuadWord_setX_1"] = function() {
- return (_emscripten_bind_btQuadWord_setX_1 = Module["_emscripten_bind_btQuadWord_setX_1"] = Module["asm"]["aa"]).apply(null, arguments);
-};
+var _emscripten_bind_btVector3_rotate_2 = Module["_emscripten_bind_btVector3_rotate_2"] = (a0, a1, a2) => (_emscripten_bind_btVector3_rotate_2 = Module["_emscripten_bind_btVector3_rotate_2"] = wasmExports["U"])(a0, a1, a2);
 
-var _emscripten_bind_btQuadWord_setY_1 = Module["_emscripten_bind_btQuadWord_setY_1"] = function() {
- return (_emscripten_bind_btQuadWord_setY_1 = Module["_emscripten_bind_btQuadWord_setY_1"] = Module["asm"]["ba"]).apply(null, arguments);
-};
+var _emscripten_bind_btVector3_dot_1 = Module["_emscripten_bind_btVector3_dot_1"] = (a0, a1) => (_emscripten_bind_btVector3_dot_1 = Module["_emscripten_bind_btVector3_dot_1"] = wasmExports["V"])(a0, a1);
 
-var _emscripten_bind_btQuadWord_setZ_1 = Module["_emscripten_bind_btQuadWord_setZ_1"] = function() {
- return (_emscripten_bind_btQuadWord_setZ_1 = Module["_emscripten_bind_btQuadWord_setZ_1"] = Module["asm"]["ca"]).apply(null, arguments);
-};
+var _emscripten_bind_btVector3_op_mul_1 = Module["_emscripten_bind_btVector3_op_mul_1"] = (a0, a1) => (_emscripten_bind_btVector3_op_mul_1 = Module["_emscripten_bind_btVector3_op_mul_1"] = wasmExports["W"])(a0, a1);
 
-var _emscripten_bind_btQuadWord_setW_1 = Module["_emscripten_bind_btQuadWord_setW_1"] = function() {
- return (_emscripten_bind_btQuadWord_setW_1 = Module["_emscripten_bind_btQuadWord_setW_1"] = Module["asm"]["da"]).apply(null, arguments);
-};
+var _emscripten_bind_btVector3_op_add_1 = Module["_emscripten_bind_btVector3_op_add_1"] = (a0, a1) => (_emscripten_bind_btVector3_op_add_1 = Module["_emscripten_bind_btVector3_op_add_1"] = wasmExports["X"])(a0, a1);
 
-var _emscripten_bind_btQuadWord___destroy___0 = Module["_emscripten_bind_btQuadWord___destroy___0"] = function() {
- return (_emscripten_bind_btQuadWord___destroy___0 = Module["_emscripten_bind_btQuadWord___destroy___0"] = Module["asm"]["ea"]).apply(null, arguments);
-};
+var _emscripten_bind_btVector3_op_sub_1 = Module["_emscripten_bind_btVector3_op_sub_1"] = (a0, a1) => (_emscripten_bind_btVector3_op_sub_1 = Module["_emscripten_bind_btVector3_op_sub_1"] = wasmExports["Y"])(a0, a1);
 
-var _emscripten_bind_btMotionState_getWorldTransform_1 = Module["_emscripten_bind_btMotionState_getWorldTransform_1"] = function() {
- return (_emscripten_bind_btMotionState_getWorldTransform_1 = Module["_emscripten_bind_btMotionState_getWorldTransform_1"] = Module["asm"]["fa"]).apply(null, arguments);
-};
+var _emscripten_bind_btVector3___destroy___0 = Module["_emscripten_bind_btVector3___destroy___0"] = a0 => (_emscripten_bind_btVector3___destroy___0 = Module["_emscripten_bind_btVector3___destroy___0"] = wasmExports["Z"])(a0);
 
-var _emscripten_bind_btMotionState_setWorldTransform_1 = Module["_emscripten_bind_btMotionState_setWorldTransform_1"] = function() {
- return (_emscripten_bind_btMotionState_setWorldTransform_1 = Module["_emscripten_bind_btMotionState_setWorldTransform_1"] = Module["asm"]["ga"]).apply(null, arguments);
-};
+var _emscripten_bind_btQuadWord_x_0 = Module["_emscripten_bind_btQuadWord_x_0"] = a0 => (_emscripten_bind_btQuadWord_x_0 = Module["_emscripten_bind_btQuadWord_x_0"] = wasmExports["_"])(a0);
 
-var _emscripten_bind_btMotionState___destroy___0 = Module["_emscripten_bind_btMotionState___destroy___0"] = function() {
- return (_emscripten_bind_btMotionState___destroy___0 = Module["_emscripten_bind_btMotionState___destroy___0"] = Module["asm"]["ha"]).apply(null, arguments);
-};
+var _emscripten_bind_btQuadWord_y_0 = Module["_emscripten_bind_btQuadWord_y_0"] = a0 => (_emscripten_bind_btQuadWord_y_0 = Module["_emscripten_bind_btQuadWord_y_0"] = wasmExports["$"])(a0);
 
-var _emscripten_bind_btConvexShape_setLocalScaling_1 = Module["_emscripten_bind_btConvexShape_setLocalScaling_1"] = function() {
- return (_emscripten_bind_btConvexShape_setLocalScaling_1 = Module["_emscripten_bind_btConvexShape_setLocalScaling_1"] = Module["asm"]["ia"]).apply(null, arguments);
-};
+var _emscripten_bind_btQuadWord_z_0 = Module["_emscripten_bind_btQuadWord_z_0"] = a0 => (_emscripten_bind_btQuadWord_z_0 = Module["_emscripten_bind_btQuadWord_z_0"] = wasmExports["aa"])(a0);
 
-var _emscripten_bind_btConvexShape_getLocalScaling_0 = Module["_emscripten_bind_btConvexShape_getLocalScaling_0"] = function() {
- return (_emscripten_bind_btConvexShape_getLocalScaling_0 = Module["_emscripten_bind_btConvexShape_getLocalScaling_0"] = Module["asm"]["ja"]).apply(null, arguments);
-};
+var _emscripten_bind_btQuadWord_w_0 = Module["_emscripten_bind_btQuadWord_w_0"] = a0 => (_emscripten_bind_btQuadWord_w_0 = Module["_emscripten_bind_btQuadWord_w_0"] = wasmExports["ba"])(a0);
 
-var _emscripten_bind_btConvexShape_calculateLocalInertia_2 = Module["_emscripten_bind_btConvexShape_calculateLocalInertia_2"] = function() {
- return (_emscripten_bind_btConvexShape_calculateLocalInertia_2 = Module["_emscripten_bind_btConvexShape_calculateLocalInertia_2"] = Module["asm"]["ka"]).apply(null, arguments);
-};
+var _emscripten_bind_btQuadWord_setX_1 = Module["_emscripten_bind_btQuadWord_setX_1"] = (a0, a1) => (_emscripten_bind_btQuadWord_setX_1 = Module["_emscripten_bind_btQuadWord_setX_1"] = wasmExports["ca"])(a0, a1);
 
-var _emscripten_bind_btConvexShape_setMargin_1 = Module["_emscripten_bind_btConvexShape_setMargin_1"] = function() {
- return (_emscripten_bind_btConvexShape_setMargin_1 = Module["_emscripten_bind_btConvexShape_setMargin_1"] = Module["asm"]["la"]).apply(null, arguments);
-};
+var _emscripten_bind_btQuadWord_setY_1 = Module["_emscripten_bind_btQuadWord_setY_1"] = (a0, a1) => (_emscripten_bind_btQuadWord_setY_1 = Module["_emscripten_bind_btQuadWord_setY_1"] = wasmExports["da"])(a0, a1);
 
-var _emscripten_bind_btConvexShape_getMargin_0 = Module["_emscripten_bind_btConvexShape_getMargin_0"] = function() {
- return (_emscripten_bind_btConvexShape_getMargin_0 = Module["_emscripten_bind_btConvexShape_getMargin_0"] = Module["asm"]["ma"]).apply(null, arguments);
-};
+var _emscripten_bind_btQuadWord_setZ_1 = Module["_emscripten_bind_btQuadWord_setZ_1"] = (a0, a1) => (_emscripten_bind_btQuadWord_setZ_1 = Module["_emscripten_bind_btQuadWord_setZ_1"] = wasmExports["ea"])(a0, a1);
 
-var _emscripten_bind_btConvexShape___destroy___0 = Module["_emscripten_bind_btConvexShape___destroy___0"] = function() {
- return (_emscripten_bind_btConvexShape___destroy___0 = Module["_emscripten_bind_btConvexShape___destroy___0"] = Module["asm"]["na"]).apply(null, arguments);
-};
+var _emscripten_bind_btQuadWord_setW_1 = Module["_emscripten_bind_btQuadWord_setW_1"] = (a0, a1) => (_emscripten_bind_btQuadWord_setW_1 = Module["_emscripten_bind_btQuadWord_setW_1"] = wasmExports["fa"])(a0, a1);
 
-var _emscripten_bind_btStridingMeshInterface_setScaling_1 = Module["_emscripten_bind_btStridingMeshInterface_setScaling_1"] = function() {
- return (_emscripten_bind_btStridingMeshInterface_setScaling_1 = Module["_emscripten_bind_btStridingMeshInterface_setScaling_1"] = Module["asm"]["oa"]).apply(null, arguments);
-};
+var _emscripten_bind_btQuadWord___destroy___0 = Module["_emscripten_bind_btQuadWord___destroy___0"] = a0 => (_emscripten_bind_btQuadWord___destroy___0 = Module["_emscripten_bind_btQuadWord___destroy___0"] = wasmExports["ga"])(a0);
 
-var _emscripten_bind_btStridingMeshInterface___destroy___0 = Module["_emscripten_bind_btStridingMeshInterface___destroy___0"] = function() {
- return (_emscripten_bind_btStridingMeshInterface___destroy___0 = Module["_emscripten_bind_btStridingMeshInterface___destroy___0"] = Module["asm"]["pa"]).apply(null, arguments);
-};
+var _emscripten_bind_btMotionState_getWorldTransform_1 = Module["_emscripten_bind_btMotionState_getWorldTransform_1"] = (a0, a1) => (_emscripten_bind_btMotionState_getWorldTransform_1 = Module["_emscripten_bind_btMotionState_getWorldTransform_1"] = wasmExports["ha"])(a0, a1);
 
-var _emscripten_bind_btTriangleMeshShape_setLocalScaling_1 = Module["_emscripten_bind_btTriangleMeshShape_setLocalScaling_1"] = function() {
- return (_emscripten_bind_btTriangleMeshShape_setLocalScaling_1 = Module["_emscripten_bind_btTriangleMeshShape_setLocalScaling_1"] = Module["asm"]["qa"]).apply(null, arguments);
-};
+var _emscripten_bind_btMotionState_setWorldTransform_1 = Module["_emscripten_bind_btMotionState_setWorldTransform_1"] = (a0, a1) => (_emscripten_bind_btMotionState_setWorldTransform_1 = Module["_emscripten_bind_btMotionState_setWorldTransform_1"] = wasmExports["ia"])(a0, a1);
 
-var _emscripten_bind_btTriangleMeshShape_getLocalScaling_0 = Module["_emscripten_bind_btTriangleMeshShape_getLocalScaling_0"] = function() {
- return (_emscripten_bind_btTriangleMeshShape_getLocalScaling_0 = Module["_emscripten_bind_btTriangleMeshShape_getLocalScaling_0"] = Module["asm"]["ra"]).apply(null, arguments);
-};
+var _emscripten_bind_btMotionState___destroy___0 = Module["_emscripten_bind_btMotionState___destroy___0"] = a0 => (_emscripten_bind_btMotionState___destroy___0 = Module["_emscripten_bind_btMotionState___destroy___0"] = wasmExports["ja"])(a0);
 
-var _emscripten_bind_btTriangleMeshShape_calculateLocalInertia_2 = Module["_emscripten_bind_btTriangleMeshShape_calculateLocalInertia_2"] = function() {
- return (_emscripten_bind_btTriangleMeshShape_calculateLocalInertia_2 = Module["_emscripten_bind_btTriangleMeshShape_calculateLocalInertia_2"] = Module["asm"]["sa"]).apply(null, arguments);
-};
+var _emscripten_bind_btConvexShape_setLocalScaling_1 = Module["_emscripten_bind_btConvexShape_setLocalScaling_1"] = (a0, a1) => (_emscripten_bind_btConvexShape_setLocalScaling_1 = Module["_emscripten_bind_btConvexShape_setLocalScaling_1"] = wasmExports["ka"])(a0, a1);
 
-var _emscripten_bind_btTriangleMeshShape___destroy___0 = Module["_emscripten_bind_btTriangleMeshShape___destroy___0"] = function() {
- return (_emscripten_bind_btTriangleMeshShape___destroy___0 = Module["_emscripten_bind_btTriangleMeshShape___destroy___0"] = Module["asm"]["ta"]).apply(null, arguments);
-};
+var _emscripten_bind_btConvexShape_getLocalScaling_0 = Module["_emscripten_bind_btConvexShape_getLocalScaling_0"] = a0 => (_emscripten_bind_btConvexShape_getLocalScaling_0 = Module["_emscripten_bind_btConvexShape_getLocalScaling_0"] = wasmExports["la"])(a0);
 
-var _emscripten_bind_btActivatingCollisionAlgorithm___destroy___0 = Module["_emscripten_bind_btActivatingCollisionAlgorithm___destroy___0"] = function() {
- return (_emscripten_bind_btActivatingCollisionAlgorithm___destroy___0 = Module["_emscripten_bind_btActivatingCollisionAlgorithm___destroy___0"] = Module["asm"]["ua"]).apply(null, arguments);
-};
+var _emscripten_bind_btConvexShape_calculateLocalInertia_2 = Module["_emscripten_bind_btConvexShape_calculateLocalInertia_2"] = (a0, a1, a2) => (_emscripten_bind_btConvexShape_calculateLocalInertia_2 = Module["_emscripten_bind_btConvexShape_calculateLocalInertia_2"] = wasmExports["ma"])(a0, a1, a2);
 
-var _emscripten_bind_btDispatcher_getNumManifolds_0 = Module["_emscripten_bind_btDispatcher_getNumManifolds_0"] = function() {
- return (_emscripten_bind_btDispatcher_getNumManifolds_0 = Module["_emscripten_bind_btDispatcher_getNumManifolds_0"] = Module["asm"]["va"]).apply(null, arguments);
-};
+var _emscripten_bind_btConvexShape_setMargin_1 = Module["_emscripten_bind_btConvexShape_setMargin_1"] = (a0, a1) => (_emscripten_bind_btConvexShape_setMargin_1 = Module["_emscripten_bind_btConvexShape_setMargin_1"] = wasmExports["na"])(a0, a1);
 
-var _emscripten_bind_btDispatcher___destroy___0 = Module["_emscripten_bind_btDispatcher___destroy___0"] = function() {
- return (_emscripten_bind_btDispatcher___destroy___0 = Module["_emscripten_bind_btDispatcher___destroy___0"] = Module["asm"]["wa"]).apply(null, arguments);
-};
+var _emscripten_bind_btConvexShape_getMargin_0 = Module["_emscripten_bind_btConvexShape_getMargin_0"] = a0 => (_emscripten_bind_btConvexShape_getMargin_0 = Module["_emscripten_bind_btConvexShape_getMargin_0"] = wasmExports["oa"])(a0);
 
-var _emscripten_bind_btDynamicsWorld_addAction_1 = Module["_emscripten_bind_btDynamicsWorld_addAction_1"] = function() {
- return (_emscripten_bind_btDynamicsWorld_addAction_1 = Module["_emscripten_bind_btDynamicsWorld_addAction_1"] = Module["asm"]["xa"]).apply(null, arguments);
-};
+var _emscripten_bind_btConvexShape___destroy___0 = Module["_emscripten_bind_btConvexShape___destroy___0"] = a0 => (_emscripten_bind_btConvexShape___destroy___0 = Module["_emscripten_bind_btConvexShape___destroy___0"] = wasmExports["pa"])(a0);
 
-var _emscripten_bind_btDynamicsWorld_removeAction_1 = Module["_emscripten_bind_btDynamicsWorld_removeAction_1"] = function() {
- return (_emscripten_bind_btDynamicsWorld_removeAction_1 = Module["_emscripten_bind_btDynamicsWorld_removeAction_1"] = Module["asm"]["ya"]).apply(null, arguments);
-};
+var _emscripten_bind_btStridingMeshInterface_setScaling_1 = Module["_emscripten_bind_btStridingMeshInterface_setScaling_1"] = (a0, a1) => (_emscripten_bind_btStridingMeshInterface_setScaling_1 = Module["_emscripten_bind_btStridingMeshInterface_setScaling_1"] = wasmExports["qa"])(a0, a1);
 
-var _emscripten_bind_btDynamicsWorld_getSolverInfo_0 = Module["_emscripten_bind_btDynamicsWorld_getSolverInfo_0"] = function() {
- return (_emscripten_bind_btDynamicsWorld_getSolverInfo_0 = Module["_emscripten_bind_btDynamicsWorld_getSolverInfo_0"] = Module["asm"]["za"]).apply(null, arguments);
-};
+var _emscripten_bind_btStridingMeshInterface___destroy___0 = Module["_emscripten_bind_btStridingMeshInterface___destroy___0"] = a0 => (_emscripten_bind_btStridingMeshInterface___destroy___0 = Module["_emscripten_bind_btStridingMeshInterface___destroy___0"] = wasmExports["ra"])(a0);
 
-var _emscripten_bind_btDynamicsWorld_setInternalTickCallback_1 = Module["_emscripten_bind_btDynamicsWorld_setInternalTickCallback_1"] = function() {
- return (_emscripten_bind_btDynamicsWorld_setInternalTickCallback_1 = Module["_emscripten_bind_btDynamicsWorld_setInternalTickCallback_1"] = Module["asm"]["Aa"]).apply(null, arguments);
-};
+var _emscripten_bind_btTriangleMeshShape_setLocalScaling_1 = Module["_emscripten_bind_btTriangleMeshShape_setLocalScaling_1"] = (a0, a1) => (_emscripten_bind_btTriangleMeshShape_setLocalScaling_1 = Module["_emscripten_bind_btTriangleMeshShape_setLocalScaling_1"] = wasmExports["sa"])(a0, a1);
 
-var _emscripten_bind_btDynamicsWorld_setInternalTickCallback_2 = Module["_emscripten_bind_btDynamicsWorld_setInternalTickCallback_2"] = function() {
- return (_emscripten_bind_btDynamicsWorld_setInternalTickCallback_2 = Module["_emscripten_bind_btDynamicsWorld_setInternalTickCallback_2"] = Module["asm"]["Ba"]).apply(null, arguments);
-};
+var _emscripten_bind_btTriangleMeshShape_getLocalScaling_0 = Module["_emscripten_bind_btTriangleMeshShape_getLocalScaling_0"] = a0 => (_emscripten_bind_btTriangleMeshShape_getLocalScaling_0 = Module["_emscripten_bind_btTriangleMeshShape_getLocalScaling_0"] = wasmExports["ta"])(a0);
 
-var _emscripten_bind_btDynamicsWorld_setInternalTickCallback_3 = Module["_emscripten_bind_btDynamicsWorld_setInternalTickCallback_3"] = function() {
- return (_emscripten_bind_btDynamicsWorld_setInternalTickCallback_3 = Module["_emscripten_bind_btDynamicsWorld_setInternalTickCallback_3"] = Module["asm"]["Ca"]).apply(null, arguments);
-};
+var _emscripten_bind_btTriangleMeshShape_calculateLocalInertia_2 = Module["_emscripten_bind_btTriangleMeshShape_calculateLocalInertia_2"] = (a0, a1, a2) => (_emscripten_bind_btTriangleMeshShape_calculateLocalInertia_2 = Module["_emscripten_bind_btTriangleMeshShape_calculateLocalInertia_2"] = wasmExports["ua"])(a0, a1, a2);
 
-var _emscripten_bind_btDynamicsWorld_getDispatcher_0 = Module["_emscripten_bind_btDynamicsWorld_getDispatcher_0"] = function() {
- return (_emscripten_bind_btDynamicsWorld_getDispatcher_0 = Module["_emscripten_bind_btDynamicsWorld_getDispatcher_0"] = Module["asm"]["Da"]).apply(null, arguments);
-};
+var _emscripten_bind_btTriangleMeshShape___destroy___0 = Module["_emscripten_bind_btTriangleMeshShape___destroy___0"] = a0 => (_emscripten_bind_btTriangleMeshShape___destroy___0 = Module["_emscripten_bind_btTriangleMeshShape___destroy___0"] = wasmExports["va"])(a0);
 
-var _emscripten_bind_btDynamicsWorld_addCollisionObject_1 = Module["_emscripten_bind_btDynamicsWorld_addCollisionObject_1"] = function() {
- return (_emscripten_bind_btDynamicsWorld_addCollisionObject_1 = Module["_emscripten_bind_btDynamicsWorld_addCollisionObject_1"] = Module["asm"]["Ea"]).apply(null, arguments);
-};
+var _emscripten_bind_btActivatingCollisionAlgorithm___destroy___0 = Module["_emscripten_bind_btActivatingCollisionAlgorithm___destroy___0"] = a0 => (_emscripten_bind_btActivatingCollisionAlgorithm___destroy___0 = Module["_emscripten_bind_btActivatingCollisionAlgorithm___destroy___0"] = wasmExports["wa"])(a0);
 
-var _emscripten_bind_btDynamicsWorld_addCollisionObject_2 = Module["_emscripten_bind_btDynamicsWorld_addCollisionObject_2"] = function() {
- return (_emscripten_bind_btDynamicsWorld_addCollisionObject_2 = Module["_emscripten_bind_btDynamicsWorld_addCollisionObject_2"] = Module["asm"]["Fa"]).apply(null, arguments);
-};
+var _emscripten_bind_btDispatcher_getNumManifolds_0 = Module["_emscripten_bind_btDispatcher_getNumManifolds_0"] = a0 => (_emscripten_bind_btDispatcher_getNumManifolds_0 = Module["_emscripten_bind_btDispatcher_getNumManifolds_0"] = wasmExports["xa"])(a0);
 
-var _emscripten_bind_btDynamicsWorld_addCollisionObject_3 = Module["_emscripten_bind_btDynamicsWorld_addCollisionObject_3"] = function() {
- return (_emscripten_bind_btDynamicsWorld_addCollisionObject_3 = Module["_emscripten_bind_btDynamicsWorld_addCollisionObject_3"] = Module["asm"]["Ga"]).apply(null, arguments);
-};
+var _emscripten_bind_btDispatcher___destroy___0 = Module["_emscripten_bind_btDispatcher___destroy___0"] = a0 => (_emscripten_bind_btDispatcher___destroy___0 = Module["_emscripten_bind_btDispatcher___destroy___0"] = wasmExports["ya"])(a0);
 
-var _emscripten_bind_btDynamicsWorld_removeCollisionObject_1 = Module["_emscripten_bind_btDynamicsWorld_removeCollisionObject_1"] = function() {
- return (_emscripten_bind_btDynamicsWorld_removeCollisionObject_1 = Module["_emscripten_bind_btDynamicsWorld_removeCollisionObject_1"] = Module["asm"]["Ha"]).apply(null, arguments);
-};
+var _emscripten_bind_btDynamicsWorld_addAction_1 = Module["_emscripten_bind_btDynamicsWorld_addAction_1"] = (a0, a1) => (_emscripten_bind_btDynamicsWorld_addAction_1 = Module["_emscripten_bind_btDynamicsWorld_addAction_1"] = wasmExports["za"])(a0, a1);
 
-var _emscripten_bind_btDynamicsWorld_getBroadphase_0 = Module["_emscripten_bind_btDynamicsWorld_getBroadphase_0"] = function() {
- return (_emscripten_bind_btDynamicsWorld_getBroadphase_0 = Module["_emscripten_bind_btDynamicsWorld_getBroadphase_0"] = Module["asm"]["Ia"]).apply(null, arguments);
-};
+var _emscripten_bind_btDynamicsWorld_removeAction_1 = Module["_emscripten_bind_btDynamicsWorld_removeAction_1"] = (a0, a1) => (_emscripten_bind_btDynamicsWorld_removeAction_1 = Module["_emscripten_bind_btDynamicsWorld_removeAction_1"] = wasmExports["Aa"])(a0, a1);
 
-var _emscripten_bind_btDynamicsWorld___destroy___0 = Module["_emscripten_bind_btDynamicsWorld___destroy___0"] = function() {
- return (_emscripten_bind_btDynamicsWorld___destroy___0 = Module["_emscripten_bind_btDynamicsWorld___destroy___0"] = Module["asm"]["Ja"]).apply(null, arguments);
-};
+var _emscripten_bind_btDynamicsWorld_getSolverInfo_0 = Module["_emscripten_bind_btDynamicsWorld_getSolverInfo_0"] = a0 => (_emscripten_bind_btDynamicsWorld_getSolverInfo_0 = Module["_emscripten_bind_btDynamicsWorld_getSolverInfo_0"] = wasmExports["Ba"])(a0);
 
-var _emscripten_bind_btActionInterface_updateAction_2 = Module["_emscripten_bind_btActionInterface_updateAction_2"] = function() {
- return (_emscripten_bind_btActionInterface_updateAction_2 = Module["_emscripten_bind_btActionInterface_updateAction_2"] = Module["asm"]["Ka"]).apply(null, arguments);
-};
+var _emscripten_bind_btDynamicsWorld_setInternalTickCallback_1 = Module["_emscripten_bind_btDynamicsWorld_setInternalTickCallback_1"] = (a0, a1) => (_emscripten_bind_btDynamicsWorld_setInternalTickCallback_1 = Module["_emscripten_bind_btDynamicsWorld_setInternalTickCallback_1"] = wasmExports["Ca"])(a0, a1);
 
-var _emscripten_bind_btActionInterface___destroy___0 = Module["_emscripten_bind_btActionInterface___destroy___0"] = function() {
- return (_emscripten_bind_btActionInterface___destroy___0 = Module["_emscripten_bind_btActionInterface___destroy___0"] = Module["asm"]["La"]).apply(null, arguments);
-};
+var _emscripten_bind_btDynamicsWorld_setInternalTickCallback_2 = Module["_emscripten_bind_btDynamicsWorld_setInternalTickCallback_2"] = (a0, a1, a2) => (_emscripten_bind_btDynamicsWorld_setInternalTickCallback_2 = Module["_emscripten_bind_btDynamicsWorld_setInternalTickCallback_2"] = wasmExports["Da"])(a0, a1, a2);
 
-var _emscripten_bind_btGhostObject_btGhostObject_0 = Module["_emscripten_bind_btGhostObject_btGhostObject_0"] = function() {
- return (_emscripten_bind_btGhostObject_btGhostObject_0 = Module["_emscripten_bind_btGhostObject_btGhostObject_0"] = Module["asm"]["Ma"]).apply(null, arguments);
-};
+var _emscripten_bind_btDynamicsWorld_setInternalTickCallback_3 = Module["_emscripten_bind_btDynamicsWorld_setInternalTickCallback_3"] = (a0, a1, a2, a3) => (_emscripten_bind_btDynamicsWorld_setInternalTickCallback_3 = Module["_emscripten_bind_btDynamicsWorld_setInternalTickCallback_3"] = wasmExports["Ea"])(a0, a1, a2, a3);
 
-var _emscripten_bind_btGhostObject_getNumOverlappingObjects_0 = Module["_emscripten_bind_btGhostObject_getNumOverlappingObjects_0"] = function() {
- return (_emscripten_bind_btGhostObject_getNumOverlappingObjects_0 = Module["_emscripten_bind_btGhostObject_getNumOverlappingObjects_0"] = Module["asm"]["Na"]).apply(null, arguments);
-};
+var _emscripten_bind_btDynamicsWorld_getDispatcher_0 = Module["_emscripten_bind_btDynamicsWorld_getDispatcher_0"] = a0 => (_emscripten_bind_btDynamicsWorld_getDispatcher_0 = Module["_emscripten_bind_btDynamicsWorld_getDispatcher_0"] = wasmExports["Fa"])(a0);
 
-var _emscripten_bind_btGhostObject_getOverlappingObject_1 = Module["_emscripten_bind_btGhostObject_getOverlappingObject_1"] = function() {
- return (_emscripten_bind_btGhostObject_getOverlappingObject_1 = Module["_emscripten_bind_btGhostObject_getOverlappingObject_1"] = Module["asm"]["Oa"]).apply(null, arguments);
-};
+var _emscripten_bind_btDynamicsWorld_addCollisionObject_1 = Module["_emscripten_bind_btDynamicsWorld_addCollisionObject_1"] = (a0, a1) => (_emscripten_bind_btDynamicsWorld_addCollisionObject_1 = Module["_emscripten_bind_btDynamicsWorld_addCollisionObject_1"] = wasmExports["Ga"])(a0, a1);
 
-var _emscripten_bind_btGhostObject_getCollisionShape_0 = Module["_emscripten_bind_btGhostObject_getCollisionShape_0"] = function() {
- return (_emscripten_bind_btGhostObject_getCollisionShape_0 = Module["_emscripten_bind_btGhostObject_getCollisionShape_0"] = Module["asm"]["Pa"]).apply(null, arguments);
-};
+var _emscripten_bind_btDynamicsWorld_addCollisionObject_2 = Module["_emscripten_bind_btDynamicsWorld_addCollisionObject_2"] = (a0, a1, a2) => (_emscripten_bind_btDynamicsWorld_addCollisionObject_2 = Module["_emscripten_bind_btDynamicsWorld_addCollisionObject_2"] = wasmExports["Ha"])(a0, a1, a2);
 
-var _emscripten_bind_btGhostObject_isStaticObject_0 = Module["_emscripten_bind_btGhostObject_isStaticObject_0"] = function() {
- return (_emscripten_bind_btGhostObject_isStaticObject_0 = Module["_emscripten_bind_btGhostObject_isStaticObject_0"] = Module["asm"]["Qa"]).apply(null, arguments);
-};
+var _emscripten_bind_btDynamicsWorld_addCollisionObject_3 = Module["_emscripten_bind_btDynamicsWorld_addCollisionObject_3"] = (a0, a1, a2, a3) => (_emscripten_bind_btDynamicsWorld_addCollisionObject_3 = Module["_emscripten_bind_btDynamicsWorld_addCollisionObject_3"] = wasmExports["Ia"])(a0, a1, a2, a3);
 
-var _emscripten_bind_btGhostObject_setFriction_1 = Module["_emscripten_bind_btGhostObject_setFriction_1"] = function() {
- return (_emscripten_bind_btGhostObject_setFriction_1 = Module["_emscripten_bind_btGhostObject_setFriction_1"] = Module["asm"]["Ra"]).apply(null, arguments);
-};
+var _emscripten_bind_btDynamicsWorld_removeCollisionObject_1 = Module["_emscripten_bind_btDynamicsWorld_removeCollisionObject_1"] = (a0, a1) => (_emscripten_bind_btDynamicsWorld_removeCollisionObject_1 = Module["_emscripten_bind_btDynamicsWorld_removeCollisionObject_1"] = wasmExports["Ja"])(a0, a1);
 
-var _emscripten_bind_btGhostObject_getWorldTransform_0 = Module["_emscripten_bind_btGhostObject_getWorldTransform_0"] = function() {
- return (_emscripten_bind_btGhostObject_getWorldTransform_0 = Module["_emscripten_bind_btGhostObject_getWorldTransform_0"] = Module["asm"]["Sa"]).apply(null, arguments);
-};
+var _emscripten_bind_btDynamicsWorld_getBroadphase_0 = Module["_emscripten_bind_btDynamicsWorld_getBroadphase_0"] = a0 => (_emscripten_bind_btDynamicsWorld_getBroadphase_0 = Module["_emscripten_bind_btDynamicsWorld_getBroadphase_0"] = wasmExports["Ka"])(a0);
 
-var _emscripten_bind_btGhostObject_setCollisionFlags_1 = Module["_emscripten_bind_btGhostObject_setCollisionFlags_1"] = function() {
- return (_emscripten_bind_btGhostObject_setCollisionFlags_1 = Module["_emscripten_bind_btGhostObject_setCollisionFlags_1"] = Module["asm"]["Ta"]).apply(null, arguments);
-};
+var _emscripten_bind_btDynamicsWorld___destroy___0 = Module["_emscripten_bind_btDynamicsWorld___destroy___0"] = a0 => (_emscripten_bind_btDynamicsWorld___destroy___0 = Module["_emscripten_bind_btDynamicsWorld___destroy___0"] = wasmExports["La"])(a0);
 
-var _emscripten_bind_btGhostObject_setWorldTransform_1 = Module["_emscripten_bind_btGhostObject_setWorldTransform_1"] = function() {
- return (_emscripten_bind_btGhostObject_setWorldTransform_1 = Module["_emscripten_bind_btGhostObject_setWorldTransform_1"] = Module["asm"]["Ua"]).apply(null, arguments);
-};
+var _emscripten_bind_btActionInterface_updateAction_2 = Module["_emscripten_bind_btActionInterface_updateAction_2"] = (a0, a1, a2) => (_emscripten_bind_btActionInterface_updateAction_2 = Module["_emscripten_bind_btActionInterface_updateAction_2"] = wasmExports["Ma"])(a0, a1, a2);
 
-var _emscripten_bind_btGhostObject_setCollisionShape_1 = Module["_emscripten_bind_btGhostObject_setCollisionShape_1"] = function() {
- return (_emscripten_bind_btGhostObject_setCollisionShape_1 = Module["_emscripten_bind_btGhostObject_setCollisionShape_1"] = Module["asm"]["Va"]).apply(null, arguments);
-};
+var _emscripten_bind_btActionInterface___destroy___0 = Module["_emscripten_bind_btActionInterface___destroy___0"] = a0 => (_emscripten_bind_btActionInterface___destroy___0 = Module["_emscripten_bind_btActionInterface___destroy___0"] = wasmExports["Na"])(a0);
 
-var _emscripten_bind_btGhostObject___destroy___0 = Module["_emscripten_bind_btGhostObject___destroy___0"] = function() {
- return (_emscripten_bind_btGhostObject___destroy___0 = Module["_emscripten_bind_btGhostObject___destroy___0"] = Module["asm"]["Wa"]).apply(null, arguments);
-};
+var _emscripten_bind_btGhostObject_btGhostObject_0 = Module["_emscripten_bind_btGhostObject_btGhostObject_0"] = () => (_emscripten_bind_btGhostObject_btGhostObject_0 = Module["_emscripten_bind_btGhostObject_btGhostObject_0"] = wasmExports["Oa"])();
 
-var _emscripten_bind_VoidPtr___destroy___0 = Module["_emscripten_bind_VoidPtr___destroy___0"] = function() {
- return (_emscripten_bind_VoidPtr___destroy___0 = Module["_emscripten_bind_VoidPtr___destroy___0"] = Module["asm"]["Xa"]).apply(null, arguments);
-};
+var _emscripten_bind_btGhostObject_getNumOverlappingObjects_0 = Module["_emscripten_bind_btGhostObject_getNumOverlappingObjects_0"] = a0 => (_emscripten_bind_btGhostObject_getNumOverlappingObjects_0 = Module["_emscripten_bind_btGhostObject_getNumOverlappingObjects_0"] = wasmExports["Pa"])(a0);
 
-var _emscripten_bind_btVector4_btVector4_0 = Module["_emscripten_bind_btVector4_btVector4_0"] = function() {
- return (_emscripten_bind_btVector4_btVector4_0 = Module["_emscripten_bind_btVector4_btVector4_0"] = Module["asm"]["Ya"]).apply(null, arguments);
-};
+var _emscripten_bind_btGhostObject_getOverlappingObject_1 = Module["_emscripten_bind_btGhostObject_getOverlappingObject_1"] = (a0, a1) => (_emscripten_bind_btGhostObject_getOverlappingObject_1 = Module["_emscripten_bind_btGhostObject_getOverlappingObject_1"] = wasmExports["Qa"])(a0, a1);
 
-var _emscripten_bind_btVector4_btVector4_4 = Module["_emscripten_bind_btVector4_btVector4_4"] = function() {
- return (_emscripten_bind_btVector4_btVector4_4 = Module["_emscripten_bind_btVector4_btVector4_4"] = Module["asm"]["Za"]).apply(null, arguments);
-};
+var _emscripten_bind_btGhostObject_getCollisionShape_0 = Module["_emscripten_bind_btGhostObject_getCollisionShape_0"] = a0 => (_emscripten_bind_btGhostObject_getCollisionShape_0 = Module["_emscripten_bind_btGhostObject_getCollisionShape_0"] = wasmExports["Ra"])(a0);
 
-var _emscripten_bind_btVector4_w_0 = Module["_emscripten_bind_btVector4_w_0"] = function() {
- return (_emscripten_bind_btVector4_w_0 = Module["_emscripten_bind_btVector4_w_0"] = Module["asm"]["_a"]).apply(null, arguments);
-};
+var _emscripten_bind_btGhostObject_isStaticObject_0 = Module["_emscripten_bind_btGhostObject_isStaticObject_0"] = a0 => (_emscripten_bind_btGhostObject_isStaticObject_0 = Module["_emscripten_bind_btGhostObject_isStaticObject_0"] = wasmExports["Sa"])(a0);
 
-var _emscripten_bind_btVector4_setValue_4 = Module["_emscripten_bind_btVector4_setValue_4"] = function() {
- return (_emscripten_bind_btVector4_setValue_4 = Module["_emscripten_bind_btVector4_setValue_4"] = Module["asm"]["$a"]).apply(null, arguments);
-};
+var _emscripten_bind_btGhostObject_setFriction_1 = Module["_emscripten_bind_btGhostObject_setFriction_1"] = (a0, a1) => (_emscripten_bind_btGhostObject_setFriction_1 = Module["_emscripten_bind_btGhostObject_setFriction_1"] = wasmExports["Ta"])(a0, a1);
 
-var _emscripten_bind_btVector4_length_0 = Module["_emscripten_bind_btVector4_length_0"] = function() {
- return (_emscripten_bind_btVector4_length_0 = Module["_emscripten_bind_btVector4_length_0"] = Module["asm"]["ab"]).apply(null, arguments);
-};
+var _emscripten_bind_btGhostObject_getWorldTransform_0 = Module["_emscripten_bind_btGhostObject_getWorldTransform_0"] = a0 => (_emscripten_bind_btGhostObject_getWorldTransform_0 = Module["_emscripten_bind_btGhostObject_getWorldTransform_0"] = wasmExports["Ua"])(a0);
 
-var _emscripten_bind_btVector4_x_0 = Module["_emscripten_bind_btVector4_x_0"] = function() {
- return (_emscripten_bind_btVector4_x_0 = Module["_emscripten_bind_btVector4_x_0"] = Module["asm"]["bb"]).apply(null, arguments);
-};
+var _emscripten_bind_btGhostObject_setCollisionFlags_1 = Module["_emscripten_bind_btGhostObject_setCollisionFlags_1"] = (a0, a1) => (_emscripten_bind_btGhostObject_setCollisionFlags_1 = Module["_emscripten_bind_btGhostObject_setCollisionFlags_1"] = wasmExports["Va"])(a0, a1);
 
-var _emscripten_bind_btVector4_y_0 = Module["_emscripten_bind_btVector4_y_0"] = function() {
- return (_emscripten_bind_btVector4_y_0 = Module["_emscripten_bind_btVector4_y_0"] = Module["asm"]["cb"]).apply(null, arguments);
-};
+var _emscripten_bind_btGhostObject_setWorldTransform_1 = Module["_emscripten_bind_btGhostObject_setWorldTransform_1"] = (a0, a1) => (_emscripten_bind_btGhostObject_setWorldTransform_1 = Module["_emscripten_bind_btGhostObject_setWorldTransform_1"] = wasmExports["Wa"])(a0, a1);
 
-var _emscripten_bind_btVector4_z_0 = Module["_emscripten_bind_btVector4_z_0"] = function() {
- return (_emscripten_bind_btVector4_z_0 = Module["_emscripten_bind_btVector4_z_0"] = Module["asm"]["db"]).apply(null, arguments);
-};
+var _emscripten_bind_btGhostObject_setCollisionShape_1 = Module["_emscripten_bind_btGhostObject_setCollisionShape_1"] = (a0, a1) => (_emscripten_bind_btGhostObject_setCollisionShape_1 = Module["_emscripten_bind_btGhostObject_setCollisionShape_1"] = wasmExports["Xa"])(a0, a1);
 
-var _emscripten_bind_btVector4_setX_1 = Module["_emscripten_bind_btVector4_setX_1"] = function() {
- return (_emscripten_bind_btVector4_setX_1 = Module["_emscripten_bind_btVector4_setX_1"] = Module["asm"]["eb"]).apply(null, arguments);
-};
+var _emscripten_bind_btGhostObject___destroy___0 = Module["_emscripten_bind_btGhostObject___destroy___0"] = a0 => (_emscripten_bind_btGhostObject___destroy___0 = Module["_emscripten_bind_btGhostObject___destroy___0"] = wasmExports["Ya"])(a0);
 
-var _emscripten_bind_btVector4_setY_1 = Module["_emscripten_bind_btVector4_setY_1"] = function() {
- return (_emscripten_bind_btVector4_setY_1 = Module["_emscripten_bind_btVector4_setY_1"] = Module["asm"]["fb"]).apply(null, arguments);
-};
+var _emscripten_bind_VoidPtr___destroy___0 = Module["_emscripten_bind_VoidPtr___destroy___0"] = a0 => (_emscripten_bind_VoidPtr___destroy___0 = Module["_emscripten_bind_VoidPtr___destroy___0"] = wasmExports["Za"])(a0);
 
-var _emscripten_bind_btVector4_setZ_1 = Module["_emscripten_bind_btVector4_setZ_1"] = function() {
- return (_emscripten_bind_btVector4_setZ_1 = Module["_emscripten_bind_btVector4_setZ_1"] = Module["asm"]["gb"]).apply(null, arguments);
-};
+var _emscripten_bind_btVector4_btVector4_0 = Module["_emscripten_bind_btVector4_btVector4_0"] = () => (_emscripten_bind_btVector4_btVector4_0 = Module["_emscripten_bind_btVector4_btVector4_0"] = wasmExports["_a"])();
 
-var _emscripten_bind_btVector4_normalize_0 = Module["_emscripten_bind_btVector4_normalize_0"] = function() {
- return (_emscripten_bind_btVector4_normalize_0 = Module["_emscripten_bind_btVector4_normalize_0"] = Module["asm"]["hb"]).apply(null, arguments);
-};
+var _emscripten_bind_btVector4_btVector4_4 = Module["_emscripten_bind_btVector4_btVector4_4"] = (a0, a1, a2, a3) => (_emscripten_bind_btVector4_btVector4_4 = Module["_emscripten_bind_btVector4_btVector4_4"] = wasmExports["$a"])(a0, a1, a2, a3);
 
-var _emscripten_bind_btVector4_rotate_2 = Module["_emscripten_bind_btVector4_rotate_2"] = function() {
- return (_emscripten_bind_btVector4_rotate_2 = Module["_emscripten_bind_btVector4_rotate_2"] = Module["asm"]["ib"]).apply(null, arguments);
-};
+var _emscripten_bind_btVector4_w_0 = Module["_emscripten_bind_btVector4_w_0"] = a0 => (_emscripten_bind_btVector4_w_0 = Module["_emscripten_bind_btVector4_w_0"] = wasmExports["ab"])(a0);
 
-var _emscripten_bind_btVector4_dot_1 = Module["_emscripten_bind_btVector4_dot_1"] = function() {
- return (_emscripten_bind_btVector4_dot_1 = Module["_emscripten_bind_btVector4_dot_1"] = Module["asm"]["jb"]).apply(null, arguments);
-};
+var _emscripten_bind_btVector4_setValue_4 = Module["_emscripten_bind_btVector4_setValue_4"] = (a0, a1, a2, a3, a4) => (_emscripten_bind_btVector4_setValue_4 = Module["_emscripten_bind_btVector4_setValue_4"] = wasmExports["bb"])(a0, a1, a2, a3, a4);
 
-var _emscripten_bind_btVector4_op_mul_1 = Module["_emscripten_bind_btVector4_op_mul_1"] = function() {
- return (_emscripten_bind_btVector4_op_mul_1 = Module["_emscripten_bind_btVector4_op_mul_1"] = Module["asm"]["kb"]).apply(null, arguments);
-};
+var _emscripten_bind_btVector4_length_0 = Module["_emscripten_bind_btVector4_length_0"] = a0 => (_emscripten_bind_btVector4_length_0 = Module["_emscripten_bind_btVector4_length_0"] = wasmExports["cb"])(a0);
 
-var _emscripten_bind_btVector4_op_add_1 = Module["_emscripten_bind_btVector4_op_add_1"] = function() {
- return (_emscripten_bind_btVector4_op_add_1 = Module["_emscripten_bind_btVector4_op_add_1"] = Module["asm"]["lb"]).apply(null, arguments);
-};
+var _emscripten_bind_btVector4_x_0 = Module["_emscripten_bind_btVector4_x_0"] = a0 => (_emscripten_bind_btVector4_x_0 = Module["_emscripten_bind_btVector4_x_0"] = wasmExports["db"])(a0);
 
-var _emscripten_bind_btVector4_op_sub_1 = Module["_emscripten_bind_btVector4_op_sub_1"] = function() {
- return (_emscripten_bind_btVector4_op_sub_1 = Module["_emscripten_bind_btVector4_op_sub_1"] = Module["asm"]["mb"]).apply(null, arguments);
-};
+var _emscripten_bind_btVector4_y_0 = Module["_emscripten_bind_btVector4_y_0"] = a0 => (_emscripten_bind_btVector4_y_0 = Module["_emscripten_bind_btVector4_y_0"] = wasmExports["eb"])(a0);
 
-var _emscripten_bind_btVector4___destroy___0 = Module["_emscripten_bind_btVector4___destroy___0"] = function() {
- return (_emscripten_bind_btVector4___destroy___0 = Module["_emscripten_bind_btVector4___destroy___0"] = Module["asm"]["nb"]).apply(null, arguments);
-};
+var _emscripten_bind_btVector4_z_0 = Module["_emscripten_bind_btVector4_z_0"] = a0 => (_emscripten_bind_btVector4_z_0 = Module["_emscripten_bind_btVector4_z_0"] = wasmExports["fb"])(a0);
 
-var _emscripten_bind_btQuaternion_btQuaternion_4 = Module["_emscripten_bind_btQuaternion_btQuaternion_4"] = function() {
- return (_emscripten_bind_btQuaternion_btQuaternion_4 = Module["_emscripten_bind_btQuaternion_btQuaternion_4"] = Module["asm"]["ob"]).apply(null, arguments);
-};
+var _emscripten_bind_btVector4_setX_1 = Module["_emscripten_bind_btVector4_setX_1"] = (a0, a1) => (_emscripten_bind_btVector4_setX_1 = Module["_emscripten_bind_btVector4_setX_1"] = wasmExports["gb"])(a0, a1);
 
-var _emscripten_bind_btQuaternion_setValue_4 = Module["_emscripten_bind_btQuaternion_setValue_4"] = function() {
- return (_emscripten_bind_btQuaternion_setValue_4 = Module["_emscripten_bind_btQuaternion_setValue_4"] = Module["asm"]["pb"]).apply(null, arguments);
-};
+var _emscripten_bind_btVector4_setY_1 = Module["_emscripten_bind_btVector4_setY_1"] = (a0, a1) => (_emscripten_bind_btVector4_setY_1 = Module["_emscripten_bind_btVector4_setY_1"] = wasmExports["hb"])(a0, a1);
 
-var _emscripten_bind_btQuaternion_setEulerZYX_3 = Module["_emscripten_bind_btQuaternion_setEulerZYX_3"] = function() {
- return (_emscripten_bind_btQuaternion_setEulerZYX_3 = Module["_emscripten_bind_btQuaternion_setEulerZYX_3"] = Module["asm"]["qb"]).apply(null, arguments);
-};
+var _emscripten_bind_btVector4_setZ_1 = Module["_emscripten_bind_btVector4_setZ_1"] = (a0, a1) => (_emscripten_bind_btVector4_setZ_1 = Module["_emscripten_bind_btVector4_setZ_1"] = wasmExports["ib"])(a0, a1);
 
-var _emscripten_bind_btQuaternion_setRotation_2 = Module["_emscripten_bind_btQuaternion_setRotation_2"] = function() {
- return (_emscripten_bind_btQuaternion_setRotation_2 = Module["_emscripten_bind_btQuaternion_setRotation_2"] = Module["asm"]["rb"]).apply(null, arguments);
-};
+var _emscripten_bind_btVector4_normalize_0 = Module["_emscripten_bind_btVector4_normalize_0"] = a0 => (_emscripten_bind_btVector4_normalize_0 = Module["_emscripten_bind_btVector4_normalize_0"] = wasmExports["jb"])(a0);
 
-var _emscripten_bind_btQuaternion_normalize_0 = Module["_emscripten_bind_btQuaternion_normalize_0"] = function() {
- return (_emscripten_bind_btQuaternion_normalize_0 = Module["_emscripten_bind_btQuaternion_normalize_0"] = Module["asm"]["sb"]).apply(null, arguments);
-};
+var _emscripten_bind_btVector4_rotate_2 = Module["_emscripten_bind_btVector4_rotate_2"] = (a0, a1, a2) => (_emscripten_bind_btVector4_rotate_2 = Module["_emscripten_bind_btVector4_rotate_2"] = wasmExports["kb"])(a0, a1, a2);
 
-var _emscripten_bind_btQuaternion_length2_0 = Module["_emscripten_bind_btQuaternion_length2_0"] = function() {
- return (_emscripten_bind_btQuaternion_length2_0 = Module["_emscripten_bind_btQuaternion_length2_0"] = Module["asm"]["tb"]).apply(null, arguments);
-};
+var _emscripten_bind_btVector4_dot_1 = Module["_emscripten_bind_btVector4_dot_1"] = (a0, a1) => (_emscripten_bind_btVector4_dot_1 = Module["_emscripten_bind_btVector4_dot_1"] = wasmExports["lb"])(a0, a1);
 
-var _emscripten_bind_btQuaternion_length_0 = Module["_emscripten_bind_btQuaternion_length_0"] = function() {
- return (_emscripten_bind_btQuaternion_length_0 = Module["_emscripten_bind_btQuaternion_length_0"] = Module["asm"]["ub"]).apply(null, arguments);
-};
+var _emscripten_bind_btVector4_op_mul_1 = Module["_emscripten_bind_btVector4_op_mul_1"] = (a0, a1) => (_emscripten_bind_btVector4_op_mul_1 = Module["_emscripten_bind_btVector4_op_mul_1"] = wasmExports["mb"])(a0, a1);
 
-var _emscripten_bind_btQuaternion_dot_1 = Module["_emscripten_bind_btQuaternion_dot_1"] = function() {
- return (_emscripten_bind_btQuaternion_dot_1 = Module["_emscripten_bind_btQuaternion_dot_1"] = Module["asm"]["vb"]).apply(null, arguments);
-};
+var _emscripten_bind_btVector4_op_add_1 = Module["_emscripten_bind_btVector4_op_add_1"] = (a0, a1) => (_emscripten_bind_btVector4_op_add_1 = Module["_emscripten_bind_btVector4_op_add_1"] = wasmExports["nb"])(a0, a1);
 
-var _emscripten_bind_btQuaternion_normalized_0 = Module["_emscripten_bind_btQuaternion_normalized_0"] = function() {
- return (_emscripten_bind_btQuaternion_normalized_0 = Module["_emscripten_bind_btQuaternion_normalized_0"] = Module["asm"]["wb"]).apply(null, arguments);
-};
+var _emscripten_bind_btVector4_op_sub_1 = Module["_emscripten_bind_btVector4_op_sub_1"] = (a0, a1) => (_emscripten_bind_btVector4_op_sub_1 = Module["_emscripten_bind_btVector4_op_sub_1"] = wasmExports["ob"])(a0, a1);
 
-var _emscripten_bind_btQuaternion_getAxis_0 = Module["_emscripten_bind_btQuaternion_getAxis_0"] = function() {
- return (_emscripten_bind_btQuaternion_getAxis_0 = Module["_emscripten_bind_btQuaternion_getAxis_0"] = Module["asm"]["xb"]).apply(null, arguments);
-};
+var _emscripten_bind_btVector4___destroy___0 = Module["_emscripten_bind_btVector4___destroy___0"] = a0 => (_emscripten_bind_btVector4___destroy___0 = Module["_emscripten_bind_btVector4___destroy___0"] = wasmExports["pb"])(a0);
 
-var _emscripten_bind_btQuaternion_inverse_0 = Module["_emscripten_bind_btQuaternion_inverse_0"] = function() {
- return (_emscripten_bind_btQuaternion_inverse_0 = Module["_emscripten_bind_btQuaternion_inverse_0"] = Module["asm"]["yb"]).apply(null, arguments);
-};
+var _emscripten_bind_btQuaternion_btQuaternion_4 = Module["_emscripten_bind_btQuaternion_btQuaternion_4"] = (a0, a1, a2, a3) => (_emscripten_bind_btQuaternion_btQuaternion_4 = Module["_emscripten_bind_btQuaternion_btQuaternion_4"] = wasmExports["qb"])(a0, a1, a2, a3);
 
-var _emscripten_bind_btQuaternion_getAngle_0 = Module["_emscripten_bind_btQuaternion_getAngle_0"] = function() {
- return (_emscripten_bind_btQuaternion_getAngle_0 = Module["_emscripten_bind_btQuaternion_getAngle_0"] = Module["asm"]["zb"]).apply(null, arguments);
-};
+var _emscripten_bind_btQuaternion_setValue_4 = Module["_emscripten_bind_btQuaternion_setValue_4"] = (a0, a1, a2, a3, a4) => (_emscripten_bind_btQuaternion_setValue_4 = Module["_emscripten_bind_btQuaternion_setValue_4"] = wasmExports["rb"])(a0, a1, a2, a3, a4);
 
-var _emscripten_bind_btQuaternion_getAngleShortestPath_0 = Module["_emscripten_bind_btQuaternion_getAngleShortestPath_0"] = function() {
- return (_emscripten_bind_btQuaternion_getAngleShortestPath_0 = Module["_emscripten_bind_btQuaternion_getAngleShortestPath_0"] = Module["asm"]["Ab"]).apply(null, arguments);
-};
+var _emscripten_bind_btQuaternion_setEulerZYX_3 = Module["_emscripten_bind_btQuaternion_setEulerZYX_3"] = (a0, a1, a2, a3) => (_emscripten_bind_btQuaternion_setEulerZYX_3 = Module["_emscripten_bind_btQuaternion_setEulerZYX_3"] = wasmExports["sb"])(a0, a1, a2, a3);
 
-var _emscripten_bind_btQuaternion_angle_1 = Module["_emscripten_bind_btQuaternion_angle_1"] = function() {
- return (_emscripten_bind_btQuaternion_angle_1 = Module["_emscripten_bind_btQuaternion_angle_1"] = Module["asm"]["Bb"]).apply(null, arguments);
-};
+var _emscripten_bind_btQuaternion_setRotation_2 = Module["_emscripten_bind_btQuaternion_setRotation_2"] = (a0, a1, a2) => (_emscripten_bind_btQuaternion_setRotation_2 = Module["_emscripten_bind_btQuaternion_setRotation_2"] = wasmExports["tb"])(a0, a1, a2);
 
-var _emscripten_bind_btQuaternion_angleShortestPath_1 = Module["_emscripten_bind_btQuaternion_angleShortestPath_1"] = function() {
- return (_emscripten_bind_btQuaternion_angleShortestPath_1 = Module["_emscripten_bind_btQuaternion_angleShortestPath_1"] = Module["asm"]["Cb"]).apply(null, arguments);
-};
+var _emscripten_bind_btQuaternion_normalize_0 = Module["_emscripten_bind_btQuaternion_normalize_0"] = a0 => (_emscripten_bind_btQuaternion_normalize_0 = Module["_emscripten_bind_btQuaternion_normalize_0"] = wasmExports["ub"])(a0);
 
-var _emscripten_bind_btQuaternion_op_add_1 = Module["_emscripten_bind_btQuaternion_op_add_1"] = function() {
- return (_emscripten_bind_btQuaternion_op_add_1 = Module["_emscripten_bind_btQuaternion_op_add_1"] = Module["asm"]["Db"]).apply(null, arguments);
-};
+var _emscripten_bind_btQuaternion_length2_0 = Module["_emscripten_bind_btQuaternion_length2_0"] = a0 => (_emscripten_bind_btQuaternion_length2_0 = Module["_emscripten_bind_btQuaternion_length2_0"] = wasmExports["vb"])(a0);
 
-var _emscripten_bind_btQuaternion_op_sub_1 = Module["_emscripten_bind_btQuaternion_op_sub_1"] = function() {
- return (_emscripten_bind_btQuaternion_op_sub_1 = Module["_emscripten_bind_btQuaternion_op_sub_1"] = Module["asm"]["Eb"]).apply(null, arguments);
-};
+var _emscripten_bind_btQuaternion_length_0 = Module["_emscripten_bind_btQuaternion_length_0"] = a0 => (_emscripten_bind_btQuaternion_length_0 = Module["_emscripten_bind_btQuaternion_length_0"] = wasmExports["wb"])(a0);
 
-var _emscripten_bind_btQuaternion_op_mul_1 = Module["_emscripten_bind_btQuaternion_op_mul_1"] = function() {
- return (_emscripten_bind_btQuaternion_op_mul_1 = Module["_emscripten_bind_btQuaternion_op_mul_1"] = Module["asm"]["Fb"]).apply(null, arguments);
-};
+var _emscripten_bind_btQuaternion_dot_1 = Module["_emscripten_bind_btQuaternion_dot_1"] = (a0, a1) => (_emscripten_bind_btQuaternion_dot_1 = Module["_emscripten_bind_btQuaternion_dot_1"] = wasmExports["xb"])(a0, a1);
 
-var _emscripten_bind_btQuaternion_op_mulq_1 = Module["_emscripten_bind_btQuaternion_op_mulq_1"] = function() {
- return (_emscripten_bind_btQuaternion_op_mulq_1 = Module["_emscripten_bind_btQuaternion_op_mulq_1"] = Module["asm"]["Gb"]).apply(null, arguments);
-};
+var _emscripten_bind_btQuaternion_normalized_0 = Module["_emscripten_bind_btQuaternion_normalized_0"] = a0 => (_emscripten_bind_btQuaternion_normalized_0 = Module["_emscripten_bind_btQuaternion_normalized_0"] = wasmExports["yb"])(a0);
 
-var _emscripten_bind_btQuaternion_op_div_1 = Module["_emscripten_bind_btQuaternion_op_div_1"] = function() {
- return (_emscripten_bind_btQuaternion_op_div_1 = Module["_emscripten_bind_btQuaternion_op_div_1"] = Module["asm"]["Hb"]).apply(null, arguments);
-};
+var _emscripten_bind_btQuaternion_getAxis_0 = Module["_emscripten_bind_btQuaternion_getAxis_0"] = a0 => (_emscripten_bind_btQuaternion_getAxis_0 = Module["_emscripten_bind_btQuaternion_getAxis_0"] = wasmExports["zb"])(a0);
 
-var _emscripten_bind_btQuaternion_x_0 = Module["_emscripten_bind_btQuaternion_x_0"] = function() {
- return (_emscripten_bind_btQuaternion_x_0 = Module["_emscripten_bind_btQuaternion_x_0"] = Module["asm"]["Ib"]).apply(null, arguments);
-};
+var _emscripten_bind_btQuaternion_inverse_0 = Module["_emscripten_bind_btQuaternion_inverse_0"] = a0 => (_emscripten_bind_btQuaternion_inverse_0 = Module["_emscripten_bind_btQuaternion_inverse_0"] = wasmExports["Ab"])(a0);
 
-var _emscripten_bind_btQuaternion_y_0 = Module["_emscripten_bind_btQuaternion_y_0"] = function() {
- return (_emscripten_bind_btQuaternion_y_0 = Module["_emscripten_bind_btQuaternion_y_0"] = Module["asm"]["Jb"]).apply(null, arguments);
-};
+var _emscripten_bind_btQuaternion_getAngle_0 = Module["_emscripten_bind_btQuaternion_getAngle_0"] = a0 => (_emscripten_bind_btQuaternion_getAngle_0 = Module["_emscripten_bind_btQuaternion_getAngle_0"] = wasmExports["Bb"])(a0);
 
-var _emscripten_bind_btQuaternion_z_0 = Module["_emscripten_bind_btQuaternion_z_0"] = function() {
- return (_emscripten_bind_btQuaternion_z_0 = Module["_emscripten_bind_btQuaternion_z_0"] = Module["asm"]["Kb"]).apply(null, arguments);
-};
+var _emscripten_bind_btQuaternion_getAngleShortestPath_0 = Module["_emscripten_bind_btQuaternion_getAngleShortestPath_0"] = a0 => (_emscripten_bind_btQuaternion_getAngleShortestPath_0 = Module["_emscripten_bind_btQuaternion_getAngleShortestPath_0"] = wasmExports["Cb"])(a0);
 
-var _emscripten_bind_btQuaternion_w_0 = Module["_emscripten_bind_btQuaternion_w_0"] = function() {
- return (_emscripten_bind_btQuaternion_w_0 = Module["_emscripten_bind_btQuaternion_w_0"] = Module["asm"]["Lb"]).apply(null, arguments);
-};
+var _emscripten_bind_btQuaternion_angle_1 = Module["_emscripten_bind_btQuaternion_angle_1"] = (a0, a1) => (_emscripten_bind_btQuaternion_angle_1 = Module["_emscripten_bind_btQuaternion_angle_1"] = wasmExports["Db"])(a0, a1);
 
-var _emscripten_bind_btQuaternion_setX_1 = Module["_emscripten_bind_btQuaternion_setX_1"] = function() {
- return (_emscripten_bind_btQuaternion_setX_1 = Module["_emscripten_bind_btQuaternion_setX_1"] = Module["asm"]["Mb"]).apply(null, arguments);
-};
+var _emscripten_bind_btQuaternion_angleShortestPath_1 = Module["_emscripten_bind_btQuaternion_angleShortestPath_1"] = (a0, a1) => (_emscripten_bind_btQuaternion_angleShortestPath_1 = Module["_emscripten_bind_btQuaternion_angleShortestPath_1"] = wasmExports["Eb"])(a0, a1);
 
-var _emscripten_bind_btQuaternion_setY_1 = Module["_emscripten_bind_btQuaternion_setY_1"] = function() {
- return (_emscripten_bind_btQuaternion_setY_1 = Module["_emscripten_bind_btQuaternion_setY_1"] = Module["asm"]["Nb"]).apply(null, arguments);
-};
+var _emscripten_bind_btQuaternion_op_add_1 = Module["_emscripten_bind_btQuaternion_op_add_1"] = (a0, a1) => (_emscripten_bind_btQuaternion_op_add_1 = Module["_emscripten_bind_btQuaternion_op_add_1"] = wasmExports["Fb"])(a0, a1);
 
-var _emscripten_bind_btQuaternion_setZ_1 = Module["_emscripten_bind_btQuaternion_setZ_1"] = function() {
- return (_emscripten_bind_btQuaternion_setZ_1 = Module["_emscripten_bind_btQuaternion_setZ_1"] = Module["asm"]["Ob"]).apply(null, arguments);
-};
+var _emscripten_bind_btQuaternion_op_sub_1 = Module["_emscripten_bind_btQuaternion_op_sub_1"] = (a0, a1) => (_emscripten_bind_btQuaternion_op_sub_1 = Module["_emscripten_bind_btQuaternion_op_sub_1"] = wasmExports["Gb"])(a0, a1);
 
-var _emscripten_bind_btQuaternion_setW_1 = Module["_emscripten_bind_btQuaternion_setW_1"] = function() {
- return (_emscripten_bind_btQuaternion_setW_1 = Module["_emscripten_bind_btQuaternion_setW_1"] = Module["asm"]["Pb"]).apply(null, arguments);
-};
+var _emscripten_bind_btQuaternion_op_mul_1 = Module["_emscripten_bind_btQuaternion_op_mul_1"] = (a0, a1) => (_emscripten_bind_btQuaternion_op_mul_1 = Module["_emscripten_bind_btQuaternion_op_mul_1"] = wasmExports["Hb"])(a0, a1);
 
-var _emscripten_bind_btQuaternion___destroy___0 = Module["_emscripten_bind_btQuaternion___destroy___0"] = function() {
- return (_emscripten_bind_btQuaternion___destroy___0 = Module["_emscripten_bind_btQuaternion___destroy___0"] = Module["asm"]["Qb"]).apply(null, arguments);
-};
+var _emscripten_bind_btQuaternion_op_mulq_1 = Module["_emscripten_bind_btQuaternion_op_mulq_1"] = (a0, a1) => (_emscripten_bind_btQuaternion_op_mulq_1 = Module["_emscripten_bind_btQuaternion_op_mulq_1"] = wasmExports["Ib"])(a0, a1);
 
-var _emscripten_bind_btMatrix3x3_setEulerZYX_3 = Module["_emscripten_bind_btMatrix3x3_setEulerZYX_3"] = function() {
- return (_emscripten_bind_btMatrix3x3_setEulerZYX_3 = Module["_emscripten_bind_btMatrix3x3_setEulerZYX_3"] = Module["asm"]["Rb"]).apply(null, arguments);
-};
+var _emscripten_bind_btQuaternion_op_div_1 = Module["_emscripten_bind_btQuaternion_op_div_1"] = (a0, a1) => (_emscripten_bind_btQuaternion_op_div_1 = Module["_emscripten_bind_btQuaternion_op_div_1"] = wasmExports["Jb"])(a0, a1);
 
-var _emscripten_bind_btMatrix3x3_getRotation_1 = Module["_emscripten_bind_btMatrix3x3_getRotation_1"] = function() {
- return (_emscripten_bind_btMatrix3x3_getRotation_1 = Module["_emscripten_bind_btMatrix3x3_getRotation_1"] = Module["asm"]["Sb"]).apply(null, arguments);
-};
+var _emscripten_bind_btQuaternion_x_0 = Module["_emscripten_bind_btQuaternion_x_0"] = a0 => (_emscripten_bind_btQuaternion_x_0 = Module["_emscripten_bind_btQuaternion_x_0"] = wasmExports["Kb"])(a0);
 
-var _emscripten_bind_btMatrix3x3_getRow_1 = Module["_emscripten_bind_btMatrix3x3_getRow_1"] = function() {
- return (_emscripten_bind_btMatrix3x3_getRow_1 = Module["_emscripten_bind_btMatrix3x3_getRow_1"] = Module["asm"]["Tb"]).apply(null, arguments);
-};
+var _emscripten_bind_btQuaternion_y_0 = Module["_emscripten_bind_btQuaternion_y_0"] = a0 => (_emscripten_bind_btQuaternion_y_0 = Module["_emscripten_bind_btQuaternion_y_0"] = wasmExports["Lb"])(a0);
 
-var _emscripten_bind_btMatrix3x3___destroy___0 = Module["_emscripten_bind_btMatrix3x3___destroy___0"] = function() {
- return (_emscripten_bind_btMatrix3x3___destroy___0 = Module["_emscripten_bind_btMatrix3x3___destroy___0"] = Module["asm"]["Ub"]).apply(null, arguments);
-};
+var _emscripten_bind_btQuaternion_z_0 = Module["_emscripten_bind_btQuaternion_z_0"] = a0 => (_emscripten_bind_btQuaternion_z_0 = Module["_emscripten_bind_btQuaternion_z_0"] = wasmExports["Mb"])(a0);
 
-var _emscripten_bind_btTransform_btTransform_0 = Module["_emscripten_bind_btTransform_btTransform_0"] = function() {
- return (_emscripten_bind_btTransform_btTransform_0 = Module["_emscripten_bind_btTransform_btTransform_0"] = Module["asm"]["Vb"]).apply(null, arguments);
-};
+var _emscripten_bind_btQuaternion_w_0 = Module["_emscripten_bind_btQuaternion_w_0"] = a0 => (_emscripten_bind_btQuaternion_w_0 = Module["_emscripten_bind_btQuaternion_w_0"] = wasmExports["Nb"])(a0);
 
-var _emscripten_bind_btTransform_btTransform_2 = Module["_emscripten_bind_btTransform_btTransform_2"] = function() {
- return (_emscripten_bind_btTransform_btTransform_2 = Module["_emscripten_bind_btTransform_btTransform_2"] = Module["asm"]["Wb"]).apply(null, arguments);
-};
+var _emscripten_bind_btQuaternion_setX_1 = Module["_emscripten_bind_btQuaternion_setX_1"] = (a0, a1) => (_emscripten_bind_btQuaternion_setX_1 = Module["_emscripten_bind_btQuaternion_setX_1"] = wasmExports["Ob"])(a0, a1);
 
-var _emscripten_bind_btTransform_setIdentity_0 = Module["_emscripten_bind_btTransform_setIdentity_0"] = function() {
- return (_emscripten_bind_btTransform_setIdentity_0 = Module["_emscripten_bind_btTransform_setIdentity_0"] = Module["asm"]["Xb"]).apply(null, arguments);
-};
+var _emscripten_bind_btQuaternion_setY_1 = Module["_emscripten_bind_btQuaternion_setY_1"] = (a0, a1) => (_emscripten_bind_btQuaternion_setY_1 = Module["_emscripten_bind_btQuaternion_setY_1"] = wasmExports["Pb"])(a0, a1);
 
-var _emscripten_bind_btTransform_setOrigin_1 = Module["_emscripten_bind_btTransform_setOrigin_1"] = function() {
- return (_emscripten_bind_btTransform_setOrigin_1 = Module["_emscripten_bind_btTransform_setOrigin_1"] = Module["asm"]["Yb"]).apply(null, arguments);
-};
+var _emscripten_bind_btQuaternion_setZ_1 = Module["_emscripten_bind_btQuaternion_setZ_1"] = (a0, a1) => (_emscripten_bind_btQuaternion_setZ_1 = Module["_emscripten_bind_btQuaternion_setZ_1"] = wasmExports["Qb"])(a0, a1);
 
-var _emscripten_bind_btTransform_setRotation_1 = Module["_emscripten_bind_btTransform_setRotation_1"] = function() {
- return (_emscripten_bind_btTransform_setRotation_1 = Module["_emscripten_bind_btTransform_setRotation_1"] = Module["asm"]["Zb"]).apply(null, arguments);
-};
+var _emscripten_bind_btQuaternion_setW_1 = Module["_emscripten_bind_btQuaternion_setW_1"] = (a0, a1) => (_emscripten_bind_btQuaternion_setW_1 = Module["_emscripten_bind_btQuaternion_setW_1"] = wasmExports["Rb"])(a0, a1);
 
-var _emscripten_bind_btTransform_getOrigin_0 = Module["_emscripten_bind_btTransform_getOrigin_0"] = function() {
- return (_emscripten_bind_btTransform_getOrigin_0 = Module["_emscripten_bind_btTransform_getOrigin_0"] = Module["asm"]["_b"]).apply(null, arguments);
-};
+var _emscripten_bind_btQuaternion___destroy___0 = Module["_emscripten_bind_btQuaternion___destroy___0"] = a0 => (_emscripten_bind_btQuaternion___destroy___0 = Module["_emscripten_bind_btQuaternion___destroy___0"] = wasmExports["Sb"])(a0);
 
-var _emscripten_bind_btTransform_getRotation_0 = Module["_emscripten_bind_btTransform_getRotation_0"] = function() {
- return (_emscripten_bind_btTransform_getRotation_0 = Module["_emscripten_bind_btTransform_getRotation_0"] = Module["asm"]["$b"]).apply(null, arguments);
-};
+var _emscripten_bind_btMatrix3x3_setEulerZYX_3 = Module["_emscripten_bind_btMatrix3x3_setEulerZYX_3"] = (a0, a1, a2, a3) => (_emscripten_bind_btMatrix3x3_setEulerZYX_3 = Module["_emscripten_bind_btMatrix3x3_setEulerZYX_3"] = wasmExports["Tb"])(a0, a1, a2, a3);
 
-var _emscripten_bind_btTransform_getBasis_0 = Module["_emscripten_bind_btTransform_getBasis_0"] = function() {
- return (_emscripten_bind_btTransform_getBasis_0 = Module["_emscripten_bind_btTransform_getBasis_0"] = Module["asm"]["ac"]).apply(null, arguments);
-};
+var _emscripten_bind_btMatrix3x3_getRotation_1 = Module["_emscripten_bind_btMatrix3x3_getRotation_1"] = (a0, a1) => (_emscripten_bind_btMatrix3x3_getRotation_1 = Module["_emscripten_bind_btMatrix3x3_getRotation_1"] = wasmExports["Ub"])(a0, a1);
 
-var _emscripten_bind_btTransform_inverse_0 = Module["_emscripten_bind_btTransform_inverse_0"] = function() {
- return (_emscripten_bind_btTransform_inverse_0 = Module["_emscripten_bind_btTransform_inverse_0"] = Module["asm"]["bc"]).apply(null, arguments);
-};
+var _emscripten_bind_btMatrix3x3_getRow_1 = Module["_emscripten_bind_btMatrix3x3_getRow_1"] = (a0, a1) => (_emscripten_bind_btMatrix3x3_getRow_1 = Module["_emscripten_bind_btMatrix3x3_getRow_1"] = wasmExports["Vb"])(a0, a1);
 
-var _emscripten_bind_btTransform_op_mul_1 = Module["_emscripten_bind_btTransform_op_mul_1"] = function() {
- return (_emscripten_bind_btTransform_op_mul_1 = Module["_emscripten_bind_btTransform_op_mul_1"] = Module["asm"]["cc"]).apply(null, arguments);
-};
+var _emscripten_bind_btMatrix3x3___destroy___0 = Module["_emscripten_bind_btMatrix3x3___destroy___0"] = a0 => (_emscripten_bind_btMatrix3x3___destroy___0 = Module["_emscripten_bind_btMatrix3x3___destroy___0"] = wasmExports["Wb"])(a0);
 
-var _emscripten_bind_btTransform___destroy___0 = Module["_emscripten_bind_btTransform___destroy___0"] = function() {
- return (_emscripten_bind_btTransform___destroy___0 = Module["_emscripten_bind_btTransform___destroy___0"] = Module["asm"]["dc"]).apply(null, arguments);
-};
+var _emscripten_bind_btTransform_btTransform_0 = Module["_emscripten_bind_btTransform_btTransform_0"] = () => (_emscripten_bind_btTransform_btTransform_0 = Module["_emscripten_bind_btTransform_btTransform_0"] = wasmExports["Xb"])();
 
-var _emscripten_bind_btDefaultMotionState_btDefaultMotionState_0 = Module["_emscripten_bind_btDefaultMotionState_btDefaultMotionState_0"] = function() {
- return (_emscripten_bind_btDefaultMotionState_btDefaultMotionState_0 = Module["_emscripten_bind_btDefaultMotionState_btDefaultMotionState_0"] = Module["asm"]["ec"]).apply(null, arguments);
-};
+var _emscripten_bind_btTransform_btTransform_2 = Module["_emscripten_bind_btTransform_btTransform_2"] = (a0, a1) => (_emscripten_bind_btTransform_btTransform_2 = Module["_emscripten_bind_btTransform_btTransform_2"] = wasmExports["Yb"])(a0, a1);
 
-var _emscripten_bind_btDefaultMotionState_btDefaultMotionState_1 = Module["_emscripten_bind_btDefaultMotionState_btDefaultMotionState_1"] = function() {
- return (_emscripten_bind_btDefaultMotionState_btDefaultMotionState_1 = Module["_emscripten_bind_btDefaultMotionState_btDefaultMotionState_1"] = Module["asm"]["fc"]).apply(null, arguments);
-};
+var _emscripten_bind_btTransform_setIdentity_0 = Module["_emscripten_bind_btTransform_setIdentity_0"] = a0 => (_emscripten_bind_btTransform_setIdentity_0 = Module["_emscripten_bind_btTransform_setIdentity_0"] = wasmExports["Zb"])(a0);
 
-var _emscripten_bind_btDefaultMotionState_btDefaultMotionState_2 = Module["_emscripten_bind_btDefaultMotionState_btDefaultMotionState_2"] = function() {
- return (_emscripten_bind_btDefaultMotionState_btDefaultMotionState_2 = Module["_emscripten_bind_btDefaultMotionState_btDefaultMotionState_2"] = Module["asm"]["gc"]).apply(null, arguments);
-};
+var _emscripten_bind_btTransform_setOrigin_1 = Module["_emscripten_bind_btTransform_setOrigin_1"] = (a0, a1) => (_emscripten_bind_btTransform_setOrigin_1 = Module["_emscripten_bind_btTransform_setOrigin_1"] = wasmExports["_b"])(a0, a1);
 
-var _emscripten_bind_btDefaultMotionState_getWorldTransform_1 = Module["_emscripten_bind_btDefaultMotionState_getWorldTransform_1"] = function() {
- return (_emscripten_bind_btDefaultMotionState_getWorldTransform_1 = Module["_emscripten_bind_btDefaultMotionState_getWorldTransform_1"] = Module["asm"]["hc"]).apply(null, arguments);
-};
+var _emscripten_bind_btTransform_setRotation_1 = Module["_emscripten_bind_btTransform_setRotation_1"] = (a0, a1) => (_emscripten_bind_btTransform_setRotation_1 = Module["_emscripten_bind_btTransform_setRotation_1"] = wasmExports["$b"])(a0, a1);
 
-var _emscripten_bind_btDefaultMotionState_setWorldTransform_1 = Module["_emscripten_bind_btDefaultMotionState_setWorldTransform_1"] = function() {
- return (_emscripten_bind_btDefaultMotionState_setWorldTransform_1 = Module["_emscripten_bind_btDefaultMotionState_setWorldTransform_1"] = Module["asm"]["ic"]).apply(null, arguments);
-};
+var _emscripten_bind_btTransform_getOrigin_0 = Module["_emscripten_bind_btTransform_getOrigin_0"] = a0 => (_emscripten_bind_btTransform_getOrigin_0 = Module["_emscripten_bind_btTransform_getOrigin_0"] = wasmExports["ac"])(a0);
 
-var _emscripten_bind_btDefaultMotionState_get_m_graphicsWorldTrans_0 = Module["_emscripten_bind_btDefaultMotionState_get_m_graphicsWorldTrans_0"] = function() {
- return (_emscripten_bind_btDefaultMotionState_get_m_graphicsWorldTrans_0 = Module["_emscripten_bind_btDefaultMotionState_get_m_graphicsWorldTrans_0"] = Module["asm"]["jc"]).apply(null, arguments);
-};
+var _emscripten_bind_btTransform_getRotation_0 = Module["_emscripten_bind_btTransform_getRotation_0"] = a0 => (_emscripten_bind_btTransform_getRotation_0 = Module["_emscripten_bind_btTransform_getRotation_0"] = wasmExports["bc"])(a0);
 
-var _emscripten_bind_btDefaultMotionState_set_m_graphicsWorldTrans_1 = Module["_emscripten_bind_btDefaultMotionState_set_m_graphicsWorldTrans_1"] = function() {
- return (_emscripten_bind_btDefaultMotionState_set_m_graphicsWorldTrans_1 = Module["_emscripten_bind_btDefaultMotionState_set_m_graphicsWorldTrans_1"] = Module["asm"]["kc"]).apply(null, arguments);
-};
+var _emscripten_bind_btTransform_getBasis_0 = Module["_emscripten_bind_btTransform_getBasis_0"] = a0 => (_emscripten_bind_btTransform_getBasis_0 = Module["_emscripten_bind_btTransform_getBasis_0"] = wasmExports["cc"])(a0);
 
-var _emscripten_bind_btDefaultMotionState___destroy___0 = Module["_emscripten_bind_btDefaultMotionState___destroy___0"] = function() {
- return (_emscripten_bind_btDefaultMotionState___destroy___0 = Module["_emscripten_bind_btDefaultMotionState___destroy___0"] = Module["asm"]["lc"]).apply(null, arguments);
-};
+var _emscripten_bind_btTransform_inverse_0 = Module["_emscripten_bind_btTransform_inverse_0"] = a0 => (_emscripten_bind_btTransform_inverse_0 = Module["_emscripten_bind_btTransform_inverse_0"] = wasmExports["dc"])(a0);
 
-var _emscripten_bind_btCollisionObjectWrapper_getWorldTransform_0 = Module["_emscripten_bind_btCollisionObjectWrapper_getWorldTransform_0"] = function() {
- return (_emscripten_bind_btCollisionObjectWrapper_getWorldTransform_0 = Module["_emscripten_bind_btCollisionObjectWrapper_getWorldTransform_0"] = Module["asm"]["mc"]).apply(null, arguments);
-};
+var _emscripten_bind_btTransform_op_mul_1 = Module["_emscripten_bind_btTransform_op_mul_1"] = (a0, a1) => (_emscripten_bind_btTransform_op_mul_1 = Module["_emscripten_bind_btTransform_op_mul_1"] = wasmExports["ec"])(a0, a1);
 
-var _emscripten_bind_btCollisionObjectWrapper_getCollisionObject_0 = Module["_emscripten_bind_btCollisionObjectWrapper_getCollisionObject_0"] = function() {
- return (_emscripten_bind_btCollisionObjectWrapper_getCollisionObject_0 = Module["_emscripten_bind_btCollisionObjectWrapper_getCollisionObject_0"] = Module["asm"]["nc"]).apply(null, arguments);
-};
+var _emscripten_bind_btTransform___destroy___0 = Module["_emscripten_bind_btTransform___destroy___0"] = a0 => (_emscripten_bind_btTransform___destroy___0 = Module["_emscripten_bind_btTransform___destroy___0"] = wasmExports["fc"])(a0);
 
-var _emscripten_bind_btCollisionObjectWrapper_getCollisionShape_0 = Module["_emscripten_bind_btCollisionObjectWrapper_getCollisionShape_0"] = function() {
- return (_emscripten_bind_btCollisionObjectWrapper_getCollisionShape_0 = Module["_emscripten_bind_btCollisionObjectWrapper_getCollisionShape_0"] = Module["asm"]["oc"]).apply(null, arguments);
-};
+var _emscripten_bind_btDefaultMotionState_btDefaultMotionState_0 = Module["_emscripten_bind_btDefaultMotionState_btDefaultMotionState_0"] = () => (_emscripten_bind_btDefaultMotionState_btDefaultMotionState_0 = Module["_emscripten_bind_btDefaultMotionState_btDefaultMotionState_0"] = wasmExports["gc"])();
 
-var _emscripten_bind_btManifoldPoint_getPositionWorldOnA_0 = Module["_emscripten_bind_btManifoldPoint_getPositionWorldOnA_0"] = function() {
- return (_emscripten_bind_btManifoldPoint_getPositionWorldOnA_0 = Module["_emscripten_bind_btManifoldPoint_getPositionWorldOnA_0"] = Module["asm"]["pc"]).apply(null, arguments);
-};
+var _emscripten_bind_btDefaultMotionState_btDefaultMotionState_1 = Module["_emscripten_bind_btDefaultMotionState_btDefaultMotionState_1"] = a0 => (_emscripten_bind_btDefaultMotionState_btDefaultMotionState_1 = Module["_emscripten_bind_btDefaultMotionState_btDefaultMotionState_1"] = wasmExports["hc"])(a0);
 
-var _emscripten_bind_btManifoldPoint_getPositionWorldOnB_0 = Module["_emscripten_bind_btManifoldPoint_getPositionWorldOnB_0"] = function() {
- return (_emscripten_bind_btManifoldPoint_getPositionWorldOnB_0 = Module["_emscripten_bind_btManifoldPoint_getPositionWorldOnB_0"] = Module["asm"]["qc"]).apply(null, arguments);
-};
+var _emscripten_bind_btDefaultMotionState_btDefaultMotionState_2 = Module["_emscripten_bind_btDefaultMotionState_btDefaultMotionState_2"] = (a0, a1) => (_emscripten_bind_btDefaultMotionState_btDefaultMotionState_2 = Module["_emscripten_bind_btDefaultMotionState_btDefaultMotionState_2"] = wasmExports["ic"])(a0, a1);
 
-var _emscripten_bind_btManifoldPoint_getAppliedImpulse_0 = Module["_emscripten_bind_btManifoldPoint_getAppliedImpulse_0"] = function() {
- return (_emscripten_bind_btManifoldPoint_getAppliedImpulse_0 = Module["_emscripten_bind_btManifoldPoint_getAppliedImpulse_0"] = Module["asm"]["rc"]).apply(null, arguments);
-};
+var _emscripten_bind_btDefaultMotionState_getWorldTransform_1 = Module["_emscripten_bind_btDefaultMotionState_getWorldTransform_1"] = (a0, a1) => (_emscripten_bind_btDefaultMotionState_getWorldTransform_1 = Module["_emscripten_bind_btDefaultMotionState_getWorldTransform_1"] = wasmExports["jc"])(a0, a1);
 
-var _emscripten_bind_btManifoldPoint_getDistance_0 = Module["_emscripten_bind_btManifoldPoint_getDistance_0"] = function() {
- return (_emscripten_bind_btManifoldPoint_getDistance_0 = Module["_emscripten_bind_btManifoldPoint_getDistance_0"] = Module["asm"]["sc"]).apply(null, arguments);
-};
+var _emscripten_bind_btDefaultMotionState_setWorldTransform_1 = Module["_emscripten_bind_btDefaultMotionState_setWorldTransform_1"] = (a0, a1) => (_emscripten_bind_btDefaultMotionState_setWorldTransform_1 = Module["_emscripten_bind_btDefaultMotionState_setWorldTransform_1"] = wasmExports["kc"])(a0, a1);
 
-var _emscripten_bind_btManifoldPoint_get_m_localPointA_0 = Module["_emscripten_bind_btManifoldPoint_get_m_localPointA_0"] = function() {
- return (_emscripten_bind_btManifoldPoint_get_m_localPointA_0 = Module["_emscripten_bind_btManifoldPoint_get_m_localPointA_0"] = Module["asm"]["tc"]).apply(null, arguments);
-};
+var _emscripten_bind_btDefaultMotionState_get_m_graphicsWorldTrans_0 = Module["_emscripten_bind_btDefaultMotionState_get_m_graphicsWorldTrans_0"] = a0 => (_emscripten_bind_btDefaultMotionState_get_m_graphicsWorldTrans_0 = Module["_emscripten_bind_btDefaultMotionState_get_m_graphicsWorldTrans_0"] = wasmExports["lc"])(a0);
 
-var _emscripten_bind_btManifoldPoint_set_m_localPointA_1 = Module["_emscripten_bind_btManifoldPoint_set_m_localPointA_1"] = function() {
- return (_emscripten_bind_btManifoldPoint_set_m_localPointA_1 = Module["_emscripten_bind_btManifoldPoint_set_m_localPointA_1"] = Module["asm"]["uc"]).apply(null, arguments);
-};
+var _emscripten_bind_btDefaultMotionState_set_m_graphicsWorldTrans_1 = Module["_emscripten_bind_btDefaultMotionState_set_m_graphicsWorldTrans_1"] = (a0, a1) => (_emscripten_bind_btDefaultMotionState_set_m_graphicsWorldTrans_1 = Module["_emscripten_bind_btDefaultMotionState_set_m_graphicsWorldTrans_1"] = wasmExports["mc"])(a0, a1);
 
-var _emscripten_bind_btManifoldPoint_get_m_localPointB_0 = Module["_emscripten_bind_btManifoldPoint_get_m_localPointB_0"] = function() {
- return (_emscripten_bind_btManifoldPoint_get_m_localPointB_0 = Module["_emscripten_bind_btManifoldPoint_get_m_localPointB_0"] = Module["asm"]["vc"]).apply(null, arguments);
-};
+var _emscripten_bind_btDefaultMotionState___destroy___0 = Module["_emscripten_bind_btDefaultMotionState___destroy___0"] = a0 => (_emscripten_bind_btDefaultMotionState___destroy___0 = Module["_emscripten_bind_btDefaultMotionState___destroy___0"] = wasmExports["nc"])(a0);
 
-var _emscripten_bind_btManifoldPoint_set_m_localPointB_1 = Module["_emscripten_bind_btManifoldPoint_set_m_localPointB_1"] = function() {
- return (_emscripten_bind_btManifoldPoint_set_m_localPointB_1 = Module["_emscripten_bind_btManifoldPoint_set_m_localPointB_1"] = Module["asm"]["wc"]).apply(null, arguments);
-};
+var _emscripten_bind_btCollisionObjectWrapper_getWorldTransform_0 = Module["_emscripten_bind_btCollisionObjectWrapper_getWorldTransform_0"] = a0 => (_emscripten_bind_btCollisionObjectWrapper_getWorldTransform_0 = Module["_emscripten_bind_btCollisionObjectWrapper_getWorldTransform_0"] = wasmExports["oc"])(a0);
 
-var _emscripten_bind_btManifoldPoint_get_m_positionWorldOnB_0 = Module["_emscripten_bind_btManifoldPoint_get_m_positionWorldOnB_0"] = function() {
- return (_emscripten_bind_btManifoldPoint_get_m_positionWorldOnB_0 = Module["_emscripten_bind_btManifoldPoint_get_m_positionWorldOnB_0"] = Module["asm"]["xc"]).apply(null, arguments);
-};
+var _emscripten_bind_btCollisionObjectWrapper_getCollisionObject_0 = Module["_emscripten_bind_btCollisionObjectWrapper_getCollisionObject_0"] = a0 => (_emscripten_bind_btCollisionObjectWrapper_getCollisionObject_0 = Module["_emscripten_bind_btCollisionObjectWrapper_getCollisionObject_0"] = wasmExports["pc"])(a0);
 
-var _emscripten_bind_btManifoldPoint_set_m_positionWorldOnB_1 = Module["_emscripten_bind_btManifoldPoint_set_m_positionWorldOnB_1"] = function() {
- return (_emscripten_bind_btManifoldPoint_set_m_positionWorldOnB_1 = Module["_emscripten_bind_btManifoldPoint_set_m_positionWorldOnB_1"] = Module["asm"]["yc"]).apply(null, arguments);
-};
+var _emscripten_bind_btCollisionObjectWrapper_getCollisionShape_0 = Module["_emscripten_bind_btCollisionObjectWrapper_getCollisionShape_0"] = a0 => (_emscripten_bind_btCollisionObjectWrapper_getCollisionShape_0 = Module["_emscripten_bind_btCollisionObjectWrapper_getCollisionShape_0"] = wasmExports["qc"])(a0);
 
-var _emscripten_bind_btManifoldPoint_get_m_positionWorldOnA_0 = Module["_emscripten_bind_btManifoldPoint_get_m_positionWorldOnA_0"] = function() {
- return (_emscripten_bind_btManifoldPoint_get_m_positionWorldOnA_0 = Module["_emscripten_bind_btManifoldPoint_get_m_positionWorldOnA_0"] = Module["asm"]["zc"]).apply(null, arguments);
-};
+var _emscripten_bind_btManifoldPoint_getPositionWorldOnA_0 = Module["_emscripten_bind_btManifoldPoint_getPositionWorldOnA_0"] = a0 => (_emscripten_bind_btManifoldPoint_getPositionWorldOnA_0 = Module["_emscripten_bind_btManifoldPoint_getPositionWorldOnA_0"] = wasmExports["rc"])(a0);
 
-var _emscripten_bind_btManifoldPoint_set_m_positionWorldOnA_1 = Module["_emscripten_bind_btManifoldPoint_set_m_positionWorldOnA_1"] = function() {
- return (_emscripten_bind_btManifoldPoint_set_m_positionWorldOnA_1 = Module["_emscripten_bind_btManifoldPoint_set_m_positionWorldOnA_1"] = Module["asm"]["Ac"]).apply(null, arguments);
-};
+var _emscripten_bind_btManifoldPoint_getPositionWorldOnB_0 = Module["_emscripten_bind_btManifoldPoint_getPositionWorldOnB_0"] = a0 => (_emscripten_bind_btManifoldPoint_getPositionWorldOnB_0 = Module["_emscripten_bind_btManifoldPoint_getPositionWorldOnB_0"] = wasmExports["sc"])(a0);
 
-var _emscripten_bind_btManifoldPoint_get_m_normalWorldOnB_0 = Module["_emscripten_bind_btManifoldPoint_get_m_normalWorldOnB_0"] = function() {
- return (_emscripten_bind_btManifoldPoint_get_m_normalWorldOnB_0 = Module["_emscripten_bind_btManifoldPoint_get_m_normalWorldOnB_0"] = Module["asm"]["Bc"]).apply(null, arguments);
-};
+var _emscripten_bind_btManifoldPoint_getAppliedImpulse_0 = Module["_emscripten_bind_btManifoldPoint_getAppliedImpulse_0"] = a0 => (_emscripten_bind_btManifoldPoint_getAppliedImpulse_0 = Module["_emscripten_bind_btManifoldPoint_getAppliedImpulse_0"] = wasmExports["tc"])(a0);
 
-var _emscripten_bind_btManifoldPoint_set_m_normalWorldOnB_1 = Module["_emscripten_bind_btManifoldPoint_set_m_normalWorldOnB_1"] = function() {
- return (_emscripten_bind_btManifoldPoint_set_m_normalWorldOnB_1 = Module["_emscripten_bind_btManifoldPoint_set_m_normalWorldOnB_1"] = Module["asm"]["Cc"]).apply(null, arguments);
-};
+var _emscripten_bind_btManifoldPoint_getDistance_0 = Module["_emscripten_bind_btManifoldPoint_getDistance_0"] = a0 => (_emscripten_bind_btManifoldPoint_getDistance_0 = Module["_emscripten_bind_btManifoldPoint_getDistance_0"] = wasmExports["uc"])(a0);
 
-var _emscripten_bind_btManifoldPoint_get_m_userPersistentData_0 = Module["_emscripten_bind_btManifoldPoint_get_m_userPersistentData_0"] = function() {
- return (_emscripten_bind_btManifoldPoint_get_m_userPersistentData_0 = Module["_emscripten_bind_btManifoldPoint_get_m_userPersistentData_0"] = Module["asm"]["Dc"]).apply(null, arguments);
-};
+var _emscripten_bind_btManifoldPoint_get_m_localPointA_0 = Module["_emscripten_bind_btManifoldPoint_get_m_localPointA_0"] = a0 => (_emscripten_bind_btManifoldPoint_get_m_localPointA_0 = Module["_emscripten_bind_btManifoldPoint_get_m_localPointA_0"] = wasmExports["vc"])(a0);
 
-var _emscripten_bind_btManifoldPoint_set_m_userPersistentData_1 = Module["_emscripten_bind_btManifoldPoint_set_m_userPersistentData_1"] = function() {
- return (_emscripten_bind_btManifoldPoint_set_m_userPersistentData_1 = Module["_emscripten_bind_btManifoldPoint_set_m_userPersistentData_1"] = Module["asm"]["Ec"]).apply(null, arguments);
-};
+var _emscripten_bind_btManifoldPoint_set_m_localPointA_1 = Module["_emscripten_bind_btManifoldPoint_set_m_localPointA_1"] = (a0, a1) => (_emscripten_bind_btManifoldPoint_set_m_localPointA_1 = Module["_emscripten_bind_btManifoldPoint_set_m_localPointA_1"] = wasmExports["wc"])(a0, a1);
 
-var _emscripten_bind_btManifoldPoint___destroy___0 = Module["_emscripten_bind_btManifoldPoint___destroy___0"] = function() {
- return (_emscripten_bind_btManifoldPoint___destroy___0 = Module["_emscripten_bind_btManifoldPoint___destroy___0"] = Module["asm"]["Fc"]).apply(null, arguments);
-};
+var _emscripten_bind_btManifoldPoint_get_m_localPointB_0 = Module["_emscripten_bind_btManifoldPoint_get_m_localPointB_0"] = a0 => (_emscripten_bind_btManifoldPoint_get_m_localPointB_0 = Module["_emscripten_bind_btManifoldPoint_get_m_localPointB_0"] = wasmExports["xc"])(a0);
 
-var _emscripten_bind_LocalShapeInfo_get_m_shapePart_0 = Module["_emscripten_bind_LocalShapeInfo_get_m_shapePart_0"] = function() {
- return (_emscripten_bind_LocalShapeInfo_get_m_shapePart_0 = Module["_emscripten_bind_LocalShapeInfo_get_m_shapePart_0"] = Module["asm"]["Gc"]).apply(null, arguments);
-};
+var _emscripten_bind_btManifoldPoint_set_m_localPointB_1 = Module["_emscripten_bind_btManifoldPoint_set_m_localPointB_1"] = (a0, a1) => (_emscripten_bind_btManifoldPoint_set_m_localPointB_1 = Module["_emscripten_bind_btManifoldPoint_set_m_localPointB_1"] = wasmExports["yc"])(a0, a1);
 
-var _emscripten_bind_LocalShapeInfo_set_m_shapePart_1 = Module["_emscripten_bind_LocalShapeInfo_set_m_shapePart_1"] = function() {
- return (_emscripten_bind_LocalShapeInfo_set_m_shapePart_1 = Module["_emscripten_bind_LocalShapeInfo_set_m_shapePart_1"] = Module["asm"]["Hc"]).apply(null, arguments);
-};
+var _emscripten_bind_btManifoldPoint_get_m_positionWorldOnB_0 = Module["_emscripten_bind_btManifoldPoint_get_m_positionWorldOnB_0"] = a0 => (_emscripten_bind_btManifoldPoint_get_m_positionWorldOnB_0 = Module["_emscripten_bind_btManifoldPoint_get_m_positionWorldOnB_0"] = wasmExports["zc"])(a0);
 
-var _emscripten_bind_LocalShapeInfo_get_m_triangleIndex_0 = Module["_emscripten_bind_LocalShapeInfo_get_m_triangleIndex_0"] = function() {
- return (_emscripten_bind_LocalShapeInfo_get_m_triangleIndex_0 = Module["_emscripten_bind_LocalShapeInfo_get_m_triangleIndex_0"] = Module["asm"]["Ic"]).apply(null, arguments);
-};
+var _emscripten_bind_btManifoldPoint_set_m_positionWorldOnB_1 = Module["_emscripten_bind_btManifoldPoint_set_m_positionWorldOnB_1"] = (a0, a1) => (_emscripten_bind_btManifoldPoint_set_m_positionWorldOnB_1 = Module["_emscripten_bind_btManifoldPoint_set_m_positionWorldOnB_1"] = wasmExports["Ac"])(a0, a1);
 
-var _emscripten_bind_LocalShapeInfo_set_m_triangleIndex_1 = Module["_emscripten_bind_LocalShapeInfo_set_m_triangleIndex_1"] = function() {
- return (_emscripten_bind_LocalShapeInfo_set_m_triangleIndex_1 = Module["_emscripten_bind_LocalShapeInfo_set_m_triangleIndex_1"] = Module["asm"]["Jc"]).apply(null, arguments);
-};
+var _emscripten_bind_btManifoldPoint_get_m_positionWorldOnA_0 = Module["_emscripten_bind_btManifoldPoint_get_m_positionWorldOnA_0"] = a0 => (_emscripten_bind_btManifoldPoint_get_m_positionWorldOnA_0 = Module["_emscripten_bind_btManifoldPoint_get_m_positionWorldOnA_0"] = wasmExports["Bc"])(a0);
 
-var _emscripten_bind_LocalShapeInfo___destroy___0 = Module["_emscripten_bind_LocalShapeInfo___destroy___0"] = function() {
- return (_emscripten_bind_LocalShapeInfo___destroy___0 = Module["_emscripten_bind_LocalShapeInfo___destroy___0"] = Module["asm"]["Kc"]).apply(null, arguments);
-};
+var _emscripten_bind_btManifoldPoint_set_m_positionWorldOnA_1 = Module["_emscripten_bind_btManifoldPoint_set_m_positionWorldOnA_1"] = (a0, a1) => (_emscripten_bind_btManifoldPoint_set_m_positionWorldOnA_1 = Module["_emscripten_bind_btManifoldPoint_set_m_positionWorldOnA_1"] = wasmExports["Cc"])(a0, a1);
 
-var _emscripten_bind_LocalConvexResult_LocalConvexResult_5 = Module["_emscripten_bind_LocalConvexResult_LocalConvexResult_5"] = function() {
- return (_emscripten_bind_LocalConvexResult_LocalConvexResult_5 = Module["_emscripten_bind_LocalConvexResult_LocalConvexResult_5"] = Module["asm"]["Lc"]).apply(null, arguments);
-};
+var _emscripten_bind_btManifoldPoint_get_m_normalWorldOnB_0 = Module["_emscripten_bind_btManifoldPoint_get_m_normalWorldOnB_0"] = a0 => (_emscripten_bind_btManifoldPoint_get_m_normalWorldOnB_0 = Module["_emscripten_bind_btManifoldPoint_get_m_normalWorldOnB_0"] = wasmExports["Dc"])(a0);
 
-var _emscripten_bind_LocalConvexResult_get_m_hitCollisionObject_0 = Module["_emscripten_bind_LocalConvexResult_get_m_hitCollisionObject_0"] = function() {
- return (_emscripten_bind_LocalConvexResult_get_m_hitCollisionObject_0 = Module["_emscripten_bind_LocalConvexResult_get_m_hitCollisionObject_0"] = Module["asm"]["Mc"]).apply(null, arguments);
-};
+var _emscripten_bind_btManifoldPoint_set_m_normalWorldOnB_1 = Module["_emscripten_bind_btManifoldPoint_set_m_normalWorldOnB_1"] = (a0, a1) => (_emscripten_bind_btManifoldPoint_set_m_normalWorldOnB_1 = Module["_emscripten_bind_btManifoldPoint_set_m_normalWorldOnB_1"] = wasmExports["Ec"])(a0, a1);
 
-var _emscripten_bind_LocalConvexResult_set_m_hitCollisionObject_1 = Module["_emscripten_bind_LocalConvexResult_set_m_hitCollisionObject_1"] = function() {
- return (_emscripten_bind_LocalConvexResult_set_m_hitCollisionObject_1 = Module["_emscripten_bind_LocalConvexResult_set_m_hitCollisionObject_1"] = Module["asm"]["Nc"]).apply(null, arguments);
-};
+var _emscripten_bind_btManifoldPoint_get_m_userPersistentData_0 = Module["_emscripten_bind_btManifoldPoint_get_m_userPersistentData_0"] = a0 => (_emscripten_bind_btManifoldPoint_get_m_userPersistentData_0 = Module["_emscripten_bind_btManifoldPoint_get_m_userPersistentData_0"] = wasmExports["Fc"])(a0);
 
-var _emscripten_bind_LocalConvexResult_get_m_localShapeInfo_0 = Module["_emscripten_bind_LocalConvexResult_get_m_localShapeInfo_0"] = function() {
- return (_emscripten_bind_LocalConvexResult_get_m_localShapeInfo_0 = Module["_emscripten_bind_LocalConvexResult_get_m_localShapeInfo_0"] = Module["asm"]["Oc"]).apply(null, arguments);
-};
+var _emscripten_bind_btManifoldPoint_set_m_userPersistentData_1 = Module["_emscripten_bind_btManifoldPoint_set_m_userPersistentData_1"] = (a0, a1) => (_emscripten_bind_btManifoldPoint_set_m_userPersistentData_1 = Module["_emscripten_bind_btManifoldPoint_set_m_userPersistentData_1"] = wasmExports["Gc"])(a0, a1);
 
-var _emscripten_bind_LocalConvexResult_set_m_localShapeInfo_1 = Module["_emscripten_bind_LocalConvexResult_set_m_localShapeInfo_1"] = function() {
- return (_emscripten_bind_LocalConvexResult_set_m_localShapeInfo_1 = Module["_emscripten_bind_LocalConvexResult_set_m_localShapeInfo_1"] = Module["asm"]["Pc"]).apply(null, arguments);
-};
+var _emscripten_bind_btManifoldPoint___destroy___0 = Module["_emscripten_bind_btManifoldPoint___destroy___0"] = a0 => (_emscripten_bind_btManifoldPoint___destroy___0 = Module["_emscripten_bind_btManifoldPoint___destroy___0"] = wasmExports["Hc"])(a0);
 
-var _emscripten_bind_LocalConvexResult_get_m_hitNormalLocal_0 = Module["_emscripten_bind_LocalConvexResult_get_m_hitNormalLocal_0"] = function() {
- return (_emscripten_bind_LocalConvexResult_get_m_hitNormalLocal_0 = Module["_emscripten_bind_LocalConvexResult_get_m_hitNormalLocal_0"] = Module["asm"]["Qc"]).apply(null, arguments);
-};
+var _emscripten_bind_LocalShapeInfo_get_m_shapePart_0 = Module["_emscripten_bind_LocalShapeInfo_get_m_shapePart_0"] = a0 => (_emscripten_bind_LocalShapeInfo_get_m_shapePart_0 = Module["_emscripten_bind_LocalShapeInfo_get_m_shapePart_0"] = wasmExports["Ic"])(a0);
 
-var _emscripten_bind_LocalConvexResult_set_m_hitNormalLocal_1 = Module["_emscripten_bind_LocalConvexResult_set_m_hitNormalLocal_1"] = function() {
- return (_emscripten_bind_LocalConvexResult_set_m_hitNormalLocal_1 = Module["_emscripten_bind_LocalConvexResult_set_m_hitNormalLocal_1"] = Module["asm"]["Rc"]).apply(null, arguments);
-};
+var _emscripten_bind_LocalShapeInfo_set_m_shapePart_1 = Module["_emscripten_bind_LocalShapeInfo_set_m_shapePart_1"] = (a0, a1) => (_emscripten_bind_LocalShapeInfo_set_m_shapePart_1 = Module["_emscripten_bind_LocalShapeInfo_set_m_shapePart_1"] = wasmExports["Jc"])(a0, a1);
 
-var _emscripten_bind_LocalConvexResult_get_m_hitPointLocal_0 = Module["_emscripten_bind_LocalConvexResult_get_m_hitPointLocal_0"] = function() {
- return (_emscripten_bind_LocalConvexResult_get_m_hitPointLocal_0 = Module["_emscripten_bind_LocalConvexResult_get_m_hitPointLocal_0"] = Module["asm"]["Sc"]).apply(null, arguments);
-};
+var _emscripten_bind_LocalShapeInfo_get_m_triangleIndex_0 = Module["_emscripten_bind_LocalShapeInfo_get_m_triangleIndex_0"] = a0 => (_emscripten_bind_LocalShapeInfo_get_m_triangleIndex_0 = Module["_emscripten_bind_LocalShapeInfo_get_m_triangleIndex_0"] = wasmExports["Kc"])(a0);
 
-var _emscripten_bind_LocalConvexResult_set_m_hitPointLocal_1 = Module["_emscripten_bind_LocalConvexResult_set_m_hitPointLocal_1"] = function() {
- return (_emscripten_bind_LocalConvexResult_set_m_hitPointLocal_1 = Module["_emscripten_bind_LocalConvexResult_set_m_hitPointLocal_1"] = Module["asm"]["Tc"]).apply(null, arguments);
-};
+var _emscripten_bind_LocalShapeInfo_set_m_triangleIndex_1 = Module["_emscripten_bind_LocalShapeInfo_set_m_triangleIndex_1"] = (a0, a1) => (_emscripten_bind_LocalShapeInfo_set_m_triangleIndex_1 = Module["_emscripten_bind_LocalShapeInfo_set_m_triangleIndex_1"] = wasmExports["Lc"])(a0, a1);
 
-var _emscripten_bind_LocalConvexResult_get_m_hitFraction_0 = Module["_emscripten_bind_LocalConvexResult_get_m_hitFraction_0"] = function() {
- return (_emscripten_bind_LocalConvexResult_get_m_hitFraction_0 = Module["_emscripten_bind_LocalConvexResult_get_m_hitFraction_0"] = Module["asm"]["Uc"]).apply(null, arguments);
-};
+var _emscripten_bind_LocalShapeInfo___destroy___0 = Module["_emscripten_bind_LocalShapeInfo___destroy___0"] = a0 => (_emscripten_bind_LocalShapeInfo___destroy___0 = Module["_emscripten_bind_LocalShapeInfo___destroy___0"] = wasmExports["Mc"])(a0);
 
-var _emscripten_bind_LocalConvexResult_set_m_hitFraction_1 = Module["_emscripten_bind_LocalConvexResult_set_m_hitFraction_1"] = function() {
- return (_emscripten_bind_LocalConvexResult_set_m_hitFraction_1 = Module["_emscripten_bind_LocalConvexResult_set_m_hitFraction_1"] = Module["asm"]["Vc"]).apply(null, arguments);
-};
+var _emscripten_bind_LocalConvexResult_LocalConvexResult_5 = Module["_emscripten_bind_LocalConvexResult_LocalConvexResult_5"] = (a0, a1, a2, a3, a4) => (_emscripten_bind_LocalConvexResult_LocalConvexResult_5 = Module["_emscripten_bind_LocalConvexResult_LocalConvexResult_5"] = wasmExports["Nc"])(a0, a1, a2, a3, a4);
 
-var _emscripten_bind_LocalConvexResult___destroy___0 = Module["_emscripten_bind_LocalConvexResult___destroy___0"] = function() {
- return (_emscripten_bind_LocalConvexResult___destroy___0 = Module["_emscripten_bind_LocalConvexResult___destroy___0"] = Module["asm"]["Wc"]).apply(null, arguments);
-};
+var _emscripten_bind_LocalConvexResult_get_m_hitCollisionObject_0 = Module["_emscripten_bind_LocalConvexResult_get_m_hitCollisionObject_0"] = a0 => (_emscripten_bind_LocalConvexResult_get_m_hitCollisionObject_0 = Module["_emscripten_bind_LocalConvexResult_get_m_hitCollisionObject_0"] = wasmExports["Oc"])(a0);
 
-var _emscripten_bind_ConvexResultCallback_hasHit_0 = Module["_emscripten_bind_ConvexResultCallback_hasHit_0"] = function() {
- return (_emscripten_bind_ConvexResultCallback_hasHit_0 = Module["_emscripten_bind_ConvexResultCallback_hasHit_0"] = Module["asm"]["Xc"]).apply(null, arguments);
-};
+var _emscripten_bind_LocalConvexResult_set_m_hitCollisionObject_1 = Module["_emscripten_bind_LocalConvexResult_set_m_hitCollisionObject_1"] = (a0, a1) => (_emscripten_bind_LocalConvexResult_set_m_hitCollisionObject_1 = Module["_emscripten_bind_LocalConvexResult_set_m_hitCollisionObject_1"] = wasmExports["Pc"])(a0, a1);
 
-var _emscripten_bind_ConvexResultCallback_get_m_collisionFilterGroup_0 = Module["_emscripten_bind_ConvexResultCallback_get_m_collisionFilterGroup_0"] = function() {
- return (_emscripten_bind_ConvexResultCallback_get_m_collisionFilterGroup_0 = Module["_emscripten_bind_ConvexResultCallback_get_m_collisionFilterGroup_0"] = Module["asm"]["Yc"]).apply(null, arguments);
-};
+var _emscripten_bind_LocalConvexResult_get_m_localShapeInfo_0 = Module["_emscripten_bind_LocalConvexResult_get_m_localShapeInfo_0"] = a0 => (_emscripten_bind_LocalConvexResult_get_m_localShapeInfo_0 = Module["_emscripten_bind_LocalConvexResult_get_m_localShapeInfo_0"] = wasmExports["Qc"])(a0);
 
-var _emscripten_bind_ConvexResultCallback_set_m_collisionFilterGroup_1 = Module["_emscripten_bind_ConvexResultCallback_set_m_collisionFilterGroup_1"] = function() {
- return (_emscripten_bind_ConvexResultCallback_set_m_collisionFilterGroup_1 = Module["_emscripten_bind_ConvexResultCallback_set_m_collisionFilterGroup_1"] = Module["asm"]["Zc"]).apply(null, arguments);
-};
+var _emscripten_bind_LocalConvexResult_set_m_localShapeInfo_1 = Module["_emscripten_bind_LocalConvexResult_set_m_localShapeInfo_1"] = (a0, a1) => (_emscripten_bind_LocalConvexResult_set_m_localShapeInfo_1 = Module["_emscripten_bind_LocalConvexResult_set_m_localShapeInfo_1"] = wasmExports["Rc"])(a0, a1);
 
-var _emscripten_bind_ConvexResultCallback_get_m_collisionFilterMask_0 = Module["_emscripten_bind_ConvexResultCallback_get_m_collisionFilterMask_0"] = function() {
- return (_emscripten_bind_ConvexResultCallback_get_m_collisionFilterMask_0 = Module["_emscripten_bind_ConvexResultCallback_get_m_collisionFilterMask_0"] = Module["asm"]["_c"]).apply(null, arguments);
-};
+var _emscripten_bind_LocalConvexResult_get_m_hitNormalLocal_0 = Module["_emscripten_bind_LocalConvexResult_get_m_hitNormalLocal_0"] = a0 => (_emscripten_bind_LocalConvexResult_get_m_hitNormalLocal_0 = Module["_emscripten_bind_LocalConvexResult_get_m_hitNormalLocal_0"] = wasmExports["Sc"])(a0);
 
-var _emscripten_bind_ConvexResultCallback_set_m_collisionFilterMask_1 = Module["_emscripten_bind_ConvexResultCallback_set_m_collisionFilterMask_1"] = function() {
- return (_emscripten_bind_ConvexResultCallback_set_m_collisionFilterMask_1 = Module["_emscripten_bind_ConvexResultCallback_set_m_collisionFilterMask_1"] = Module["asm"]["$c"]).apply(null, arguments);
-};
+var _emscripten_bind_LocalConvexResult_set_m_hitNormalLocal_1 = Module["_emscripten_bind_LocalConvexResult_set_m_hitNormalLocal_1"] = (a0, a1) => (_emscripten_bind_LocalConvexResult_set_m_hitNormalLocal_1 = Module["_emscripten_bind_LocalConvexResult_set_m_hitNormalLocal_1"] = wasmExports["Tc"])(a0, a1);
 
-var _emscripten_bind_ConvexResultCallback_get_m_closestHitFraction_0 = Module["_emscripten_bind_ConvexResultCallback_get_m_closestHitFraction_0"] = function() {
- return (_emscripten_bind_ConvexResultCallback_get_m_closestHitFraction_0 = Module["_emscripten_bind_ConvexResultCallback_get_m_closestHitFraction_0"] = Module["asm"]["ad"]).apply(null, arguments);
-};
+var _emscripten_bind_LocalConvexResult_get_m_hitPointLocal_0 = Module["_emscripten_bind_LocalConvexResult_get_m_hitPointLocal_0"] = a0 => (_emscripten_bind_LocalConvexResult_get_m_hitPointLocal_0 = Module["_emscripten_bind_LocalConvexResult_get_m_hitPointLocal_0"] = wasmExports["Uc"])(a0);
 
-var _emscripten_bind_ConvexResultCallback_set_m_closestHitFraction_1 = Module["_emscripten_bind_ConvexResultCallback_set_m_closestHitFraction_1"] = function() {
- return (_emscripten_bind_ConvexResultCallback_set_m_closestHitFraction_1 = Module["_emscripten_bind_ConvexResultCallback_set_m_closestHitFraction_1"] = Module["asm"]["bd"]).apply(null, arguments);
-};
+var _emscripten_bind_LocalConvexResult_set_m_hitPointLocal_1 = Module["_emscripten_bind_LocalConvexResult_set_m_hitPointLocal_1"] = (a0, a1) => (_emscripten_bind_LocalConvexResult_set_m_hitPointLocal_1 = Module["_emscripten_bind_LocalConvexResult_set_m_hitPointLocal_1"] = wasmExports["Vc"])(a0, a1);
 
-var _emscripten_bind_ConvexResultCallback___destroy___0 = Module["_emscripten_bind_ConvexResultCallback___destroy___0"] = function() {
- return (_emscripten_bind_ConvexResultCallback___destroy___0 = Module["_emscripten_bind_ConvexResultCallback___destroy___0"] = Module["asm"]["cd"]).apply(null, arguments);
-};
+var _emscripten_bind_LocalConvexResult_get_m_hitFraction_0 = Module["_emscripten_bind_LocalConvexResult_get_m_hitFraction_0"] = a0 => (_emscripten_bind_LocalConvexResult_get_m_hitFraction_0 = Module["_emscripten_bind_LocalConvexResult_get_m_hitFraction_0"] = wasmExports["Wc"])(a0);
 
-var _emscripten_bind_btConvexTriangleMeshShape_btConvexTriangleMeshShape_1 = Module["_emscripten_bind_btConvexTriangleMeshShape_btConvexTriangleMeshShape_1"] = function() {
- return (_emscripten_bind_btConvexTriangleMeshShape_btConvexTriangleMeshShape_1 = Module["_emscripten_bind_btConvexTriangleMeshShape_btConvexTriangleMeshShape_1"] = Module["asm"]["dd"]).apply(null, arguments);
-};
+var _emscripten_bind_LocalConvexResult_set_m_hitFraction_1 = Module["_emscripten_bind_LocalConvexResult_set_m_hitFraction_1"] = (a0, a1) => (_emscripten_bind_LocalConvexResult_set_m_hitFraction_1 = Module["_emscripten_bind_LocalConvexResult_set_m_hitFraction_1"] = wasmExports["Xc"])(a0, a1);
 
-var _emscripten_bind_btConvexTriangleMeshShape_btConvexTriangleMeshShape_2 = Module["_emscripten_bind_btConvexTriangleMeshShape_btConvexTriangleMeshShape_2"] = function() {
- return (_emscripten_bind_btConvexTriangleMeshShape_btConvexTriangleMeshShape_2 = Module["_emscripten_bind_btConvexTriangleMeshShape_btConvexTriangleMeshShape_2"] = Module["asm"]["ed"]).apply(null, arguments);
-};
+var _emscripten_bind_LocalConvexResult___destroy___0 = Module["_emscripten_bind_LocalConvexResult___destroy___0"] = a0 => (_emscripten_bind_LocalConvexResult___destroy___0 = Module["_emscripten_bind_LocalConvexResult___destroy___0"] = wasmExports["Yc"])(a0);
 
-var _emscripten_bind_btConvexTriangleMeshShape_setLocalScaling_1 = Module["_emscripten_bind_btConvexTriangleMeshShape_setLocalScaling_1"] = function() {
- return (_emscripten_bind_btConvexTriangleMeshShape_setLocalScaling_1 = Module["_emscripten_bind_btConvexTriangleMeshShape_setLocalScaling_1"] = Module["asm"]["fd"]).apply(null, arguments);
-};
+var _emscripten_bind_ConvexResultCallback_hasHit_0 = Module["_emscripten_bind_ConvexResultCallback_hasHit_0"] = a0 => (_emscripten_bind_ConvexResultCallback_hasHit_0 = Module["_emscripten_bind_ConvexResultCallback_hasHit_0"] = wasmExports["Zc"])(a0);
 
-var _emscripten_bind_btConvexTriangleMeshShape_getLocalScaling_0 = Module["_emscripten_bind_btConvexTriangleMeshShape_getLocalScaling_0"] = function() {
- return (_emscripten_bind_btConvexTriangleMeshShape_getLocalScaling_0 = Module["_emscripten_bind_btConvexTriangleMeshShape_getLocalScaling_0"] = Module["asm"]["gd"]).apply(null, arguments);
-};
+var _emscripten_bind_ConvexResultCallback_get_m_collisionFilterGroup_0 = Module["_emscripten_bind_ConvexResultCallback_get_m_collisionFilterGroup_0"] = a0 => (_emscripten_bind_ConvexResultCallback_get_m_collisionFilterGroup_0 = Module["_emscripten_bind_ConvexResultCallback_get_m_collisionFilterGroup_0"] = wasmExports["_c"])(a0);
 
-var _emscripten_bind_btConvexTriangleMeshShape_calculateLocalInertia_2 = Module["_emscripten_bind_btConvexTriangleMeshShape_calculateLocalInertia_2"] = function() {
- return (_emscripten_bind_btConvexTriangleMeshShape_calculateLocalInertia_2 = Module["_emscripten_bind_btConvexTriangleMeshShape_calculateLocalInertia_2"] = Module["asm"]["hd"]).apply(null, arguments);
-};
+var _emscripten_bind_ConvexResultCallback_set_m_collisionFilterGroup_1 = Module["_emscripten_bind_ConvexResultCallback_set_m_collisionFilterGroup_1"] = (a0, a1) => (_emscripten_bind_ConvexResultCallback_set_m_collisionFilterGroup_1 = Module["_emscripten_bind_ConvexResultCallback_set_m_collisionFilterGroup_1"] = wasmExports["$c"])(a0, a1);
 
-var _emscripten_bind_btConvexTriangleMeshShape_setMargin_1 = Module["_emscripten_bind_btConvexTriangleMeshShape_setMargin_1"] = function() {
- return (_emscripten_bind_btConvexTriangleMeshShape_setMargin_1 = Module["_emscripten_bind_btConvexTriangleMeshShape_setMargin_1"] = Module["asm"]["id"]).apply(null, arguments);
-};
+var _emscripten_bind_ConvexResultCallback_get_m_collisionFilterMask_0 = Module["_emscripten_bind_ConvexResultCallback_get_m_collisionFilterMask_0"] = a0 => (_emscripten_bind_ConvexResultCallback_get_m_collisionFilterMask_0 = Module["_emscripten_bind_ConvexResultCallback_get_m_collisionFilterMask_0"] = wasmExports["ad"])(a0);
 
-var _emscripten_bind_btConvexTriangleMeshShape_getMargin_0 = Module["_emscripten_bind_btConvexTriangleMeshShape_getMargin_0"] = function() {
- return (_emscripten_bind_btConvexTriangleMeshShape_getMargin_0 = Module["_emscripten_bind_btConvexTriangleMeshShape_getMargin_0"] = Module["asm"]["jd"]).apply(null, arguments);
-};
+var _emscripten_bind_ConvexResultCallback_set_m_collisionFilterMask_1 = Module["_emscripten_bind_ConvexResultCallback_set_m_collisionFilterMask_1"] = (a0, a1) => (_emscripten_bind_ConvexResultCallback_set_m_collisionFilterMask_1 = Module["_emscripten_bind_ConvexResultCallback_set_m_collisionFilterMask_1"] = wasmExports["bd"])(a0, a1);
 
-var _emscripten_bind_btConvexTriangleMeshShape___destroy___0 = Module["_emscripten_bind_btConvexTriangleMeshShape___destroy___0"] = function() {
- return (_emscripten_bind_btConvexTriangleMeshShape___destroy___0 = Module["_emscripten_bind_btConvexTriangleMeshShape___destroy___0"] = Module["asm"]["kd"]).apply(null, arguments);
-};
+var _emscripten_bind_ConvexResultCallback_get_m_closestHitFraction_0 = Module["_emscripten_bind_ConvexResultCallback_get_m_closestHitFraction_0"] = a0 => (_emscripten_bind_ConvexResultCallback_get_m_closestHitFraction_0 = Module["_emscripten_bind_ConvexResultCallback_get_m_closestHitFraction_0"] = wasmExports["cd"])(a0);
 
-var _emscripten_bind_btBoxShape_btBoxShape_1 = Module["_emscripten_bind_btBoxShape_btBoxShape_1"] = function() {
- return (_emscripten_bind_btBoxShape_btBoxShape_1 = Module["_emscripten_bind_btBoxShape_btBoxShape_1"] = Module["asm"]["ld"]).apply(null, arguments);
-};
+var _emscripten_bind_ConvexResultCallback_set_m_closestHitFraction_1 = Module["_emscripten_bind_ConvexResultCallback_set_m_closestHitFraction_1"] = (a0, a1) => (_emscripten_bind_ConvexResultCallback_set_m_closestHitFraction_1 = Module["_emscripten_bind_ConvexResultCallback_set_m_closestHitFraction_1"] = wasmExports["dd"])(a0, a1);
 
-var _emscripten_bind_btBoxShape_setMargin_1 = Module["_emscripten_bind_btBoxShape_setMargin_1"] = function() {
- return (_emscripten_bind_btBoxShape_setMargin_1 = Module["_emscripten_bind_btBoxShape_setMargin_1"] = Module["asm"]["md"]).apply(null, arguments);
-};
+var _emscripten_bind_ConvexResultCallback___destroy___0 = Module["_emscripten_bind_ConvexResultCallback___destroy___0"] = a0 => (_emscripten_bind_ConvexResultCallback___destroy___0 = Module["_emscripten_bind_ConvexResultCallback___destroy___0"] = wasmExports["ed"])(a0);
 
-var _emscripten_bind_btBoxShape_getMargin_0 = Module["_emscripten_bind_btBoxShape_getMargin_0"] = function() {
- return (_emscripten_bind_btBoxShape_getMargin_0 = Module["_emscripten_bind_btBoxShape_getMargin_0"] = Module["asm"]["nd"]).apply(null, arguments);
-};
+var _emscripten_bind_btConvexTriangleMeshShape_btConvexTriangleMeshShape_1 = Module["_emscripten_bind_btConvexTriangleMeshShape_btConvexTriangleMeshShape_1"] = a0 => (_emscripten_bind_btConvexTriangleMeshShape_btConvexTriangleMeshShape_1 = Module["_emscripten_bind_btConvexTriangleMeshShape_btConvexTriangleMeshShape_1"] = wasmExports["fd"])(a0);
 
-var _emscripten_bind_btBoxShape_setLocalScaling_1 = Module["_emscripten_bind_btBoxShape_setLocalScaling_1"] = function() {
- return (_emscripten_bind_btBoxShape_setLocalScaling_1 = Module["_emscripten_bind_btBoxShape_setLocalScaling_1"] = Module["asm"]["od"]).apply(null, arguments);
-};
+var _emscripten_bind_btConvexTriangleMeshShape_btConvexTriangleMeshShape_2 = Module["_emscripten_bind_btConvexTriangleMeshShape_btConvexTriangleMeshShape_2"] = (a0, a1) => (_emscripten_bind_btConvexTriangleMeshShape_btConvexTriangleMeshShape_2 = Module["_emscripten_bind_btConvexTriangleMeshShape_btConvexTriangleMeshShape_2"] = wasmExports["gd"])(a0, a1);
 
-var _emscripten_bind_btBoxShape_getLocalScaling_0 = Module["_emscripten_bind_btBoxShape_getLocalScaling_0"] = function() {
- return (_emscripten_bind_btBoxShape_getLocalScaling_0 = Module["_emscripten_bind_btBoxShape_getLocalScaling_0"] = Module["asm"]["pd"]).apply(null, arguments);
-};
+var _emscripten_bind_btConvexTriangleMeshShape_setLocalScaling_1 = Module["_emscripten_bind_btConvexTriangleMeshShape_setLocalScaling_1"] = (a0, a1) => (_emscripten_bind_btConvexTriangleMeshShape_setLocalScaling_1 = Module["_emscripten_bind_btConvexTriangleMeshShape_setLocalScaling_1"] = wasmExports["hd"])(a0, a1);
 
-var _emscripten_bind_btBoxShape_calculateLocalInertia_2 = Module["_emscripten_bind_btBoxShape_calculateLocalInertia_2"] = function() {
- return (_emscripten_bind_btBoxShape_calculateLocalInertia_2 = Module["_emscripten_bind_btBoxShape_calculateLocalInertia_2"] = Module["asm"]["qd"]).apply(null, arguments);
-};
+var _emscripten_bind_btConvexTriangleMeshShape_getLocalScaling_0 = Module["_emscripten_bind_btConvexTriangleMeshShape_getLocalScaling_0"] = a0 => (_emscripten_bind_btConvexTriangleMeshShape_getLocalScaling_0 = Module["_emscripten_bind_btConvexTriangleMeshShape_getLocalScaling_0"] = wasmExports["id"])(a0);
 
-var _emscripten_bind_btBoxShape___destroy___0 = Module["_emscripten_bind_btBoxShape___destroy___0"] = function() {
- return (_emscripten_bind_btBoxShape___destroy___0 = Module["_emscripten_bind_btBoxShape___destroy___0"] = Module["asm"]["rd"]).apply(null, arguments);
-};
+var _emscripten_bind_btConvexTriangleMeshShape_calculateLocalInertia_2 = Module["_emscripten_bind_btConvexTriangleMeshShape_calculateLocalInertia_2"] = (a0, a1, a2) => (_emscripten_bind_btConvexTriangleMeshShape_calculateLocalInertia_2 = Module["_emscripten_bind_btConvexTriangleMeshShape_calculateLocalInertia_2"] = wasmExports["jd"])(a0, a1, a2);
 
-var _emscripten_bind_btCapsuleShape_btCapsuleShape_2 = Module["_emscripten_bind_btCapsuleShape_btCapsuleShape_2"] = function() {
- return (_emscripten_bind_btCapsuleShape_btCapsuleShape_2 = Module["_emscripten_bind_btCapsuleShape_btCapsuleShape_2"] = Module["asm"]["sd"]).apply(null, arguments);
-};
+var _emscripten_bind_btConvexTriangleMeshShape_setMargin_1 = Module["_emscripten_bind_btConvexTriangleMeshShape_setMargin_1"] = (a0, a1) => (_emscripten_bind_btConvexTriangleMeshShape_setMargin_1 = Module["_emscripten_bind_btConvexTriangleMeshShape_setMargin_1"] = wasmExports["kd"])(a0, a1);
 
-var _emscripten_bind_btCapsuleShape_setMargin_1 = Module["_emscripten_bind_btCapsuleShape_setMargin_1"] = function() {
- return (_emscripten_bind_btCapsuleShape_setMargin_1 = Module["_emscripten_bind_btCapsuleShape_setMargin_1"] = Module["asm"]["td"]).apply(null, arguments);
-};
+var _emscripten_bind_btConvexTriangleMeshShape_getMargin_0 = Module["_emscripten_bind_btConvexTriangleMeshShape_getMargin_0"] = a0 => (_emscripten_bind_btConvexTriangleMeshShape_getMargin_0 = Module["_emscripten_bind_btConvexTriangleMeshShape_getMargin_0"] = wasmExports["ld"])(a0);
 
-var _emscripten_bind_btCapsuleShape_getMargin_0 = Module["_emscripten_bind_btCapsuleShape_getMargin_0"] = function() {
- return (_emscripten_bind_btCapsuleShape_getMargin_0 = Module["_emscripten_bind_btCapsuleShape_getMargin_0"] = Module["asm"]["ud"]).apply(null, arguments);
-};
+var _emscripten_bind_btConvexTriangleMeshShape___destroy___0 = Module["_emscripten_bind_btConvexTriangleMeshShape___destroy___0"] = a0 => (_emscripten_bind_btConvexTriangleMeshShape___destroy___0 = Module["_emscripten_bind_btConvexTriangleMeshShape___destroy___0"] = wasmExports["md"])(a0);
 
-var _emscripten_bind_btCapsuleShape_getUpAxis_0 = Module["_emscripten_bind_btCapsuleShape_getUpAxis_0"] = function() {
- return (_emscripten_bind_btCapsuleShape_getUpAxis_0 = Module["_emscripten_bind_btCapsuleShape_getUpAxis_0"] = Module["asm"]["vd"]).apply(null, arguments);
-};
+var _emscripten_bind_btBoxShape_btBoxShape_1 = Module["_emscripten_bind_btBoxShape_btBoxShape_1"] = a0 => (_emscripten_bind_btBoxShape_btBoxShape_1 = Module["_emscripten_bind_btBoxShape_btBoxShape_1"] = wasmExports["nd"])(a0);
 
-var _emscripten_bind_btCapsuleShape_getRadius_0 = Module["_emscripten_bind_btCapsuleShape_getRadius_0"] = function() {
- return (_emscripten_bind_btCapsuleShape_getRadius_0 = Module["_emscripten_bind_btCapsuleShape_getRadius_0"] = Module["asm"]["wd"]).apply(null, arguments);
-};
+var _emscripten_bind_btBoxShape_setMargin_1 = Module["_emscripten_bind_btBoxShape_setMargin_1"] = (a0, a1) => (_emscripten_bind_btBoxShape_setMargin_1 = Module["_emscripten_bind_btBoxShape_setMargin_1"] = wasmExports["od"])(a0, a1);
 
-var _emscripten_bind_btCapsuleShape_getHalfHeight_0 = Module["_emscripten_bind_btCapsuleShape_getHalfHeight_0"] = function() {
- return (_emscripten_bind_btCapsuleShape_getHalfHeight_0 = Module["_emscripten_bind_btCapsuleShape_getHalfHeight_0"] = Module["asm"]["xd"]).apply(null, arguments);
-};
+var _emscripten_bind_btBoxShape_getMargin_0 = Module["_emscripten_bind_btBoxShape_getMargin_0"] = a0 => (_emscripten_bind_btBoxShape_getMargin_0 = Module["_emscripten_bind_btBoxShape_getMargin_0"] = wasmExports["pd"])(a0);
 
-var _emscripten_bind_btCapsuleShape_setLocalScaling_1 = Module["_emscripten_bind_btCapsuleShape_setLocalScaling_1"] = function() {
- return (_emscripten_bind_btCapsuleShape_setLocalScaling_1 = Module["_emscripten_bind_btCapsuleShape_setLocalScaling_1"] = Module["asm"]["yd"]).apply(null, arguments);
-};
+var _emscripten_bind_btBoxShape_setLocalScaling_1 = Module["_emscripten_bind_btBoxShape_setLocalScaling_1"] = (a0, a1) => (_emscripten_bind_btBoxShape_setLocalScaling_1 = Module["_emscripten_bind_btBoxShape_setLocalScaling_1"] = wasmExports["qd"])(a0, a1);
 
-var _emscripten_bind_btCapsuleShape_getLocalScaling_0 = Module["_emscripten_bind_btCapsuleShape_getLocalScaling_0"] = function() {
- return (_emscripten_bind_btCapsuleShape_getLocalScaling_0 = Module["_emscripten_bind_btCapsuleShape_getLocalScaling_0"] = Module["asm"]["zd"]).apply(null, arguments);
-};
+var _emscripten_bind_btBoxShape_getLocalScaling_0 = Module["_emscripten_bind_btBoxShape_getLocalScaling_0"] = a0 => (_emscripten_bind_btBoxShape_getLocalScaling_0 = Module["_emscripten_bind_btBoxShape_getLocalScaling_0"] = wasmExports["rd"])(a0);
 
-var _emscripten_bind_btCapsuleShape_calculateLocalInertia_2 = Module["_emscripten_bind_btCapsuleShape_calculateLocalInertia_2"] = function() {
- return (_emscripten_bind_btCapsuleShape_calculateLocalInertia_2 = Module["_emscripten_bind_btCapsuleShape_calculateLocalInertia_2"] = Module["asm"]["Ad"]).apply(null, arguments);
-};
+var _emscripten_bind_btBoxShape_calculateLocalInertia_2 = Module["_emscripten_bind_btBoxShape_calculateLocalInertia_2"] = (a0, a1, a2) => (_emscripten_bind_btBoxShape_calculateLocalInertia_2 = Module["_emscripten_bind_btBoxShape_calculateLocalInertia_2"] = wasmExports["sd"])(a0, a1, a2);
 
-var _emscripten_bind_btCapsuleShape___destroy___0 = Module["_emscripten_bind_btCapsuleShape___destroy___0"] = function() {
- return (_emscripten_bind_btCapsuleShape___destroy___0 = Module["_emscripten_bind_btCapsuleShape___destroy___0"] = Module["asm"]["Bd"]).apply(null, arguments);
-};
+var _emscripten_bind_btBoxShape___destroy___0 = Module["_emscripten_bind_btBoxShape___destroy___0"] = a0 => (_emscripten_bind_btBoxShape___destroy___0 = Module["_emscripten_bind_btBoxShape___destroy___0"] = wasmExports["td"])(a0);
 
-var _emscripten_bind_btConvexHullShape_btConvexHullShape_0 = Module["_emscripten_bind_btConvexHullShape_btConvexHullShape_0"] = function() {
- return (_emscripten_bind_btConvexHullShape_btConvexHullShape_0 = Module["_emscripten_bind_btConvexHullShape_btConvexHullShape_0"] = Module["asm"]["Cd"]).apply(null, arguments);
-};
+var _emscripten_bind_btCapsuleShape_btCapsuleShape_2 = Module["_emscripten_bind_btCapsuleShape_btCapsuleShape_2"] = (a0, a1) => (_emscripten_bind_btCapsuleShape_btCapsuleShape_2 = Module["_emscripten_bind_btCapsuleShape_btCapsuleShape_2"] = wasmExports["ud"])(a0, a1);
 
-var _emscripten_bind_btConvexHullShape_btConvexHullShape_1 = Module["_emscripten_bind_btConvexHullShape_btConvexHullShape_1"] = function() {
- return (_emscripten_bind_btConvexHullShape_btConvexHullShape_1 = Module["_emscripten_bind_btConvexHullShape_btConvexHullShape_1"] = Module["asm"]["Dd"]).apply(null, arguments);
-};
+var _emscripten_bind_btCapsuleShape_setMargin_1 = Module["_emscripten_bind_btCapsuleShape_setMargin_1"] = (a0, a1) => (_emscripten_bind_btCapsuleShape_setMargin_1 = Module["_emscripten_bind_btCapsuleShape_setMargin_1"] = wasmExports["vd"])(a0, a1);
 
-var _emscripten_bind_btConvexHullShape_btConvexHullShape_2 = Module["_emscripten_bind_btConvexHullShape_btConvexHullShape_2"] = function() {
- return (_emscripten_bind_btConvexHullShape_btConvexHullShape_2 = Module["_emscripten_bind_btConvexHullShape_btConvexHullShape_2"] = Module["asm"]["Ed"]).apply(null, arguments);
-};
+var _emscripten_bind_btCapsuleShape_getMargin_0 = Module["_emscripten_bind_btCapsuleShape_getMargin_0"] = a0 => (_emscripten_bind_btCapsuleShape_getMargin_0 = Module["_emscripten_bind_btCapsuleShape_getMargin_0"] = wasmExports["wd"])(a0);
 
-var _emscripten_bind_btConvexHullShape_addPoint_1 = Module["_emscripten_bind_btConvexHullShape_addPoint_1"] = function() {
- return (_emscripten_bind_btConvexHullShape_addPoint_1 = Module["_emscripten_bind_btConvexHullShape_addPoint_1"] = Module["asm"]["Fd"]).apply(null, arguments);
-};
+var _emscripten_bind_btCapsuleShape_getUpAxis_0 = Module["_emscripten_bind_btCapsuleShape_getUpAxis_0"] = a0 => (_emscripten_bind_btCapsuleShape_getUpAxis_0 = Module["_emscripten_bind_btCapsuleShape_getUpAxis_0"] = wasmExports["xd"])(a0);
 
-var _emscripten_bind_btConvexHullShape_addPoint_2 = Module["_emscripten_bind_btConvexHullShape_addPoint_2"] = function() {
- return (_emscripten_bind_btConvexHullShape_addPoint_2 = Module["_emscripten_bind_btConvexHullShape_addPoint_2"] = Module["asm"]["Gd"]).apply(null, arguments);
-};
+var _emscripten_bind_btCapsuleShape_getRadius_0 = Module["_emscripten_bind_btCapsuleShape_getRadius_0"] = a0 => (_emscripten_bind_btCapsuleShape_getRadius_0 = Module["_emscripten_bind_btCapsuleShape_getRadius_0"] = wasmExports["yd"])(a0);
 
-var _emscripten_bind_btConvexHullShape_setMargin_1 = Module["_emscripten_bind_btConvexHullShape_setMargin_1"] = function() {
- return (_emscripten_bind_btConvexHullShape_setMargin_1 = Module["_emscripten_bind_btConvexHullShape_setMargin_1"] = Module["asm"]["Hd"]).apply(null, arguments);
-};
+var _emscripten_bind_btCapsuleShape_getHalfHeight_0 = Module["_emscripten_bind_btCapsuleShape_getHalfHeight_0"] = a0 => (_emscripten_bind_btCapsuleShape_getHalfHeight_0 = Module["_emscripten_bind_btCapsuleShape_getHalfHeight_0"] = wasmExports["zd"])(a0);
 
-var _emscripten_bind_btConvexHullShape_setLocalScaling_1 = Module["_emscripten_bind_btConvexHullShape_setLocalScaling_1"] = function() {
- return (_emscripten_bind_btConvexHullShape_setLocalScaling_1 = Module["_emscripten_bind_btConvexHullShape_setLocalScaling_1"] = Module["asm"]["Id"]).apply(null, arguments);
-};
+var _emscripten_bind_btCapsuleShape_setLocalScaling_1 = Module["_emscripten_bind_btCapsuleShape_setLocalScaling_1"] = (a0, a1) => (_emscripten_bind_btCapsuleShape_setLocalScaling_1 = Module["_emscripten_bind_btCapsuleShape_setLocalScaling_1"] = wasmExports["Ad"])(a0, a1);
 
-var _emscripten_bind_btConvexHullShape_getLocalScaling_0 = Module["_emscripten_bind_btConvexHullShape_getLocalScaling_0"] = function() {
- return (_emscripten_bind_btConvexHullShape_getLocalScaling_0 = Module["_emscripten_bind_btConvexHullShape_getLocalScaling_0"] = Module["asm"]["Jd"]).apply(null, arguments);
-};
+var _emscripten_bind_btCapsuleShape_getLocalScaling_0 = Module["_emscripten_bind_btCapsuleShape_getLocalScaling_0"] = a0 => (_emscripten_bind_btCapsuleShape_getLocalScaling_0 = Module["_emscripten_bind_btCapsuleShape_getLocalScaling_0"] = wasmExports["Bd"])(a0);
 
-var _emscripten_bind_btConvexHullShape_calculateLocalInertia_2 = Module["_emscripten_bind_btConvexHullShape_calculateLocalInertia_2"] = function() {
- return (_emscripten_bind_btConvexHullShape_calculateLocalInertia_2 = Module["_emscripten_bind_btConvexHullShape_calculateLocalInertia_2"] = Module["asm"]["Kd"]).apply(null, arguments);
-};
+var _emscripten_bind_btCapsuleShape_calculateLocalInertia_2 = Module["_emscripten_bind_btCapsuleShape_calculateLocalInertia_2"] = (a0, a1, a2) => (_emscripten_bind_btCapsuleShape_calculateLocalInertia_2 = Module["_emscripten_bind_btCapsuleShape_calculateLocalInertia_2"] = wasmExports["Cd"])(a0, a1, a2);
 
-var _emscripten_bind_btConvexHullShape___destroy___0 = Module["_emscripten_bind_btConvexHullShape___destroy___0"] = function() {
- return (_emscripten_bind_btConvexHullShape___destroy___0 = Module["_emscripten_bind_btConvexHullShape___destroy___0"] = Module["asm"]["Ld"]).apply(null, arguments);
-};
+var _emscripten_bind_btCapsuleShape___destroy___0 = Module["_emscripten_bind_btCapsuleShape___destroy___0"] = a0 => (_emscripten_bind_btCapsuleShape___destroy___0 = Module["_emscripten_bind_btCapsuleShape___destroy___0"] = wasmExports["Dd"])(a0);
 
-var _emscripten_bind_btIndexedMesh_get_m_numTriangles_0 = Module["_emscripten_bind_btIndexedMesh_get_m_numTriangles_0"] = function() {
- return (_emscripten_bind_btIndexedMesh_get_m_numTriangles_0 = Module["_emscripten_bind_btIndexedMesh_get_m_numTriangles_0"] = Module["asm"]["Md"]).apply(null, arguments);
-};
+var _emscripten_bind_btConvexHullShape_btConvexHullShape_0 = Module["_emscripten_bind_btConvexHullShape_btConvexHullShape_0"] = () => (_emscripten_bind_btConvexHullShape_btConvexHullShape_0 = Module["_emscripten_bind_btConvexHullShape_btConvexHullShape_0"] = wasmExports["Ed"])();
 
-var _emscripten_bind_btIndexedMesh_set_m_numTriangles_1 = Module["_emscripten_bind_btIndexedMesh_set_m_numTriangles_1"] = function() {
- return (_emscripten_bind_btIndexedMesh_set_m_numTriangles_1 = Module["_emscripten_bind_btIndexedMesh_set_m_numTriangles_1"] = Module["asm"]["Nd"]).apply(null, arguments);
-};
+var _emscripten_bind_btConvexHullShape_btConvexHullShape_1 = Module["_emscripten_bind_btConvexHullShape_btConvexHullShape_1"] = a0 => (_emscripten_bind_btConvexHullShape_btConvexHullShape_1 = Module["_emscripten_bind_btConvexHullShape_btConvexHullShape_1"] = wasmExports["Fd"])(a0);
 
-var _emscripten_bind_btIndexedMesh___destroy___0 = Module["_emscripten_bind_btIndexedMesh___destroy___0"] = function() {
- return (_emscripten_bind_btIndexedMesh___destroy___0 = Module["_emscripten_bind_btIndexedMesh___destroy___0"] = Module["asm"]["Od"]).apply(null, arguments);
-};
+var _emscripten_bind_btConvexHullShape_btConvexHullShape_2 = Module["_emscripten_bind_btConvexHullShape_btConvexHullShape_2"] = (a0, a1) => (_emscripten_bind_btConvexHullShape_btConvexHullShape_2 = Module["_emscripten_bind_btConvexHullShape_btConvexHullShape_2"] = wasmExports["Gd"])(a0, a1);
 
-var _emscripten_bind_btIndexedMeshArray_size_0 = Module["_emscripten_bind_btIndexedMeshArray_size_0"] = function() {
- return (_emscripten_bind_btIndexedMeshArray_size_0 = Module["_emscripten_bind_btIndexedMeshArray_size_0"] = Module["asm"]["Pd"]).apply(null, arguments);
-};
+var _emscripten_bind_btConvexHullShape_addPoint_1 = Module["_emscripten_bind_btConvexHullShape_addPoint_1"] = (a0, a1) => (_emscripten_bind_btConvexHullShape_addPoint_1 = Module["_emscripten_bind_btConvexHullShape_addPoint_1"] = wasmExports["Hd"])(a0, a1);
 
-var _emscripten_bind_btIndexedMeshArray_at_1 = Module["_emscripten_bind_btIndexedMeshArray_at_1"] = function() {
- return (_emscripten_bind_btIndexedMeshArray_at_1 = Module["_emscripten_bind_btIndexedMeshArray_at_1"] = Module["asm"]["Qd"]).apply(null, arguments);
-};
+var _emscripten_bind_btConvexHullShape_addPoint_2 = Module["_emscripten_bind_btConvexHullShape_addPoint_2"] = (a0, a1, a2) => (_emscripten_bind_btConvexHullShape_addPoint_2 = Module["_emscripten_bind_btConvexHullShape_addPoint_2"] = wasmExports["Id"])(a0, a1, a2);
 
-var _emscripten_bind_btIndexedMeshArray___destroy___0 = Module["_emscripten_bind_btIndexedMeshArray___destroy___0"] = function() {
- return (_emscripten_bind_btIndexedMeshArray___destroy___0 = Module["_emscripten_bind_btIndexedMeshArray___destroy___0"] = Module["asm"]["Rd"]).apply(null, arguments);
-};
+var _emscripten_bind_btConvexHullShape_setMargin_1 = Module["_emscripten_bind_btConvexHullShape_setMargin_1"] = (a0, a1) => (_emscripten_bind_btConvexHullShape_setMargin_1 = Module["_emscripten_bind_btConvexHullShape_setMargin_1"] = wasmExports["Jd"])(a0, a1);
 
-var _emscripten_bind_btTriangleMesh_btTriangleMesh_0 = Module["_emscripten_bind_btTriangleMesh_btTriangleMesh_0"] = function() {
- return (_emscripten_bind_btTriangleMesh_btTriangleMesh_0 = Module["_emscripten_bind_btTriangleMesh_btTriangleMesh_0"] = Module["asm"]["Sd"]).apply(null, arguments);
-};
+var _emscripten_bind_btConvexHullShape_setLocalScaling_1 = Module["_emscripten_bind_btConvexHullShape_setLocalScaling_1"] = (a0, a1) => (_emscripten_bind_btConvexHullShape_setLocalScaling_1 = Module["_emscripten_bind_btConvexHullShape_setLocalScaling_1"] = wasmExports["Kd"])(a0, a1);
 
-var _emscripten_bind_btTriangleMesh_btTriangleMesh_1 = Module["_emscripten_bind_btTriangleMesh_btTriangleMesh_1"] = function() {
- return (_emscripten_bind_btTriangleMesh_btTriangleMesh_1 = Module["_emscripten_bind_btTriangleMesh_btTriangleMesh_1"] = Module["asm"]["Td"]).apply(null, arguments);
-};
+var _emscripten_bind_btConvexHullShape_getLocalScaling_0 = Module["_emscripten_bind_btConvexHullShape_getLocalScaling_0"] = a0 => (_emscripten_bind_btConvexHullShape_getLocalScaling_0 = Module["_emscripten_bind_btConvexHullShape_getLocalScaling_0"] = wasmExports["Ld"])(a0);
 
-var _emscripten_bind_btTriangleMesh_btTriangleMesh_2 = Module["_emscripten_bind_btTriangleMesh_btTriangleMesh_2"] = function() {
- return (_emscripten_bind_btTriangleMesh_btTriangleMesh_2 = Module["_emscripten_bind_btTriangleMesh_btTriangleMesh_2"] = Module["asm"]["Ud"]).apply(null, arguments);
-};
+var _emscripten_bind_btConvexHullShape_calculateLocalInertia_2 = Module["_emscripten_bind_btConvexHullShape_calculateLocalInertia_2"] = (a0, a1, a2) => (_emscripten_bind_btConvexHullShape_calculateLocalInertia_2 = Module["_emscripten_bind_btConvexHullShape_calculateLocalInertia_2"] = wasmExports["Md"])(a0, a1, a2);
 
-var _emscripten_bind_btTriangleMesh_addTriangle_3 = Module["_emscripten_bind_btTriangleMesh_addTriangle_3"] = function() {
- return (_emscripten_bind_btTriangleMesh_addTriangle_3 = Module["_emscripten_bind_btTriangleMesh_addTriangle_3"] = Module["asm"]["Vd"]).apply(null, arguments);
-};
+var _emscripten_bind_btConvexHullShape___destroy___0 = Module["_emscripten_bind_btConvexHullShape___destroy___0"] = a0 => (_emscripten_bind_btConvexHullShape___destroy___0 = Module["_emscripten_bind_btConvexHullShape___destroy___0"] = wasmExports["Nd"])(a0);
 
-var _emscripten_bind_btTriangleMesh_addTriangle_4 = Module["_emscripten_bind_btTriangleMesh_addTriangle_4"] = function() {
- return (_emscripten_bind_btTriangleMesh_addTriangle_4 = Module["_emscripten_bind_btTriangleMesh_addTriangle_4"] = Module["asm"]["Wd"]).apply(null, arguments);
-};
+var _emscripten_bind_btCompoundShape_btCompoundShape_0 = Module["_emscripten_bind_btCompoundShape_btCompoundShape_0"] = () => (_emscripten_bind_btCompoundShape_btCompoundShape_0 = Module["_emscripten_bind_btCompoundShape_btCompoundShape_0"] = wasmExports["Od"])();
 
-var _emscripten_bind_btTriangleMesh_findOrAddVertex_2 = Module["_emscripten_bind_btTriangleMesh_findOrAddVertex_2"] = function() {
- return (_emscripten_bind_btTriangleMesh_findOrAddVertex_2 = Module["_emscripten_bind_btTriangleMesh_findOrAddVertex_2"] = Module["asm"]["Xd"]).apply(null, arguments);
-};
+var _emscripten_bind_btCompoundShape_btCompoundShape_1 = Module["_emscripten_bind_btCompoundShape_btCompoundShape_1"] = a0 => (_emscripten_bind_btCompoundShape_btCompoundShape_1 = Module["_emscripten_bind_btCompoundShape_btCompoundShape_1"] = wasmExports["Pd"])(a0);
 
-var _emscripten_bind_btTriangleMesh_addIndex_1 = Module["_emscripten_bind_btTriangleMesh_addIndex_1"] = function() {
- return (_emscripten_bind_btTriangleMesh_addIndex_1 = Module["_emscripten_bind_btTriangleMesh_addIndex_1"] = Module["asm"]["Yd"]).apply(null, arguments);
-};
+var _emscripten_bind_btCompoundShape_addChildShape_2 = Module["_emscripten_bind_btCompoundShape_addChildShape_2"] = (a0, a1, a2) => (_emscripten_bind_btCompoundShape_addChildShape_2 = Module["_emscripten_bind_btCompoundShape_addChildShape_2"] = wasmExports["Qd"])(a0, a1, a2);
 
-var _emscripten_bind_btTriangleMesh_preallocateIndices_1 = Module["_emscripten_bind_btTriangleMesh_preallocateIndices_1"] = function() {
- return (_emscripten_bind_btTriangleMesh_preallocateIndices_1 = Module["_emscripten_bind_btTriangleMesh_preallocateIndices_1"] = Module["asm"]["Zd"]).apply(null, arguments);
-};
+var _emscripten_bind_btCompoundShape_setMargin_1 = Module["_emscripten_bind_btCompoundShape_setMargin_1"] = (a0, a1) => (_emscripten_bind_btCompoundShape_setMargin_1 = Module["_emscripten_bind_btCompoundShape_setMargin_1"] = wasmExports["Rd"])(a0, a1);
 
-var _emscripten_bind_btTriangleMesh_preallocateVertices_1 = Module["_emscripten_bind_btTriangleMesh_preallocateVertices_1"] = function() {
- return (_emscripten_bind_btTriangleMesh_preallocateVertices_1 = Module["_emscripten_bind_btTriangleMesh_preallocateVertices_1"] = Module["asm"]["_d"]).apply(null, arguments);
-};
+var _emscripten_bind_btCompoundShape_getMargin_0 = Module["_emscripten_bind_btCompoundShape_getMargin_0"] = a0 => (_emscripten_bind_btCompoundShape_getMargin_0 = Module["_emscripten_bind_btCompoundShape_getMargin_0"] = wasmExports["Sd"])(a0);
 
-var _emscripten_bind_btTriangleMesh_getIndexedMeshArray_0 = Module["_emscripten_bind_btTriangleMesh_getIndexedMeshArray_0"] = function() {
- return (_emscripten_bind_btTriangleMesh_getIndexedMeshArray_0 = Module["_emscripten_bind_btTriangleMesh_getIndexedMeshArray_0"] = Module["asm"]["$d"]).apply(null, arguments);
-};
+var _emscripten_bind_btCompoundShape_setLocalScaling_1 = Module["_emscripten_bind_btCompoundShape_setLocalScaling_1"] = (a0, a1) => (_emscripten_bind_btCompoundShape_setLocalScaling_1 = Module["_emscripten_bind_btCompoundShape_setLocalScaling_1"] = wasmExports["Td"])(a0, a1);
 
-var _emscripten_bind_btTriangleMesh_setScaling_1 = Module["_emscripten_bind_btTriangleMesh_setScaling_1"] = function() {
- return (_emscripten_bind_btTriangleMesh_setScaling_1 = Module["_emscripten_bind_btTriangleMesh_setScaling_1"] = Module["asm"]["ae"]).apply(null, arguments);
-};
+var _emscripten_bind_btCompoundShape_getLocalScaling_0 = Module["_emscripten_bind_btCompoundShape_getLocalScaling_0"] = a0 => (_emscripten_bind_btCompoundShape_getLocalScaling_0 = Module["_emscripten_bind_btCompoundShape_getLocalScaling_0"] = wasmExports["Ud"])(a0);
 
-var _emscripten_bind_btTriangleMesh___destroy___0 = Module["_emscripten_bind_btTriangleMesh___destroy___0"] = function() {
- return (_emscripten_bind_btTriangleMesh___destroy___0 = Module["_emscripten_bind_btTriangleMesh___destroy___0"] = Module["asm"]["be"]).apply(null, arguments);
-};
+var _emscripten_bind_btCompoundShape_calculateLocalInertia_2 = Module["_emscripten_bind_btCompoundShape_calculateLocalInertia_2"] = (a0, a1, a2) => (_emscripten_bind_btCompoundShape_calculateLocalInertia_2 = Module["_emscripten_bind_btCompoundShape_calculateLocalInertia_2"] = wasmExports["Vd"])(a0, a1, a2);
 
-var _emscripten_bind_btEmptyShape_btEmptyShape_0 = Module["_emscripten_bind_btEmptyShape_btEmptyShape_0"] = function() {
- return (_emscripten_bind_btEmptyShape_btEmptyShape_0 = Module["_emscripten_bind_btEmptyShape_btEmptyShape_0"] = Module["asm"]["ce"]).apply(null, arguments);
-};
+var _emscripten_bind_btCompoundShape___destroy___0 = Module["_emscripten_bind_btCompoundShape___destroy___0"] = a0 => (_emscripten_bind_btCompoundShape___destroy___0 = Module["_emscripten_bind_btCompoundShape___destroy___0"] = wasmExports["Wd"])(a0);
 
-var _emscripten_bind_btEmptyShape_setLocalScaling_1 = Module["_emscripten_bind_btEmptyShape_setLocalScaling_1"] = function() {
- return (_emscripten_bind_btEmptyShape_setLocalScaling_1 = Module["_emscripten_bind_btEmptyShape_setLocalScaling_1"] = Module["asm"]["de"]).apply(null, arguments);
-};
+var _emscripten_bind_btIndexedMesh_get_m_numTriangles_0 = Module["_emscripten_bind_btIndexedMesh_get_m_numTriangles_0"] = a0 => (_emscripten_bind_btIndexedMesh_get_m_numTriangles_0 = Module["_emscripten_bind_btIndexedMesh_get_m_numTriangles_0"] = wasmExports["Xd"])(a0);
 
-var _emscripten_bind_btEmptyShape_getLocalScaling_0 = Module["_emscripten_bind_btEmptyShape_getLocalScaling_0"] = function() {
- return (_emscripten_bind_btEmptyShape_getLocalScaling_0 = Module["_emscripten_bind_btEmptyShape_getLocalScaling_0"] = Module["asm"]["ee"]).apply(null, arguments);
-};
+var _emscripten_bind_btIndexedMesh_set_m_numTriangles_1 = Module["_emscripten_bind_btIndexedMesh_set_m_numTriangles_1"] = (a0, a1) => (_emscripten_bind_btIndexedMesh_set_m_numTriangles_1 = Module["_emscripten_bind_btIndexedMesh_set_m_numTriangles_1"] = wasmExports["Yd"])(a0, a1);
 
-var _emscripten_bind_btEmptyShape_calculateLocalInertia_2 = Module["_emscripten_bind_btEmptyShape_calculateLocalInertia_2"] = function() {
- return (_emscripten_bind_btEmptyShape_calculateLocalInertia_2 = Module["_emscripten_bind_btEmptyShape_calculateLocalInertia_2"] = Module["asm"]["fe"]).apply(null, arguments);
-};
+var _emscripten_bind_btIndexedMesh___destroy___0 = Module["_emscripten_bind_btIndexedMesh___destroy___0"] = a0 => (_emscripten_bind_btIndexedMesh___destroy___0 = Module["_emscripten_bind_btIndexedMesh___destroy___0"] = wasmExports["Zd"])(a0);
 
-var _emscripten_bind_btEmptyShape___destroy___0 = Module["_emscripten_bind_btEmptyShape___destroy___0"] = function() {
- return (_emscripten_bind_btEmptyShape___destroy___0 = Module["_emscripten_bind_btEmptyShape___destroy___0"] = Module["asm"]["ge"]).apply(null, arguments);
-};
+var _emscripten_bind_btIndexedMeshArray_size_0 = Module["_emscripten_bind_btIndexedMeshArray_size_0"] = a0 => (_emscripten_bind_btIndexedMeshArray_size_0 = Module["_emscripten_bind_btIndexedMeshArray_size_0"] = wasmExports["_d"])(a0);
 
-var _emscripten_bind_btBvhTriangleMeshShape_btBvhTriangleMeshShape_2 = Module["_emscripten_bind_btBvhTriangleMeshShape_btBvhTriangleMeshShape_2"] = function() {
- return (_emscripten_bind_btBvhTriangleMeshShape_btBvhTriangleMeshShape_2 = Module["_emscripten_bind_btBvhTriangleMeshShape_btBvhTriangleMeshShape_2"] = Module["asm"]["he"]).apply(null, arguments);
-};
+var _emscripten_bind_btIndexedMeshArray_at_1 = Module["_emscripten_bind_btIndexedMeshArray_at_1"] = (a0, a1) => (_emscripten_bind_btIndexedMeshArray_at_1 = Module["_emscripten_bind_btIndexedMeshArray_at_1"] = wasmExports["$d"])(a0, a1);
 
-var _emscripten_bind_btBvhTriangleMeshShape_btBvhTriangleMeshShape_3 = Module["_emscripten_bind_btBvhTriangleMeshShape_btBvhTriangleMeshShape_3"] = function() {
- return (_emscripten_bind_btBvhTriangleMeshShape_btBvhTriangleMeshShape_3 = Module["_emscripten_bind_btBvhTriangleMeshShape_btBvhTriangleMeshShape_3"] = Module["asm"]["ie"]).apply(null, arguments);
-};
+var _emscripten_bind_btIndexedMeshArray___destroy___0 = Module["_emscripten_bind_btIndexedMeshArray___destroy___0"] = a0 => (_emscripten_bind_btIndexedMeshArray___destroy___0 = Module["_emscripten_bind_btIndexedMeshArray___destroy___0"] = wasmExports["ae"])(a0);
 
-var _emscripten_bind_btBvhTriangleMeshShape_setLocalScaling_1 = Module["_emscripten_bind_btBvhTriangleMeshShape_setLocalScaling_1"] = function() {
- return (_emscripten_bind_btBvhTriangleMeshShape_setLocalScaling_1 = Module["_emscripten_bind_btBvhTriangleMeshShape_setLocalScaling_1"] = Module["asm"]["je"]).apply(null, arguments);
-};
+var _emscripten_bind_btTriangleMesh_btTriangleMesh_0 = Module["_emscripten_bind_btTriangleMesh_btTriangleMesh_0"] = () => (_emscripten_bind_btTriangleMesh_btTriangleMesh_0 = Module["_emscripten_bind_btTriangleMesh_btTriangleMesh_0"] = wasmExports["be"])();
 
-var _emscripten_bind_btBvhTriangleMeshShape_getLocalScaling_0 = Module["_emscripten_bind_btBvhTriangleMeshShape_getLocalScaling_0"] = function() {
- return (_emscripten_bind_btBvhTriangleMeshShape_getLocalScaling_0 = Module["_emscripten_bind_btBvhTriangleMeshShape_getLocalScaling_0"] = Module["asm"]["ke"]).apply(null, arguments);
-};
+var _emscripten_bind_btTriangleMesh_btTriangleMesh_1 = Module["_emscripten_bind_btTriangleMesh_btTriangleMesh_1"] = a0 => (_emscripten_bind_btTriangleMesh_btTriangleMesh_1 = Module["_emscripten_bind_btTriangleMesh_btTriangleMesh_1"] = wasmExports["ce"])(a0);
 
-var _emscripten_bind_btBvhTriangleMeshShape_calculateLocalInertia_2 = Module["_emscripten_bind_btBvhTriangleMeshShape_calculateLocalInertia_2"] = function() {
- return (_emscripten_bind_btBvhTriangleMeshShape_calculateLocalInertia_2 = Module["_emscripten_bind_btBvhTriangleMeshShape_calculateLocalInertia_2"] = Module["asm"]["le"]).apply(null, arguments);
-};
+var _emscripten_bind_btTriangleMesh_btTriangleMesh_2 = Module["_emscripten_bind_btTriangleMesh_btTriangleMesh_2"] = (a0, a1) => (_emscripten_bind_btTriangleMesh_btTriangleMesh_2 = Module["_emscripten_bind_btTriangleMesh_btTriangleMesh_2"] = wasmExports["de"])(a0, a1);
 
-var _emscripten_bind_btBvhTriangleMeshShape___destroy___0 = Module["_emscripten_bind_btBvhTriangleMeshShape___destroy___0"] = function() {
- return (_emscripten_bind_btBvhTriangleMeshShape___destroy___0 = Module["_emscripten_bind_btBvhTriangleMeshShape___destroy___0"] = Module["asm"]["me"]).apply(null, arguments);
-};
+var _emscripten_bind_btTriangleMesh_addTriangle_3 = Module["_emscripten_bind_btTriangleMesh_addTriangle_3"] = (a0, a1, a2, a3) => (_emscripten_bind_btTriangleMesh_addTriangle_3 = Module["_emscripten_bind_btTriangleMesh_addTriangle_3"] = wasmExports["ee"])(a0, a1, a2, a3);
 
-var _emscripten_bind_btAABB_btAABB_4 = Module["_emscripten_bind_btAABB_btAABB_4"] = function() {
- return (_emscripten_bind_btAABB_btAABB_4 = Module["_emscripten_bind_btAABB_btAABB_4"] = Module["asm"]["ne"]).apply(null, arguments);
-};
+var _emscripten_bind_btTriangleMesh_addTriangle_4 = Module["_emscripten_bind_btTriangleMesh_addTriangle_4"] = (a0, a1, a2, a3, a4) => (_emscripten_bind_btTriangleMesh_addTriangle_4 = Module["_emscripten_bind_btTriangleMesh_addTriangle_4"] = wasmExports["fe"])(a0, a1, a2, a3, a4);
 
-var _emscripten_bind_btAABB_invalidate_0 = Module["_emscripten_bind_btAABB_invalidate_0"] = function() {
- return (_emscripten_bind_btAABB_invalidate_0 = Module["_emscripten_bind_btAABB_invalidate_0"] = Module["asm"]["oe"]).apply(null, arguments);
-};
+var _emscripten_bind_btTriangleMesh_findOrAddVertex_2 = Module["_emscripten_bind_btTriangleMesh_findOrAddVertex_2"] = (a0, a1, a2) => (_emscripten_bind_btTriangleMesh_findOrAddVertex_2 = Module["_emscripten_bind_btTriangleMesh_findOrAddVertex_2"] = wasmExports["ge"])(a0, a1, a2);
 
-var _emscripten_bind_btAABB_increment_margin_1 = Module["_emscripten_bind_btAABB_increment_margin_1"] = function() {
- return (_emscripten_bind_btAABB_increment_margin_1 = Module["_emscripten_bind_btAABB_increment_margin_1"] = Module["asm"]["pe"]).apply(null, arguments);
-};
+var _emscripten_bind_btTriangleMesh_addIndex_1 = Module["_emscripten_bind_btTriangleMesh_addIndex_1"] = (a0, a1) => (_emscripten_bind_btTriangleMesh_addIndex_1 = Module["_emscripten_bind_btTriangleMesh_addIndex_1"] = wasmExports["he"])(a0, a1);
 
-var _emscripten_bind_btAABB_copy_with_margin_2 = Module["_emscripten_bind_btAABB_copy_with_margin_2"] = function() {
- return (_emscripten_bind_btAABB_copy_with_margin_2 = Module["_emscripten_bind_btAABB_copy_with_margin_2"] = Module["asm"]["qe"]).apply(null, arguments);
-};
+var _emscripten_bind_btTriangleMesh_preallocateIndices_1 = Module["_emscripten_bind_btTriangleMesh_preallocateIndices_1"] = (a0, a1) => (_emscripten_bind_btTriangleMesh_preallocateIndices_1 = Module["_emscripten_bind_btTriangleMesh_preallocateIndices_1"] = wasmExports["ie"])(a0, a1);
 
-var _emscripten_bind_btAABB___destroy___0 = Module["_emscripten_bind_btAABB___destroy___0"] = function() {
- return (_emscripten_bind_btAABB___destroy___0 = Module["_emscripten_bind_btAABB___destroy___0"] = Module["asm"]["re"]).apply(null, arguments);
-};
+var _emscripten_bind_btTriangleMesh_preallocateVertices_1 = Module["_emscripten_bind_btTriangleMesh_preallocateVertices_1"] = (a0, a1) => (_emscripten_bind_btTriangleMesh_preallocateVertices_1 = Module["_emscripten_bind_btTriangleMesh_preallocateVertices_1"] = wasmExports["je"])(a0, a1);
 
-var _emscripten_bind_btPrimitiveTriangle___destroy___0 = Module["_emscripten_bind_btPrimitiveTriangle___destroy___0"] = function() {
- return (_emscripten_bind_btPrimitiveTriangle___destroy___0 = Module["_emscripten_bind_btPrimitiveTriangle___destroy___0"] = Module["asm"]["se"]).apply(null, arguments);
-};
+var _emscripten_bind_btTriangleMesh_getIndexedMeshArray_0 = Module["_emscripten_bind_btTriangleMesh_getIndexedMeshArray_0"] = a0 => (_emscripten_bind_btTriangleMesh_getIndexedMeshArray_0 = Module["_emscripten_bind_btTriangleMesh_getIndexedMeshArray_0"] = wasmExports["ke"])(a0);
 
-var _emscripten_bind_btTriangleShapeEx_btTriangleShapeEx_3 = Module["_emscripten_bind_btTriangleShapeEx_btTriangleShapeEx_3"] = function() {
- return (_emscripten_bind_btTriangleShapeEx_btTriangleShapeEx_3 = Module["_emscripten_bind_btTriangleShapeEx_btTriangleShapeEx_3"] = Module["asm"]["te"]).apply(null, arguments);
-};
+var _emscripten_bind_btTriangleMesh_setScaling_1 = Module["_emscripten_bind_btTriangleMesh_setScaling_1"] = (a0, a1) => (_emscripten_bind_btTriangleMesh_setScaling_1 = Module["_emscripten_bind_btTriangleMesh_setScaling_1"] = wasmExports["le"])(a0, a1);
 
-var _emscripten_bind_btTriangleShapeEx_getAabb_3 = Module["_emscripten_bind_btTriangleShapeEx_getAabb_3"] = function() {
- return (_emscripten_bind_btTriangleShapeEx_getAabb_3 = Module["_emscripten_bind_btTriangleShapeEx_getAabb_3"] = Module["asm"]["ue"]).apply(null, arguments);
-};
+var _emscripten_bind_btTriangleMesh___destroy___0 = Module["_emscripten_bind_btTriangleMesh___destroy___0"] = a0 => (_emscripten_bind_btTriangleMesh___destroy___0 = Module["_emscripten_bind_btTriangleMesh___destroy___0"] = wasmExports["me"])(a0);
 
-var _emscripten_bind_btTriangleShapeEx_applyTransform_1 = Module["_emscripten_bind_btTriangleShapeEx_applyTransform_1"] = function() {
- return (_emscripten_bind_btTriangleShapeEx_applyTransform_1 = Module["_emscripten_bind_btTriangleShapeEx_applyTransform_1"] = Module["asm"]["ve"]).apply(null, arguments);
-};
+var _emscripten_bind_btEmptyShape_btEmptyShape_0 = Module["_emscripten_bind_btEmptyShape_btEmptyShape_0"] = () => (_emscripten_bind_btEmptyShape_btEmptyShape_0 = Module["_emscripten_bind_btEmptyShape_btEmptyShape_0"] = wasmExports["ne"])();
 
-var _emscripten_bind_btTriangleShapeEx___destroy___0 = Module["_emscripten_bind_btTriangleShapeEx___destroy___0"] = function() {
- return (_emscripten_bind_btTriangleShapeEx___destroy___0 = Module["_emscripten_bind_btTriangleShapeEx___destroy___0"] = Module["asm"]["we"]).apply(null, arguments);
-};
+var _emscripten_bind_btEmptyShape_setLocalScaling_1 = Module["_emscripten_bind_btEmptyShape_setLocalScaling_1"] = (a0, a1) => (_emscripten_bind_btEmptyShape_setLocalScaling_1 = Module["_emscripten_bind_btEmptyShape_setLocalScaling_1"] = wasmExports["oe"])(a0, a1);
 
-var _emscripten_bind_btPrimitiveManagerBase_is_trimesh_0 = Module["_emscripten_bind_btPrimitiveManagerBase_is_trimesh_0"] = function() {
- return (_emscripten_bind_btPrimitiveManagerBase_is_trimesh_0 = Module["_emscripten_bind_btPrimitiveManagerBase_is_trimesh_0"] = Module["asm"]["xe"]).apply(null, arguments);
-};
+var _emscripten_bind_btEmptyShape_getLocalScaling_0 = Module["_emscripten_bind_btEmptyShape_getLocalScaling_0"] = a0 => (_emscripten_bind_btEmptyShape_getLocalScaling_0 = Module["_emscripten_bind_btEmptyShape_getLocalScaling_0"] = wasmExports["pe"])(a0);
 
-var _emscripten_bind_btPrimitiveManagerBase_get_primitive_count_0 = Module["_emscripten_bind_btPrimitiveManagerBase_get_primitive_count_0"] = function() {
- return (_emscripten_bind_btPrimitiveManagerBase_get_primitive_count_0 = Module["_emscripten_bind_btPrimitiveManagerBase_get_primitive_count_0"] = Module["asm"]["ye"]).apply(null, arguments);
-};
+var _emscripten_bind_btEmptyShape_calculateLocalInertia_2 = Module["_emscripten_bind_btEmptyShape_calculateLocalInertia_2"] = (a0, a1, a2) => (_emscripten_bind_btEmptyShape_calculateLocalInertia_2 = Module["_emscripten_bind_btEmptyShape_calculateLocalInertia_2"] = wasmExports["qe"])(a0, a1, a2);
 
-var _emscripten_bind_btPrimitiveManagerBase_get_primitive_box_2 = Module["_emscripten_bind_btPrimitiveManagerBase_get_primitive_box_2"] = function() {
- return (_emscripten_bind_btPrimitiveManagerBase_get_primitive_box_2 = Module["_emscripten_bind_btPrimitiveManagerBase_get_primitive_box_2"] = Module["asm"]["ze"]).apply(null, arguments);
-};
+var _emscripten_bind_btEmptyShape___destroy___0 = Module["_emscripten_bind_btEmptyShape___destroy___0"] = a0 => (_emscripten_bind_btEmptyShape___destroy___0 = Module["_emscripten_bind_btEmptyShape___destroy___0"] = wasmExports["re"])(a0);
 
-var _emscripten_bind_btPrimitiveManagerBase_get_primitive_triangle_2 = Module["_emscripten_bind_btPrimitiveManagerBase_get_primitive_triangle_2"] = function() {
- return (_emscripten_bind_btPrimitiveManagerBase_get_primitive_triangle_2 = Module["_emscripten_bind_btPrimitiveManagerBase_get_primitive_triangle_2"] = Module["asm"]["Ae"]).apply(null, arguments);
-};
+var _emscripten_bind_btBvhTriangleMeshShape_btBvhTriangleMeshShape_2 = Module["_emscripten_bind_btBvhTriangleMeshShape_btBvhTriangleMeshShape_2"] = (a0, a1) => (_emscripten_bind_btBvhTriangleMeshShape_btBvhTriangleMeshShape_2 = Module["_emscripten_bind_btBvhTriangleMeshShape_btBvhTriangleMeshShape_2"] = wasmExports["se"])(a0, a1);
 
-var _emscripten_bind_btPrimitiveManagerBase___destroy___0 = Module["_emscripten_bind_btPrimitiveManagerBase___destroy___0"] = function() {
- return (_emscripten_bind_btPrimitiveManagerBase___destroy___0 = Module["_emscripten_bind_btPrimitiveManagerBase___destroy___0"] = Module["asm"]["Be"]).apply(null, arguments);
-};
+var _emscripten_bind_btBvhTriangleMeshShape_btBvhTriangleMeshShape_3 = Module["_emscripten_bind_btBvhTriangleMeshShape_btBvhTriangleMeshShape_3"] = (a0, a1, a2) => (_emscripten_bind_btBvhTriangleMeshShape_btBvhTriangleMeshShape_3 = Module["_emscripten_bind_btBvhTriangleMeshShape_btBvhTriangleMeshShape_3"] = wasmExports["te"])(a0, a1, a2);
 
-var _emscripten_bind_btTetrahedronShapeEx_btTetrahedronShapeEx_0 = Module["_emscripten_bind_btTetrahedronShapeEx_btTetrahedronShapeEx_0"] = function() {
- return (_emscripten_bind_btTetrahedronShapeEx_btTetrahedronShapeEx_0 = Module["_emscripten_bind_btTetrahedronShapeEx_btTetrahedronShapeEx_0"] = Module["asm"]["Ce"]).apply(null, arguments);
-};
+var _emscripten_bind_btBvhTriangleMeshShape_setLocalScaling_1 = Module["_emscripten_bind_btBvhTriangleMeshShape_setLocalScaling_1"] = (a0, a1) => (_emscripten_bind_btBvhTriangleMeshShape_setLocalScaling_1 = Module["_emscripten_bind_btBvhTriangleMeshShape_setLocalScaling_1"] = wasmExports["ue"])(a0, a1);
 
-var _emscripten_bind_btTetrahedronShapeEx_setVertices_4 = Module["_emscripten_bind_btTetrahedronShapeEx_setVertices_4"] = function() {
- return (_emscripten_bind_btTetrahedronShapeEx_setVertices_4 = Module["_emscripten_bind_btTetrahedronShapeEx_setVertices_4"] = Module["asm"]["De"]).apply(null, arguments);
-};
+var _emscripten_bind_btBvhTriangleMeshShape_getLocalScaling_0 = Module["_emscripten_bind_btBvhTriangleMeshShape_getLocalScaling_0"] = a0 => (_emscripten_bind_btBvhTriangleMeshShape_getLocalScaling_0 = Module["_emscripten_bind_btBvhTriangleMeshShape_getLocalScaling_0"] = wasmExports["ve"])(a0);
 
-var _emscripten_bind_btTetrahedronShapeEx___destroy___0 = Module["_emscripten_bind_btTetrahedronShapeEx___destroy___0"] = function() {
- return (_emscripten_bind_btTetrahedronShapeEx___destroy___0 = Module["_emscripten_bind_btTetrahedronShapeEx___destroy___0"] = Module["asm"]["Ee"]).apply(null, arguments);
-};
+var _emscripten_bind_btBvhTriangleMeshShape_calculateLocalInertia_2 = Module["_emscripten_bind_btBvhTriangleMeshShape_calculateLocalInertia_2"] = (a0, a1, a2) => (_emscripten_bind_btBvhTriangleMeshShape_calculateLocalInertia_2 = Module["_emscripten_bind_btBvhTriangleMeshShape_calculateLocalInertia_2"] = wasmExports["we"])(a0, a1, a2);
 
-var _emscripten_bind_btGImpactShapeInterface_updateBound_0 = Module["_emscripten_bind_btGImpactShapeInterface_updateBound_0"] = function() {
- return (_emscripten_bind_btGImpactShapeInterface_updateBound_0 = Module["_emscripten_bind_btGImpactShapeInterface_updateBound_0"] = Module["asm"]["Fe"]).apply(null, arguments);
-};
+var _emscripten_bind_btBvhTriangleMeshShape___destroy___0 = Module["_emscripten_bind_btBvhTriangleMeshShape___destroy___0"] = a0 => (_emscripten_bind_btBvhTriangleMeshShape___destroy___0 = Module["_emscripten_bind_btBvhTriangleMeshShape___destroy___0"] = wasmExports["xe"])(a0);
 
-var _emscripten_bind_btGImpactShapeInterface_postUpdate_0 = Module["_emscripten_bind_btGImpactShapeInterface_postUpdate_0"] = function() {
- return (_emscripten_bind_btGImpactShapeInterface_postUpdate_0 = Module["_emscripten_bind_btGImpactShapeInterface_postUpdate_0"] = Module["asm"]["Ge"]).apply(null, arguments);
-};
+var _emscripten_bind_btAABB_btAABB_4 = Module["_emscripten_bind_btAABB_btAABB_4"] = (a0, a1, a2, a3) => (_emscripten_bind_btAABB_btAABB_4 = Module["_emscripten_bind_btAABB_btAABB_4"] = wasmExports["ye"])(a0, a1, a2, a3);
 
-var _emscripten_bind_btGImpactShapeInterface_getShapeType_0 = Module["_emscripten_bind_btGImpactShapeInterface_getShapeType_0"] = function() {
- return (_emscripten_bind_btGImpactShapeInterface_getShapeType_0 = Module["_emscripten_bind_btGImpactShapeInterface_getShapeType_0"] = Module["asm"]["He"]).apply(null, arguments);
-};
+var _emscripten_bind_btAABB_invalidate_0 = Module["_emscripten_bind_btAABB_invalidate_0"] = a0 => (_emscripten_bind_btAABB_invalidate_0 = Module["_emscripten_bind_btAABB_invalidate_0"] = wasmExports["ze"])(a0);
 
-var _emscripten_bind_btGImpactShapeInterface_getName_0 = Module["_emscripten_bind_btGImpactShapeInterface_getName_0"] = function() {
- return (_emscripten_bind_btGImpactShapeInterface_getName_0 = Module["_emscripten_bind_btGImpactShapeInterface_getName_0"] = Module["asm"]["Ie"]).apply(null, arguments);
-};
+var _emscripten_bind_btAABB_increment_margin_1 = Module["_emscripten_bind_btAABB_increment_margin_1"] = (a0, a1) => (_emscripten_bind_btAABB_increment_margin_1 = Module["_emscripten_bind_btAABB_increment_margin_1"] = wasmExports["Ae"])(a0, a1);
 
-var _emscripten_bind_btGImpactShapeInterface_getGImpactShapeType_0 = Module["_emscripten_bind_btGImpactShapeInterface_getGImpactShapeType_0"] = function() {
- return (_emscripten_bind_btGImpactShapeInterface_getGImpactShapeType_0 = Module["_emscripten_bind_btGImpactShapeInterface_getGImpactShapeType_0"] = Module["asm"]["Je"]).apply(null, arguments);
-};
+var _emscripten_bind_btAABB_copy_with_margin_2 = Module["_emscripten_bind_btAABB_copy_with_margin_2"] = (a0, a1, a2) => (_emscripten_bind_btAABB_copy_with_margin_2 = Module["_emscripten_bind_btAABB_copy_with_margin_2"] = wasmExports["Be"])(a0, a1, a2);
 
-var _emscripten_bind_btGImpactShapeInterface_getPrimitiveManager_0 = Module["_emscripten_bind_btGImpactShapeInterface_getPrimitiveManager_0"] = function() {
- return (_emscripten_bind_btGImpactShapeInterface_getPrimitiveManager_0 = Module["_emscripten_bind_btGImpactShapeInterface_getPrimitiveManager_0"] = Module["asm"]["Ke"]).apply(null, arguments);
-};
+var _emscripten_bind_btAABB___destroy___0 = Module["_emscripten_bind_btAABB___destroy___0"] = a0 => (_emscripten_bind_btAABB___destroy___0 = Module["_emscripten_bind_btAABB___destroy___0"] = wasmExports["Ce"])(a0);
 
-var _emscripten_bind_btGImpactShapeInterface_getNumChildShapes_0 = Module["_emscripten_bind_btGImpactShapeInterface_getNumChildShapes_0"] = function() {
- return (_emscripten_bind_btGImpactShapeInterface_getNumChildShapes_0 = Module["_emscripten_bind_btGImpactShapeInterface_getNumChildShapes_0"] = Module["asm"]["Le"]).apply(null, arguments);
-};
+var _emscripten_bind_btPrimitiveTriangle___destroy___0 = Module["_emscripten_bind_btPrimitiveTriangle___destroy___0"] = a0 => (_emscripten_bind_btPrimitiveTriangle___destroy___0 = Module["_emscripten_bind_btPrimitiveTriangle___destroy___0"] = wasmExports["De"])(a0);
 
-var _emscripten_bind_btGImpactShapeInterface_childrenHasTransform_0 = Module["_emscripten_bind_btGImpactShapeInterface_childrenHasTransform_0"] = function() {
- return (_emscripten_bind_btGImpactShapeInterface_childrenHasTransform_0 = Module["_emscripten_bind_btGImpactShapeInterface_childrenHasTransform_0"] = Module["asm"]["Me"]).apply(null, arguments);
-};
+var _emscripten_bind_btTriangleShapeEx_btTriangleShapeEx_3 = Module["_emscripten_bind_btTriangleShapeEx_btTriangleShapeEx_3"] = (a0, a1, a2) => (_emscripten_bind_btTriangleShapeEx_btTriangleShapeEx_3 = Module["_emscripten_bind_btTriangleShapeEx_btTriangleShapeEx_3"] = wasmExports["Ee"])(a0, a1, a2);
 
-var _emscripten_bind_btGImpactShapeInterface_needsRetrieveTriangles_0 = Module["_emscripten_bind_btGImpactShapeInterface_needsRetrieveTriangles_0"] = function() {
- return (_emscripten_bind_btGImpactShapeInterface_needsRetrieveTriangles_0 = Module["_emscripten_bind_btGImpactShapeInterface_needsRetrieveTriangles_0"] = Module["asm"]["Ne"]).apply(null, arguments);
-};
+var _emscripten_bind_btTriangleShapeEx_getAabb_3 = Module["_emscripten_bind_btTriangleShapeEx_getAabb_3"] = (a0, a1, a2, a3) => (_emscripten_bind_btTriangleShapeEx_getAabb_3 = Module["_emscripten_bind_btTriangleShapeEx_getAabb_3"] = wasmExports["Fe"])(a0, a1, a2, a3);
 
-var _emscripten_bind_btGImpactShapeInterface_needsRetrieveTetrahedrons_0 = Module["_emscripten_bind_btGImpactShapeInterface_needsRetrieveTetrahedrons_0"] = function() {
- return (_emscripten_bind_btGImpactShapeInterface_needsRetrieveTetrahedrons_0 = Module["_emscripten_bind_btGImpactShapeInterface_needsRetrieveTetrahedrons_0"] = Module["asm"]["Oe"]).apply(null, arguments);
-};
+var _emscripten_bind_btTriangleShapeEx_applyTransform_1 = Module["_emscripten_bind_btTriangleShapeEx_applyTransform_1"] = (a0, a1) => (_emscripten_bind_btTriangleShapeEx_applyTransform_1 = Module["_emscripten_bind_btTriangleShapeEx_applyTransform_1"] = wasmExports["Ge"])(a0, a1);
 
-var _emscripten_bind_btGImpactShapeInterface_getBulletTriangle_2 = Module["_emscripten_bind_btGImpactShapeInterface_getBulletTriangle_2"] = function() {
- return (_emscripten_bind_btGImpactShapeInterface_getBulletTriangle_2 = Module["_emscripten_bind_btGImpactShapeInterface_getBulletTriangle_2"] = Module["asm"]["Pe"]).apply(null, arguments);
-};
+var _emscripten_bind_btTriangleShapeEx___destroy___0 = Module["_emscripten_bind_btTriangleShapeEx___destroy___0"] = a0 => (_emscripten_bind_btTriangleShapeEx___destroy___0 = Module["_emscripten_bind_btTriangleShapeEx___destroy___0"] = wasmExports["He"])(a0);
 
-var _emscripten_bind_btGImpactShapeInterface_getBulletTetrahedron_2 = Module["_emscripten_bind_btGImpactShapeInterface_getBulletTetrahedron_2"] = function() {
- return (_emscripten_bind_btGImpactShapeInterface_getBulletTetrahedron_2 = Module["_emscripten_bind_btGImpactShapeInterface_getBulletTetrahedron_2"] = Module["asm"]["Qe"]).apply(null, arguments);
-};
+var _emscripten_bind_btPrimitiveManagerBase_is_trimesh_0 = Module["_emscripten_bind_btPrimitiveManagerBase_is_trimesh_0"] = a0 => (_emscripten_bind_btPrimitiveManagerBase_is_trimesh_0 = Module["_emscripten_bind_btPrimitiveManagerBase_is_trimesh_0"] = wasmExports["Ie"])(a0);
 
-var _emscripten_bind_btGImpactShapeInterface_getChildShape_1 = Module["_emscripten_bind_btGImpactShapeInterface_getChildShape_1"] = function() {
- return (_emscripten_bind_btGImpactShapeInterface_getChildShape_1 = Module["_emscripten_bind_btGImpactShapeInterface_getChildShape_1"] = Module["asm"]["Re"]).apply(null, arguments);
-};
+var _emscripten_bind_btPrimitiveManagerBase_get_primitive_count_0 = Module["_emscripten_bind_btPrimitiveManagerBase_get_primitive_count_0"] = a0 => (_emscripten_bind_btPrimitiveManagerBase_get_primitive_count_0 = Module["_emscripten_bind_btPrimitiveManagerBase_get_primitive_count_0"] = wasmExports["Je"])(a0);
 
-var _emscripten_bind_btGImpactShapeInterface_getChildTransform_1 = Module["_emscripten_bind_btGImpactShapeInterface_getChildTransform_1"] = function() {
- return (_emscripten_bind_btGImpactShapeInterface_getChildTransform_1 = Module["_emscripten_bind_btGImpactShapeInterface_getChildTransform_1"] = Module["asm"]["Se"]).apply(null, arguments);
-};
+var _emscripten_bind_btPrimitiveManagerBase_get_primitive_box_2 = Module["_emscripten_bind_btPrimitiveManagerBase_get_primitive_box_2"] = (a0, a1, a2) => (_emscripten_bind_btPrimitiveManagerBase_get_primitive_box_2 = Module["_emscripten_bind_btPrimitiveManagerBase_get_primitive_box_2"] = wasmExports["Ke"])(a0, a1, a2);
 
-var _emscripten_bind_btGImpactShapeInterface_setChildTransform_2 = Module["_emscripten_bind_btGImpactShapeInterface_setChildTransform_2"] = function() {
- return (_emscripten_bind_btGImpactShapeInterface_setChildTransform_2 = Module["_emscripten_bind_btGImpactShapeInterface_setChildTransform_2"] = Module["asm"]["Te"]).apply(null, arguments);
-};
+var _emscripten_bind_btPrimitiveManagerBase_get_primitive_triangle_2 = Module["_emscripten_bind_btPrimitiveManagerBase_get_primitive_triangle_2"] = (a0, a1, a2) => (_emscripten_bind_btPrimitiveManagerBase_get_primitive_triangle_2 = Module["_emscripten_bind_btPrimitiveManagerBase_get_primitive_triangle_2"] = wasmExports["Le"])(a0, a1, a2);
 
-var _emscripten_bind_btGImpactShapeInterface_setLocalScaling_1 = Module["_emscripten_bind_btGImpactShapeInterface_setLocalScaling_1"] = function() {
- return (_emscripten_bind_btGImpactShapeInterface_setLocalScaling_1 = Module["_emscripten_bind_btGImpactShapeInterface_setLocalScaling_1"] = Module["asm"]["Ue"]).apply(null, arguments);
-};
+var _emscripten_bind_btPrimitiveManagerBase___destroy___0 = Module["_emscripten_bind_btPrimitiveManagerBase___destroy___0"] = a0 => (_emscripten_bind_btPrimitiveManagerBase___destroy___0 = Module["_emscripten_bind_btPrimitiveManagerBase___destroy___0"] = wasmExports["Me"])(a0);
 
-var _emscripten_bind_btGImpactShapeInterface_getLocalScaling_0 = Module["_emscripten_bind_btGImpactShapeInterface_getLocalScaling_0"] = function() {
- return (_emscripten_bind_btGImpactShapeInterface_getLocalScaling_0 = Module["_emscripten_bind_btGImpactShapeInterface_getLocalScaling_0"] = Module["asm"]["Ve"]).apply(null, arguments);
-};
+var _emscripten_bind_btTetrahedronShapeEx_btTetrahedronShapeEx_0 = Module["_emscripten_bind_btTetrahedronShapeEx_btTetrahedronShapeEx_0"] = () => (_emscripten_bind_btTetrahedronShapeEx_btTetrahedronShapeEx_0 = Module["_emscripten_bind_btTetrahedronShapeEx_btTetrahedronShapeEx_0"] = wasmExports["Ne"])();
 
-var _emscripten_bind_btGImpactShapeInterface_calculateLocalInertia_2 = Module["_emscripten_bind_btGImpactShapeInterface_calculateLocalInertia_2"] = function() {
- return (_emscripten_bind_btGImpactShapeInterface_calculateLocalInertia_2 = Module["_emscripten_bind_btGImpactShapeInterface_calculateLocalInertia_2"] = Module["asm"]["We"]).apply(null, arguments);
-};
+var _emscripten_bind_btTetrahedronShapeEx_setVertices_4 = Module["_emscripten_bind_btTetrahedronShapeEx_setVertices_4"] = (a0, a1, a2, a3, a4) => (_emscripten_bind_btTetrahedronShapeEx_setVertices_4 = Module["_emscripten_bind_btTetrahedronShapeEx_setVertices_4"] = wasmExports["Oe"])(a0, a1, a2, a3, a4);
 
-var _emscripten_bind_btGImpactShapeInterface___destroy___0 = Module["_emscripten_bind_btGImpactShapeInterface___destroy___0"] = function() {
- return (_emscripten_bind_btGImpactShapeInterface___destroy___0 = Module["_emscripten_bind_btGImpactShapeInterface___destroy___0"] = Module["asm"]["Xe"]).apply(null, arguments);
-};
+var _emscripten_bind_btTetrahedronShapeEx___destroy___0 = Module["_emscripten_bind_btTetrahedronShapeEx___destroy___0"] = a0 => (_emscripten_bind_btTetrahedronShapeEx___destroy___0 = Module["_emscripten_bind_btTetrahedronShapeEx___destroy___0"] = wasmExports["Pe"])(a0);
 
-var _emscripten_bind_btCollisionAlgorithmConstructionInfo_btCollisionAlgorithmConstructionInfo_0 = Module["_emscripten_bind_btCollisionAlgorithmConstructionInfo_btCollisionAlgorithmConstructionInfo_0"] = function() {
- return (_emscripten_bind_btCollisionAlgorithmConstructionInfo_btCollisionAlgorithmConstructionInfo_0 = Module["_emscripten_bind_btCollisionAlgorithmConstructionInfo_btCollisionAlgorithmConstructionInfo_0"] = Module["asm"]["Ye"]).apply(null, arguments);
-};
+var _emscripten_bind_btGImpactShapeInterface_updateBound_0 = Module["_emscripten_bind_btGImpactShapeInterface_updateBound_0"] = a0 => (_emscripten_bind_btGImpactShapeInterface_updateBound_0 = Module["_emscripten_bind_btGImpactShapeInterface_updateBound_0"] = wasmExports["Qe"])(a0);
 
-var _emscripten_bind_btCollisionAlgorithmConstructionInfo_btCollisionAlgorithmConstructionInfo_2 = Module["_emscripten_bind_btCollisionAlgorithmConstructionInfo_btCollisionAlgorithmConstructionInfo_2"] = function() {
- return (_emscripten_bind_btCollisionAlgorithmConstructionInfo_btCollisionAlgorithmConstructionInfo_2 = Module["_emscripten_bind_btCollisionAlgorithmConstructionInfo_btCollisionAlgorithmConstructionInfo_2"] = Module["asm"]["Ze"]).apply(null, arguments);
-};
+var _emscripten_bind_btGImpactShapeInterface_postUpdate_0 = Module["_emscripten_bind_btGImpactShapeInterface_postUpdate_0"] = a0 => (_emscripten_bind_btGImpactShapeInterface_postUpdate_0 = Module["_emscripten_bind_btGImpactShapeInterface_postUpdate_0"] = wasmExports["Re"])(a0);
 
-var _emscripten_bind_btCollisionAlgorithmConstructionInfo_get_m_dispatcher1_0 = Module["_emscripten_bind_btCollisionAlgorithmConstructionInfo_get_m_dispatcher1_0"] = function() {
- return (_emscripten_bind_btCollisionAlgorithmConstructionInfo_get_m_dispatcher1_0 = Module["_emscripten_bind_btCollisionAlgorithmConstructionInfo_get_m_dispatcher1_0"] = Module["asm"]["_e"]).apply(null, arguments);
-};
+var _emscripten_bind_btGImpactShapeInterface_getShapeType_0 = Module["_emscripten_bind_btGImpactShapeInterface_getShapeType_0"] = a0 => (_emscripten_bind_btGImpactShapeInterface_getShapeType_0 = Module["_emscripten_bind_btGImpactShapeInterface_getShapeType_0"] = wasmExports["Se"])(a0);
 
-var _emscripten_bind_btCollisionAlgorithmConstructionInfo_set_m_dispatcher1_1 = Module["_emscripten_bind_btCollisionAlgorithmConstructionInfo_set_m_dispatcher1_1"] = function() {
- return (_emscripten_bind_btCollisionAlgorithmConstructionInfo_set_m_dispatcher1_1 = Module["_emscripten_bind_btCollisionAlgorithmConstructionInfo_set_m_dispatcher1_1"] = Module["asm"]["$e"]).apply(null, arguments);
-};
+var _emscripten_bind_btGImpactShapeInterface_getName_0 = Module["_emscripten_bind_btGImpactShapeInterface_getName_0"] = a0 => (_emscripten_bind_btGImpactShapeInterface_getName_0 = Module["_emscripten_bind_btGImpactShapeInterface_getName_0"] = wasmExports["Te"])(a0);
 
-var _emscripten_bind_btCollisionAlgorithmConstructionInfo___destroy___0 = Module["_emscripten_bind_btCollisionAlgorithmConstructionInfo___destroy___0"] = function() {
- return (_emscripten_bind_btCollisionAlgorithmConstructionInfo___destroy___0 = Module["_emscripten_bind_btCollisionAlgorithmConstructionInfo___destroy___0"] = Module["asm"]["af"]).apply(null, arguments);
-};
+var _emscripten_bind_btGImpactShapeInterface_getGImpactShapeType_0 = Module["_emscripten_bind_btGImpactShapeInterface_getGImpactShapeType_0"] = a0 => (_emscripten_bind_btGImpactShapeInterface_getGImpactShapeType_0 = Module["_emscripten_bind_btGImpactShapeInterface_getGImpactShapeType_0"] = wasmExports["Ue"])(a0);
 
-var _emscripten_bind_btGImpactCollisionAlgorithm_btGImpactCollisionAlgorithm_3 = Module["_emscripten_bind_btGImpactCollisionAlgorithm_btGImpactCollisionAlgorithm_3"] = function() {
- return (_emscripten_bind_btGImpactCollisionAlgorithm_btGImpactCollisionAlgorithm_3 = Module["_emscripten_bind_btGImpactCollisionAlgorithm_btGImpactCollisionAlgorithm_3"] = Module["asm"]["bf"]).apply(null, arguments);
-};
+var _emscripten_bind_btGImpactShapeInterface_getPrimitiveManager_0 = Module["_emscripten_bind_btGImpactShapeInterface_getPrimitiveManager_0"] = a0 => (_emscripten_bind_btGImpactShapeInterface_getPrimitiveManager_0 = Module["_emscripten_bind_btGImpactShapeInterface_getPrimitiveManager_0"] = wasmExports["Ve"])(a0);
 
-var _emscripten_bind_btGImpactCollisionAlgorithm_registerAlgorithm_1 = Module["_emscripten_bind_btGImpactCollisionAlgorithm_registerAlgorithm_1"] = function() {
- return (_emscripten_bind_btGImpactCollisionAlgorithm_registerAlgorithm_1 = Module["_emscripten_bind_btGImpactCollisionAlgorithm_registerAlgorithm_1"] = Module["asm"]["cf"]).apply(null, arguments);
-};
+var _emscripten_bind_btGImpactShapeInterface_getNumChildShapes_0 = Module["_emscripten_bind_btGImpactShapeInterface_getNumChildShapes_0"] = a0 => (_emscripten_bind_btGImpactShapeInterface_getNumChildShapes_0 = Module["_emscripten_bind_btGImpactShapeInterface_getNumChildShapes_0"] = wasmExports["We"])(a0);
 
-var _emscripten_bind_btGImpactCollisionAlgorithm___destroy___0 = Module["_emscripten_bind_btGImpactCollisionAlgorithm___destroy___0"] = function() {
- return (_emscripten_bind_btGImpactCollisionAlgorithm___destroy___0 = Module["_emscripten_bind_btGImpactCollisionAlgorithm___destroy___0"] = Module["asm"]["df"]).apply(null, arguments);
-};
+var _emscripten_bind_btGImpactShapeInterface_childrenHasTransform_0 = Module["_emscripten_bind_btGImpactShapeInterface_childrenHasTransform_0"] = a0 => (_emscripten_bind_btGImpactShapeInterface_childrenHasTransform_0 = Module["_emscripten_bind_btGImpactShapeInterface_childrenHasTransform_0"] = wasmExports["Xe"])(a0);
 
-var _emscripten_bind_btDefaultCollisionConstructionInfo_btDefaultCollisionConstructionInfo_0 = Module["_emscripten_bind_btDefaultCollisionConstructionInfo_btDefaultCollisionConstructionInfo_0"] = function() {
- return (_emscripten_bind_btDefaultCollisionConstructionInfo_btDefaultCollisionConstructionInfo_0 = Module["_emscripten_bind_btDefaultCollisionConstructionInfo_btDefaultCollisionConstructionInfo_0"] = Module["asm"]["ef"]).apply(null, arguments);
-};
+var _emscripten_bind_btGImpactShapeInterface_needsRetrieveTriangles_0 = Module["_emscripten_bind_btGImpactShapeInterface_needsRetrieveTriangles_0"] = a0 => (_emscripten_bind_btGImpactShapeInterface_needsRetrieveTriangles_0 = Module["_emscripten_bind_btGImpactShapeInterface_needsRetrieveTriangles_0"] = wasmExports["Ye"])(a0);
 
-var _emscripten_bind_btDefaultCollisionConstructionInfo___destroy___0 = Module["_emscripten_bind_btDefaultCollisionConstructionInfo___destroy___0"] = function() {
- return (_emscripten_bind_btDefaultCollisionConstructionInfo___destroy___0 = Module["_emscripten_bind_btDefaultCollisionConstructionInfo___destroy___0"] = Module["asm"]["ff"]).apply(null, arguments);
-};
+var _emscripten_bind_btGImpactShapeInterface_needsRetrieveTetrahedrons_0 = Module["_emscripten_bind_btGImpactShapeInterface_needsRetrieveTetrahedrons_0"] = a0 => (_emscripten_bind_btGImpactShapeInterface_needsRetrieveTetrahedrons_0 = Module["_emscripten_bind_btGImpactShapeInterface_needsRetrieveTetrahedrons_0"] = wasmExports["Ze"])(a0);
 
-var _emscripten_bind_btDefaultCollisionConfiguration_btDefaultCollisionConfiguration_0 = Module["_emscripten_bind_btDefaultCollisionConfiguration_btDefaultCollisionConfiguration_0"] = function() {
- return (_emscripten_bind_btDefaultCollisionConfiguration_btDefaultCollisionConfiguration_0 = Module["_emscripten_bind_btDefaultCollisionConfiguration_btDefaultCollisionConfiguration_0"] = Module["asm"]["gf"]).apply(null, arguments);
-};
+var _emscripten_bind_btGImpactShapeInterface_getBulletTriangle_2 = Module["_emscripten_bind_btGImpactShapeInterface_getBulletTriangle_2"] = (a0, a1, a2) => (_emscripten_bind_btGImpactShapeInterface_getBulletTriangle_2 = Module["_emscripten_bind_btGImpactShapeInterface_getBulletTriangle_2"] = wasmExports["_e"])(a0, a1, a2);
 
-var _emscripten_bind_btDefaultCollisionConfiguration_btDefaultCollisionConfiguration_1 = Module["_emscripten_bind_btDefaultCollisionConfiguration_btDefaultCollisionConfiguration_1"] = function() {
- return (_emscripten_bind_btDefaultCollisionConfiguration_btDefaultCollisionConfiguration_1 = Module["_emscripten_bind_btDefaultCollisionConfiguration_btDefaultCollisionConfiguration_1"] = Module["asm"]["hf"]).apply(null, arguments);
-};
+var _emscripten_bind_btGImpactShapeInterface_getBulletTetrahedron_2 = Module["_emscripten_bind_btGImpactShapeInterface_getBulletTetrahedron_2"] = (a0, a1, a2) => (_emscripten_bind_btGImpactShapeInterface_getBulletTetrahedron_2 = Module["_emscripten_bind_btGImpactShapeInterface_getBulletTetrahedron_2"] = wasmExports["$e"])(a0, a1, a2);
 
-var _emscripten_bind_btDefaultCollisionConfiguration___destroy___0 = Module["_emscripten_bind_btDefaultCollisionConfiguration___destroy___0"] = function() {
- return (_emscripten_bind_btDefaultCollisionConfiguration___destroy___0 = Module["_emscripten_bind_btDefaultCollisionConfiguration___destroy___0"] = Module["asm"]["jf"]).apply(null, arguments);
-};
+var _emscripten_bind_btGImpactShapeInterface_getChildShape_1 = Module["_emscripten_bind_btGImpactShapeInterface_getChildShape_1"] = (a0, a1) => (_emscripten_bind_btGImpactShapeInterface_getChildShape_1 = Module["_emscripten_bind_btGImpactShapeInterface_getChildShape_1"] = wasmExports["af"])(a0, a1);
 
-var _emscripten_bind_btCollisionDispatcher_btCollisionDispatcher_1 = Module["_emscripten_bind_btCollisionDispatcher_btCollisionDispatcher_1"] = function() {
- return (_emscripten_bind_btCollisionDispatcher_btCollisionDispatcher_1 = Module["_emscripten_bind_btCollisionDispatcher_btCollisionDispatcher_1"] = Module["asm"]["kf"]).apply(null, arguments);
-};
+var _emscripten_bind_btGImpactShapeInterface_getChildTransform_1 = Module["_emscripten_bind_btGImpactShapeInterface_getChildTransform_1"] = (a0, a1) => (_emscripten_bind_btGImpactShapeInterface_getChildTransform_1 = Module["_emscripten_bind_btGImpactShapeInterface_getChildTransform_1"] = wasmExports["bf"])(a0, a1);
 
-var _emscripten_bind_btCollisionDispatcher_getNumManifolds_0 = Module["_emscripten_bind_btCollisionDispatcher_getNumManifolds_0"] = function() {
- return (_emscripten_bind_btCollisionDispatcher_getNumManifolds_0 = Module["_emscripten_bind_btCollisionDispatcher_getNumManifolds_0"] = Module["asm"]["lf"]).apply(null, arguments);
-};
+var _emscripten_bind_btGImpactShapeInterface_setChildTransform_2 = Module["_emscripten_bind_btGImpactShapeInterface_setChildTransform_2"] = (a0, a1, a2) => (_emscripten_bind_btGImpactShapeInterface_setChildTransform_2 = Module["_emscripten_bind_btGImpactShapeInterface_setChildTransform_2"] = wasmExports["cf"])(a0, a1, a2);
 
-var _emscripten_bind_btCollisionDispatcher___destroy___0 = Module["_emscripten_bind_btCollisionDispatcher___destroy___0"] = function() {
- return (_emscripten_bind_btCollisionDispatcher___destroy___0 = Module["_emscripten_bind_btCollisionDispatcher___destroy___0"] = Module["asm"]["mf"]).apply(null, arguments);
-};
+var _emscripten_bind_btGImpactShapeInterface_setLocalScaling_1 = Module["_emscripten_bind_btGImpactShapeInterface_setLocalScaling_1"] = (a0, a1) => (_emscripten_bind_btGImpactShapeInterface_setLocalScaling_1 = Module["_emscripten_bind_btGImpactShapeInterface_setLocalScaling_1"] = wasmExports["df"])(a0, a1);
 
-var _emscripten_bind_btOverlappingPairCallback___destroy___0 = Module["_emscripten_bind_btOverlappingPairCallback___destroy___0"] = function() {
- return (_emscripten_bind_btOverlappingPairCallback___destroy___0 = Module["_emscripten_bind_btOverlappingPairCallback___destroy___0"] = Module["asm"]["nf"]).apply(null, arguments);
-};
+var _emscripten_bind_btGImpactShapeInterface_getLocalScaling_0 = Module["_emscripten_bind_btGImpactShapeInterface_getLocalScaling_0"] = a0 => (_emscripten_bind_btGImpactShapeInterface_getLocalScaling_0 = Module["_emscripten_bind_btGImpactShapeInterface_getLocalScaling_0"] = wasmExports["ef"])(a0);
 
-var _emscripten_bind_btOverlappingPairCache_setInternalGhostPairCallback_1 = Module["_emscripten_bind_btOverlappingPairCache_setInternalGhostPairCallback_1"] = function() {
- return (_emscripten_bind_btOverlappingPairCache_setInternalGhostPairCallback_1 = Module["_emscripten_bind_btOverlappingPairCache_setInternalGhostPairCallback_1"] = Module["asm"]["of"]).apply(null, arguments);
-};
+var _emscripten_bind_btGImpactShapeInterface_calculateLocalInertia_2 = Module["_emscripten_bind_btGImpactShapeInterface_calculateLocalInertia_2"] = (a0, a1, a2) => (_emscripten_bind_btGImpactShapeInterface_calculateLocalInertia_2 = Module["_emscripten_bind_btGImpactShapeInterface_calculateLocalInertia_2"] = wasmExports["ff"])(a0, a1, a2);
 
-var _emscripten_bind_btOverlappingPairCache_getNumOverlappingPairs_0 = Module["_emscripten_bind_btOverlappingPairCache_getNumOverlappingPairs_0"] = function() {
- return (_emscripten_bind_btOverlappingPairCache_getNumOverlappingPairs_0 = Module["_emscripten_bind_btOverlappingPairCache_getNumOverlappingPairs_0"] = Module["asm"]["pf"]).apply(null, arguments);
-};
+var _emscripten_bind_btGImpactShapeInterface___destroy___0 = Module["_emscripten_bind_btGImpactShapeInterface___destroy___0"] = a0 => (_emscripten_bind_btGImpactShapeInterface___destroy___0 = Module["_emscripten_bind_btGImpactShapeInterface___destroy___0"] = wasmExports["gf"])(a0);
 
-var _emscripten_bind_btOverlappingPairCache___destroy___0 = Module["_emscripten_bind_btOverlappingPairCache___destroy___0"] = function() {
- return (_emscripten_bind_btOverlappingPairCache___destroy___0 = Module["_emscripten_bind_btOverlappingPairCache___destroy___0"] = Module["asm"]["qf"]).apply(null, arguments);
-};
+var _emscripten_bind_btCollisionAlgorithmConstructionInfo_btCollisionAlgorithmConstructionInfo_0 = Module["_emscripten_bind_btCollisionAlgorithmConstructionInfo_btCollisionAlgorithmConstructionInfo_0"] = () => (_emscripten_bind_btCollisionAlgorithmConstructionInfo_btCollisionAlgorithmConstructionInfo_0 = Module["_emscripten_bind_btCollisionAlgorithmConstructionInfo_btCollisionAlgorithmConstructionInfo_0"] = wasmExports["hf"])();
 
-var _emscripten_bind_btBroadphaseInterface_getOverlappingPairCache_0 = Module["_emscripten_bind_btBroadphaseInterface_getOverlappingPairCache_0"] = function() {
- return (_emscripten_bind_btBroadphaseInterface_getOverlappingPairCache_0 = Module["_emscripten_bind_btBroadphaseInterface_getOverlappingPairCache_0"] = Module["asm"]["rf"]).apply(null, arguments);
-};
+var _emscripten_bind_btCollisionAlgorithmConstructionInfo_btCollisionAlgorithmConstructionInfo_2 = Module["_emscripten_bind_btCollisionAlgorithmConstructionInfo_btCollisionAlgorithmConstructionInfo_2"] = (a0, a1) => (_emscripten_bind_btCollisionAlgorithmConstructionInfo_btCollisionAlgorithmConstructionInfo_2 = Module["_emscripten_bind_btCollisionAlgorithmConstructionInfo_btCollisionAlgorithmConstructionInfo_2"] = wasmExports["jf"])(a0, a1);
 
-var _emscripten_bind_btBroadphaseInterface___destroy___0 = Module["_emscripten_bind_btBroadphaseInterface___destroy___0"] = function() {
- return (_emscripten_bind_btBroadphaseInterface___destroy___0 = Module["_emscripten_bind_btBroadphaseInterface___destroy___0"] = Module["asm"]["sf"]).apply(null, arguments);
-};
+var _emscripten_bind_btCollisionAlgorithmConstructionInfo_get_m_dispatcher1_0 = Module["_emscripten_bind_btCollisionAlgorithmConstructionInfo_get_m_dispatcher1_0"] = a0 => (_emscripten_bind_btCollisionAlgorithmConstructionInfo_get_m_dispatcher1_0 = Module["_emscripten_bind_btCollisionAlgorithmConstructionInfo_get_m_dispatcher1_0"] = wasmExports["kf"])(a0);
 
-var _emscripten_bind_btCollisionConfiguration___destroy___0 = Module["_emscripten_bind_btCollisionConfiguration___destroy___0"] = function() {
- return (_emscripten_bind_btCollisionConfiguration___destroy___0 = Module["_emscripten_bind_btCollisionConfiguration___destroy___0"] = Module["asm"]["tf"]).apply(null, arguments);
-};
+var _emscripten_bind_btCollisionAlgorithmConstructionInfo_set_m_dispatcher1_1 = Module["_emscripten_bind_btCollisionAlgorithmConstructionInfo_set_m_dispatcher1_1"] = (a0, a1) => (_emscripten_bind_btCollisionAlgorithmConstructionInfo_set_m_dispatcher1_1 = Module["_emscripten_bind_btCollisionAlgorithmConstructionInfo_set_m_dispatcher1_1"] = wasmExports["lf"])(a0, a1);
 
-var _emscripten_bind_btDbvtBroadphase_btDbvtBroadphase_0 = Module["_emscripten_bind_btDbvtBroadphase_btDbvtBroadphase_0"] = function() {
- return (_emscripten_bind_btDbvtBroadphase_btDbvtBroadphase_0 = Module["_emscripten_bind_btDbvtBroadphase_btDbvtBroadphase_0"] = Module["asm"]["uf"]).apply(null, arguments);
-};
+var _emscripten_bind_btCollisionAlgorithmConstructionInfo___destroy___0 = Module["_emscripten_bind_btCollisionAlgorithmConstructionInfo___destroy___0"] = a0 => (_emscripten_bind_btCollisionAlgorithmConstructionInfo___destroy___0 = Module["_emscripten_bind_btCollisionAlgorithmConstructionInfo___destroy___0"] = wasmExports["mf"])(a0);
 
-var _emscripten_bind_btDbvtBroadphase_optimize_0 = Module["_emscripten_bind_btDbvtBroadphase_optimize_0"] = function() {
- return (_emscripten_bind_btDbvtBroadphase_optimize_0 = Module["_emscripten_bind_btDbvtBroadphase_optimize_0"] = Module["asm"]["vf"]).apply(null, arguments);
-};
+var _emscripten_bind_btGImpactCollisionAlgorithm_btGImpactCollisionAlgorithm_3 = Module["_emscripten_bind_btGImpactCollisionAlgorithm_btGImpactCollisionAlgorithm_3"] = (a0, a1, a2) => (_emscripten_bind_btGImpactCollisionAlgorithm_btGImpactCollisionAlgorithm_3 = Module["_emscripten_bind_btGImpactCollisionAlgorithm_btGImpactCollisionAlgorithm_3"] = wasmExports["nf"])(a0, a1, a2);
 
-var _emscripten_bind_btDbvtBroadphase___destroy___0 = Module["_emscripten_bind_btDbvtBroadphase___destroy___0"] = function() {
- return (_emscripten_bind_btDbvtBroadphase___destroy___0 = Module["_emscripten_bind_btDbvtBroadphase___destroy___0"] = Module["asm"]["wf"]).apply(null, arguments);
-};
+var _emscripten_bind_btGImpactCollisionAlgorithm_registerAlgorithm_1 = Module["_emscripten_bind_btGImpactCollisionAlgorithm_registerAlgorithm_1"] = (a0, a1) => (_emscripten_bind_btGImpactCollisionAlgorithm_registerAlgorithm_1 = Module["_emscripten_bind_btGImpactCollisionAlgorithm_registerAlgorithm_1"] = wasmExports["of"])(a0, a1);
 
-var _emscripten_bind_btBroadphaseProxy_get_m_collisionFilterGroup_0 = Module["_emscripten_bind_btBroadphaseProxy_get_m_collisionFilterGroup_0"] = function() {
- return (_emscripten_bind_btBroadphaseProxy_get_m_collisionFilterGroup_0 = Module["_emscripten_bind_btBroadphaseProxy_get_m_collisionFilterGroup_0"] = Module["asm"]["xf"]).apply(null, arguments);
-};
+var _emscripten_bind_btGImpactCollisionAlgorithm___destroy___0 = Module["_emscripten_bind_btGImpactCollisionAlgorithm___destroy___0"] = a0 => (_emscripten_bind_btGImpactCollisionAlgorithm___destroy___0 = Module["_emscripten_bind_btGImpactCollisionAlgorithm___destroy___0"] = wasmExports["pf"])(a0);
 
-var _emscripten_bind_btBroadphaseProxy_set_m_collisionFilterGroup_1 = Module["_emscripten_bind_btBroadphaseProxy_set_m_collisionFilterGroup_1"] = function() {
- return (_emscripten_bind_btBroadphaseProxy_set_m_collisionFilterGroup_1 = Module["_emscripten_bind_btBroadphaseProxy_set_m_collisionFilterGroup_1"] = Module["asm"]["yf"]).apply(null, arguments);
-};
+var _emscripten_bind_btDefaultCollisionConstructionInfo_btDefaultCollisionConstructionInfo_0 = Module["_emscripten_bind_btDefaultCollisionConstructionInfo_btDefaultCollisionConstructionInfo_0"] = () => (_emscripten_bind_btDefaultCollisionConstructionInfo_btDefaultCollisionConstructionInfo_0 = Module["_emscripten_bind_btDefaultCollisionConstructionInfo_btDefaultCollisionConstructionInfo_0"] = wasmExports["qf"])();
 
-var _emscripten_bind_btBroadphaseProxy_get_m_collisionFilterMask_0 = Module["_emscripten_bind_btBroadphaseProxy_get_m_collisionFilterMask_0"] = function() {
- return (_emscripten_bind_btBroadphaseProxy_get_m_collisionFilterMask_0 = Module["_emscripten_bind_btBroadphaseProxy_get_m_collisionFilterMask_0"] = Module["asm"]["zf"]).apply(null, arguments);
-};
+var _emscripten_bind_btDefaultCollisionConstructionInfo___destroy___0 = Module["_emscripten_bind_btDefaultCollisionConstructionInfo___destroy___0"] = a0 => (_emscripten_bind_btDefaultCollisionConstructionInfo___destroy___0 = Module["_emscripten_bind_btDefaultCollisionConstructionInfo___destroy___0"] = wasmExports["rf"])(a0);
 
-var _emscripten_bind_btBroadphaseProxy_set_m_collisionFilterMask_1 = Module["_emscripten_bind_btBroadphaseProxy_set_m_collisionFilterMask_1"] = function() {
- return (_emscripten_bind_btBroadphaseProxy_set_m_collisionFilterMask_1 = Module["_emscripten_bind_btBroadphaseProxy_set_m_collisionFilterMask_1"] = Module["asm"]["Af"]).apply(null, arguments);
-};
+var _emscripten_bind_btDefaultCollisionConfiguration_btDefaultCollisionConfiguration_0 = Module["_emscripten_bind_btDefaultCollisionConfiguration_btDefaultCollisionConfiguration_0"] = () => (_emscripten_bind_btDefaultCollisionConfiguration_btDefaultCollisionConfiguration_0 = Module["_emscripten_bind_btDefaultCollisionConfiguration_btDefaultCollisionConfiguration_0"] = wasmExports["sf"])();
 
-var _emscripten_bind_btBroadphaseProxy___destroy___0 = Module["_emscripten_bind_btBroadphaseProxy___destroy___0"] = function() {
- return (_emscripten_bind_btBroadphaseProxy___destroy___0 = Module["_emscripten_bind_btBroadphaseProxy___destroy___0"] = Module["asm"]["Bf"]).apply(null, arguments);
-};
+var _emscripten_bind_btDefaultCollisionConfiguration_btDefaultCollisionConfiguration_1 = Module["_emscripten_bind_btDefaultCollisionConfiguration_btDefaultCollisionConfiguration_1"] = a0 => (_emscripten_bind_btDefaultCollisionConfiguration_btDefaultCollisionConfiguration_1 = Module["_emscripten_bind_btDefaultCollisionConfiguration_btDefaultCollisionConfiguration_1"] = wasmExports["tf"])(a0);
 
-var _emscripten_bind_btRigidBodyConstructionInfo_btRigidBodyConstructionInfo_3 = Module["_emscripten_bind_btRigidBodyConstructionInfo_btRigidBodyConstructionInfo_3"] = function() {
- return (_emscripten_bind_btRigidBodyConstructionInfo_btRigidBodyConstructionInfo_3 = Module["_emscripten_bind_btRigidBodyConstructionInfo_btRigidBodyConstructionInfo_3"] = Module["asm"]["Cf"]).apply(null, arguments);
-};
+var _emscripten_bind_btDefaultCollisionConfiguration___destroy___0 = Module["_emscripten_bind_btDefaultCollisionConfiguration___destroy___0"] = a0 => (_emscripten_bind_btDefaultCollisionConfiguration___destroy___0 = Module["_emscripten_bind_btDefaultCollisionConfiguration___destroy___0"] = wasmExports["uf"])(a0);
 
-var _emscripten_bind_btRigidBodyConstructionInfo_btRigidBodyConstructionInfo_4 = Module["_emscripten_bind_btRigidBodyConstructionInfo_btRigidBodyConstructionInfo_4"] = function() {
- return (_emscripten_bind_btRigidBodyConstructionInfo_btRigidBodyConstructionInfo_4 = Module["_emscripten_bind_btRigidBodyConstructionInfo_btRigidBodyConstructionInfo_4"] = Module["asm"]["Df"]).apply(null, arguments);
-};
+var _emscripten_bind_btCollisionDispatcher_btCollisionDispatcher_1 = Module["_emscripten_bind_btCollisionDispatcher_btCollisionDispatcher_1"] = a0 => (_emscripten_bind_btCollisionDispatcher_btCollisionDispatcher_1 = Module["_emscripten_bind_btCollisionDispatcher_btCollisionDispatcher_1"] = wasmExports["vf"])(a0);
 
-var _emscripten_bind_btRigidBodyConstructionInfo_get_m_linearDamping_0 = Module["_emscripten_bind_btRigidBodyConstructionInfo_get_m_linearDamping_0"] = function() {
- return (_emscripten_bind_btRigidBodyConstructionInfo_get_m_linearDamping_0 = Module["_emscripten_bind_btRigidBodyConstructionInfo_get_m_linearDamping_0"] = Module["asm"]["Ef"]).apply(null, arguments);
-};
+var _emscripten_bind_btCollisionDispatcher_getNumManifolds_0 = Module["_emscripten_bind_btCollisionDispatcher_getNumManifolds_0"] = a0 => (_emscripten_bind_btCollisionDispatcher_getNumManifolds_0 = Module["_emscripten_bind_btCollisionDispatcher_getNumManifolds_0"] = wasmExports["wf"])(a0);
 
-var _emscripten_bind_btRigidBodyConstructionInfo_set_m_linearDamping_1 = Module["_emscripten_bind_btRigidBodyConstructionInfo_set_m_linearDamping_1"] = function() {
- return (_emscripten_bind_btRigidBodyConstructionInfo_set_m_linearDamping_1 = Module["_emscripten_bind_btRigidBodyConstructionInfo_set_m_linearDamping_1"] = Module["asm"]["Ff"]).apply(null, arguments);
-};
+var _emscripten_bind_btCollisionDispatcher___destroy___0 = Module["_emscripten_bind_btCollisionDispatcher___destroy___0"] = a0 => (_emscripten_bind_btCollisionDispatcher___destroy___0 = Module["_emscripten_bind_btCollisionDispatcher___destroy___0"] = wasmExports["xf"])(a0);
 
-var _emscripten_bind_btRigidBodyConstructionInfo_get_m_angularDamping_0 = Module["_emscripten_bind_btRigidBodyConstructionInfo_get_m_angularDamping_0"] = function() {
- return (_emscripten_bind_btRigidBodyConstructionInfo_get_m_angularDamping_0 = Module["_emscripten_bind_btRigidBodyConstructionInfo_get_m_angularDamping_0"] = Module["asm"]["Gf"]).apply(null, arguments);
-};
+var _emscripten_bind_btOverlappingPairCallback___destroy___0 = Module["_emscripten_bind_btOverlappingPairCallback___destroy___0"] = a0 => (_emscripten_bind_btOverlappingPairCallback___destroy___0 = Module["_emscripten_bind_btOverlappingPairCallback___destroy___0"] = wasmExports["yf"])(a0);
 
-var _emscripten_bind_btRigidBodyConstructionInfo_set_m_angularDamping_1 = Module["_emscripten_bind_btRigidBodyConstructionInfo_set_m_angularDamping_1"] = function() {
- return (_emscripten_bind_btRigidBodyConstructionInfo_set_m_angularDamping_1 = Module["_emscripten_bind_btRigidBodyConstructionInfo_set_m_angularDamping_1"] = Module["asm"]["Hf"]).apply(null, arguments);
-};
+var _emscripten_bind_btOverlappingPairCache_setInternalGhostPairCallback_1 = Module["_emscripten_bind_btOverlappingPairCache_setInternalGhostPairCallback_1"] = (a0, a1) => (_emscripten_bind_btOverlappingPairCache_setInternalGhostPairCallback_1 = Module["_emscripten_bind_btOverlappingPairCache_setInternalGhostPairCallback_1"] = wasmExports["zf"])(a0, a1);
 
-var _emscripten_bind_btRigidBodyConstructionInfo_get_m_friction_0 = Module["_emscripten_bind_btRigidBodyConstructionInfo_get_m_friction_0"] = function() {
- return (_emscripten_bind_btRigidBodyConstructionInfo_get_m_friction_0 = Module["_emscripten_bind_btRigidBodyConstructionInfo_get_m_friction_0"] = Module["asm"]["If"]).apply(null, arguments);
-};
+var _emscripten_bind_btOverlappingPairCache_getNumOverlappingPairs_0 = Module["_emscripten_bind_btOverlappingPairCache_getNumOverlappingPairs_0"] = a0 => (_emscripten_bind_btOverlappingPairCache_getNumOverlappingPairs_0 = Module["_emscripten_bind_btOverlappingPairCache_getNumOverlappingPairs_0"] = wasmExports["Af"])(a0);
 
-var _emscripten_bind_btRigidBodyConstructionInfo_set_m_friction_1 = Module["_emscripten_bind_btRigidBodyConstructionInfo_set_m_friction_1"] = function() {
- return (_emscripten_bind_btRigidBodyConstructionInfo_set_m_friction_1 = Module["_emscripten_bind_btRigidBodyConstructionInfo_set_m_friction_1"] = Module["asm"]["Jf"]).apply(null, arguments);
-};
+var _emscripten_bind_btOverlappingPairCache___destroy___0 = Module["_emscripten_bind_btOverlappingPairCache___destroy___0"] = a0 => (_emscripten_bind_btOverlappingPairCache___destroy___0 = Module["_emscripten_bind_btOverlappingPairCache___destroy___0"] = wasmExports["Bf"])(a0);
 
-var _emscripten_bind_btRigidBodyConstructionInfo_get_m_rollingFriction_0 = Module["_emscripten_bind_btRigidBodyConstructionInfo_get_m_rollingFriction_0"] = function() {
- return (_emscripten_bind_btRigidBodyConstructionInfo_get_m_rollingFriction_0 = Module["_emscripten_bind_btRigidBodyConstructionInfo_get_m_rollingFriction_0"] = Module["asm"]["Kf"]).apply(null, arguments);
-};
+var _emscripten_bind_btBroadphaseInterface_getOverlappingPairCache_0 = Module["_emscripten_bind_btBroadphaseInterface_getOverlappingPairCache_0"] = a0 => (_emscripten_bind_btBroadphaseInterface_getOverlappingPairCache_0 = Module["_emscripten_bind_btBroadphaseInterface_getOverlappingPairCache_0"] = wasmExports["Cf"])(a0);
 
-var _emscripten_bind_btRigidBodyConstructionInfo_set_m_rollingFriction_1 = Module["_emscripten_bind_btRigidBodyConstructionInfo_set_m_rollingFriction_1"] = function() {
- return (_emscripten_bind_btRigidBodyConstructionInfo_set_m_rollingFriction_1 = Module["_emscripten_bind_btRigidBodyConstructionInfo_set_m_rollingFriction_1"] = Module["asm"]["Lf"]).apply(null, arguments);
-};
+var _emscripten_bind_btBroadphaseInterface___destroy___0 = Module["_emscripten_bind_btBroadphaseInterface___destroy___0"] = a0 => (_emscripten_bind_btBroadphaseInterface___destroy___0 = Module["_emscripten_bind_btBroadphaseInterface___destroy___0"] = wasmExports["Df"])(a0);
 
-var _emscripten_bind_btRigidBodyConstructionInfo_get_m_restitution_0 = Module["_emscripten_bind_btRigidBodyConstructionInfo_get_m_restitution_0"] = function() {
- return (_emscripten_bind_btRigidBodyConstructionInfo_get_m_restitution_0 = Module["_emscripten_bind_btRigidBodyConstructionInfo_get_m_restitution_0"] = Module["asm"]["Mf"]).apply(null, arguments);
-};
+var _emscripten_bind_btCollisionConfiguration___destroy___0 = Module["_emscripten_bind_btCollisionConfiguration___destroy___0"] = a0 => (_emscripten_bind_btCollisionConfiguration___destroy___0 = Module["_emscripten_bind_btCollisionConfiguration___destroy___0"] = wasmExports["Ef"])(a0);
 
-var _emscripten_bind_btRigidBodyConstructionInfo_set_m_restitution_1 = Module["_emscripten_bind_btRigidBodyConstructionInfo_set_m_restitution_1"] = function() {
- return (_emscripten_bind_btRigidBodyConstructionInfo_set_m_restitution_1 = Module["_emscripten_bind_btRigidBodyConstructionInfo_set_m_restitution_1"] = Module["asm"]["Nf"]).apply(null, arguments);
-};
+var _emscripten_bind_btDbvtBroadphase_btDbvtBroadphase_0 = Module["_emscripten_bind_btDbvtBroadphase_btDbvtBroadphase_0"] = () => (_emscripten_bind_btDbvtBroadphase_btDbvtBroadphase_0 = Module["_emscripten_bind_btDbvtBroadphase_btDbvtBroadphase_0"] = wasmExports["Ff"])();
 
-var _emscripten_bind_btRigidBodyConstructionInfo_get_m_linearSleepingThreshold_0 = Module["_emscripten_bind_btRigidBodyConstructionInfo_get_m_linearSleepingThreshold_0"] = function() {
- return (_emscripten_bind_btRigidBodyConstructionInfo_get_m_linearSleepingThreshold_0 = Module["_emscripten_bind_btRigidBodyConstructionInfo_get_m_linearSleepingThreshold_0"] = Module["asm"]["Of"]).apply(null, arguments);
-};
+var _emscripten_bind_btDbvtBroadphase_optimize_0 = Module["_emscripten_bind_btDbvtBroadphase_optimize_0"] = a0 => (_emscripten_bind_btDbvtBroadphase_optimize_0 = Module["_emscripten_bind_btDbvtBroadphase_optimize_0"] = wasmExports["Gf"])(a0);
 
-var _emscripten_bind_btRigidBodyConstructionInfo_set_m_linearSleepingThreshold_1 = Module["_emscripten_bind_btRigidBodyConstructionInfo_set_m_linearSleepingThreshold_1"] = function() {
- return (_emscripten_bind_btRigidBodyConstructionInfo_set_m_linearSleepingThreshold_1 = Module["_emscripten_bind_btRigidBodyConstructionInfo_set_m_linearSleepingThreshold_1"] = Module["asm"]["Pf"]).apply(null, arguments);
-};
+var _emscripten_bind_btDbvtBroadphase___destroy___0 = Module["_emscripten_bind_btDbvtBroadphase___destroy___0"] = a0 => (_emscripten_bind_btDbvtBroadphase___destroy___0 = Module["_emscripten_bind_btDbvtBroadphase___destroy___0"] = wasmExports["Hf"])(a0);
 
-var _emscripten_bind_btRigidBodyConstructionInfo_get_m_angularSleepingThreshold_0 = Module["_emscripten_bind_btRigidBodyConstructionInfo_get_m_angularSleepingThreshold_0"] = function() {
- return (_emscripten_bind_btRigidBodyConstructionInfo_get_m_angularSleepingThreshold_0 = Module["_emscripten_bind_btRigidBodyConstructionInfo_get_m_angularSleepingThreshold_0"] = Module["asm"]["Qf"]).apply(null, arguments);
-};
+var _emscripten_bind_btBroadphaseProxy_get_m_collisionFilterGroup_0 = Module["_emscripten_bind_btBroadphaseProxy_get_m_collisionFilterGroup_0"] = a0 => (_emscripten_bind_btBroadphaseProxy_get_m_collisionFilterGroup_0 = Module["_emscripten_bind_btBroadphaseProxy_get_m_collisionFilterGroup_0"] = wasmExports["If"])(a0);
 
-var _emscripten_bind_btRigidBodyConstructionInfo_set_m_angularSleepingThreshold_1 = Module["_emscripten_bind_btRigidBodyConstructionInfo_set_m_angularSleepingThreshold_1"] = function() {
- return (_emscripten_bind_btRigidBodyConstructionInfo_set_m_angularSleepingThreshold_1 = Module["_emscripten_bind_btRigidBodyConstructionInfo_set_m_angularSleepingThreshold_1"] = Module["asm"]["Rf"]).apply(null, arguments);
-};
+var _emscripten_bind_btBroadphaseProxy_set_m_collisionFilterGroup_1 = Module["_emscripten_bind_btBroadphaseProxy_set_m_collisionFilterGroup_1"] = (a0, a1) => (_emscripten_bind_btBroadphaseProxy_set_m_collisionFilterGroup_1 = Module["_emscripten_bind_btBroadphaseProxy_set_m_collisionFilterGroup_1"] = wasmExports["Jf"])(a0, a1);
 
-var _emscripten_bind_btRigidBodyConstructionInfo_get_m_additionalDamping_0 = Module["_emscripten_bind_btRigidBodyConstructionInfo_get_m_additionalDamping_0"] = function() {
- return (_emscripten_bind_btRigidBodyConstructionInfo_get_m_additionalDamping_0 = Module["_emscripten_bind_btRigidBodyConstructionInfo_get_m_additionalDamping_0"] = Module["asm"]["Sf"]).apply(null, arguments);
-};
+var _emscripten_bind_btBroadphaseProxy_get_m_collisionFilterMask_0 = Module["_emscripten_bind_btBroadphaseProxy_get_m_collisionFilterMask_0"] = a0 => (_emscripten_bind_btBroadphaseProxy_get_m_collisionFilterMask_0 = Module["_emscripten_bind_btBroadphaseProxy_get_m_collisionFilterMask_0"] = wasmExports["Kf"])(a0);
 
-var _emscripten_bind_btRigidBodyConstructionInfo_set_m_additionalDamping_1 = Module["_emscripten_bind_btRigidBodyConstructionInfo_set_m_additionalDamping_1"] = function() {
- return (_emscripten_bind_btRigidBodyConstructionInfo_set_m_additionalDamping_1 = Module["_emscripten_bind_btRigidBodyConstructionInfo_set_m_additionalDamping_1"] = Module["asm"]["Tf"]).apply(null, arguments);
-};
+var _emscripten_bind_btBroadphaseProxy_set_m_collisionFilterMask_1 = Module["_emscripten_bind_btBroadphaseProxy_set_m_collisionFilterMask_1"] = (a0, a1) => (_emscripten_bind_btBroadphaseProxy_set_m_collisionFilterMask_1 = Module["_emscripten_bind_btBroadphaseProxy_set_m_collisionFilterMask_1"] = wasmExports["Lf"])(a0, a1);
 
-var _emscripten_bind_btRigidBodyConstructionInfo_get_m_additionalDampingFactor_0 = Module["_emscripten_bind_btRigidBodyConstructionInfo_get_m_additionalDampingFactor_0"] = function() {
- return (_emscripten_bind_btRigidBodyConstructionInfo_get_m_additionalDampingFactor_0 = Module["_emscripten_bind_btRigidBodyConstructionInfo_get_m_additionalDampingFactor_0"] = Module["asm"]["Uf"]).apply(null, arguments);
-};
+var _emscripten_bind_btBroadphaseProxy___destroy___0 = Module["_emscripten_bind_btBroadphaseProxy___destroy___0"] = a0 => (_emscripten_bind_btBroadphaseProxy___destroy___0 = Module["_emscripten_bind_btBroadphaseProxy___destroy___0"] = wasmExports["Mf"])(a0);
 
-var _emscripten_bind_btRigidBodyConstructionInfo_set_m_additionalDampingFactor_1 = Module["_emscripten_bind_btRigidBodyConstructionInfo_set_m_additionalDampingFactor_1"] = function() {
- return (_emscripten_bind_btRigidBodyConstructionInfo_set_m_additionalDampingFactor_1 = Module["_emscripten_bind_btRigidBodyConstructionInfo_set_m_additionalDampingFactor_1"] = Module["asm"]["Vf"]).apply(null, arguments);
-};
+var _emscripten_bind_btRigidBodyConstructionInfo_btRigidBodyConstructionInfo_3 = Module["_emscripten_bind_btRigidBodyConstructionInfo_btRigidBodyConstructionInfo_3"] = (a0, a1, a2) => (_emscripten_bind_btRigidBodyConstructionInfo_btRigidBodyConstructionInfo_3 = Module["_emscripten_bind_btRigidBodyConstructionInfo_btRigidBodyConstructionInfo_3"] = wasmExports["Nf"])(a0, a1, a2);
 
-var _emscripten_bind_btRigidBodyConstructionInfo_get_m_additionalLinearDampingThresholdSqr_0 = Module["_emscripten_bind_btRigidBodyConstructionInfo_get_m_additionalLinearDampingThresholdSqr_0"] = function() {
- return (_emscripten_bind_btRigidBodyConstructionInfo_get_m_additionalLinearDampingThresholdSqr_0 = Module["_emscripten_bind_btRigidBodyConstructionInfo_get_m_additionalLinearDampingThresholdSqr_0"] = Module["asm"]["Wf"]).apply(null, arguments);
-};
+var _emscripten_bind_btRigidBodyConstructionInfo_btRigidBodyConstructionInfo_4 = Module["_emscripten_bind_btRigidBodyConstructionInfo_btRigidBodyConstructionInfo_4"] = (a0, a1, a2, a3) => (_emscripten_bind_btRigidBodyConstructionInfo_btRigidBodyConstructionInfo_4 = Module["_emscripten_bind_btRigidBodyConstructionInfo_btRigidBodyConstructionInfo_4"] = wasmExports["Of"])(a0, a1, a2, a3);
 
-var _emscripten_bind_btRigidBodyConstructionInfo_set_m_additionalLinearDampingThresholdSqr_1 = Module["_emscripten_bind_btRigidBodyConstructionInfo_set_m_additionalLinearDampingThresholdSqr_1"] = function() {
- return (_emscripten_bind_btRigidBodyConstructionInfo_set_m_additionalLinearDampingThresholdSqr_1 = Module["_emscripten_bind_btRigidBodyConstructionInfo_set_m_additionalLinearDampingThresholdSqr_1"] = Module["asm"]["Xf"]).apply(null, arguments);
-};
+var _emscripten_bind_btRigidBodyConstructionInfo_get_m_linearDamping_0 = Module["_emscripten_bind_btRigidBodyConstructionInfo_get_m_linearDamping_0"] = a0 => (_emscripten_bind_btRigidBodyConstructionInfo_get_m_linearDamping_0 = Module["_emscripten_bind_btRigidBodyConstructionInfo_get_m_linearDamping_0"] = wasmExports["Pf"])(a0);
 
-var _emscripten_bind_btRigidBodyConstructionInfo_get_m_additionalAngularDampingThresholdSqr_0 = Module["_emscripten_bind_btRigidBodyConstructionInfo_get_m_additionalAngularDampingThresholdSqr_0"] = function() {
- return (_emscripten_bind_btRigidBodyConstructionInfo_get_m_additionalAngularDampingThresholdSqr_0 = Module["_emscripten_bind_btRigidBodyConstructionInfo_get_m_additionalAngularDampingThresholdSqr_0"] = Module["asm"]["Yf"]).apply(null, arguments);
-};
+var _emscripten_bind_btRigidBodyConstructionInfo_set_m_linearDamping_1 = Module["_emscripten_bind_btRigidBodyConstructionInfo_set_m_linearDamping_1"] = (a0, a1) => (_emscripten_bind_btRigidBodyConstructionInfo_set_m_linearDamping_1 = Module["_emscripten_bind_btRigidBodyConstructionInfo_set_m_linearDamping_1"] = wasmExports["Qf"])(a0, a1);
 
-var _emscripten_bind_btRigidBodyConstructionInfo_set_m_additionalAngularDampingThresholdSqr_1 = Module["_emscripten_bind_btRigidBodyConstructionInfo_set_m_additionalAngularDampingThresholdSqr_1"] = function() {
- return (_emscripten_bind_btRigidBodyConstructionInfo_set_m_additionalAngularDampingThresholdSqr_1 = Module["_emscripten_bind_btRigidBodyConstructionInfo_set_m_additionalAngularDampingThresholdSqr_1"] = Module["asm"]["Zf"]).apply(null, arguments);
-};
+var _emscripten_bind_btRigidBodyConstructionInfo_get_m_angularDamping_0 = Module["_emscripten_bind_btRigidBodyConstructionInfo_get_m_angularDamping_0"] = a0 => (_emscripten_bind_btRigidBodyConstructionInfo_get_m_angularDamping_0 = Module["_emscripten_bind_btRigidBodyConstructionInfo_get_m_angularDamping_0"] = wasmExports["Rf"])(a0);
 
-var _emscripten_bind_btRigidBodyConstructionInfo_get_m_additionalAngularDampingFactor_0 = Module["_emscripten_bind_btRigidBodyConstructionInfo_get_m_additionalAngularDampingFactor_0"] = function() {
- return (_emscripten_bind_btRigidBodyConstructionInfo_get_m_additionalAngularDampingFactor_0 = Module["_emscripten_bind_btRigidBodyConstructionInfo_get_m_additionalAngularDampingFactor_0"] = Module["asm"]["_f"]).apply(null, arguments);
-};
+var _emscripten_bind_btRigidBodyConstructionInfo_set_m_angularDamping_1 = Module["_emscripten_bind_btRigidBodyConstructionInfo_set_m_angularDamping_1"] = (a0, a1) => (_emscripten_bind_btRigidBodyConstructionInfo_set_m_angularDamping_1 = Module["_emscripten_bind_btRigidBodyConstructionInfo_set_m_angularDamping_1"] = wasmExports["Sf"])(a0, a1);
 
-var _emscripten_bind_btRigidBodyConstructionInfo_set_m_additionalAngularDampingFactor_1 = Module["_emscripten_bind_btRigidBodyConstructionInfo_set_m_additionalAngularDampingFactor_1"] = function() {
- return (_emscripten_bind_btRigidBodyConstructionInfo_set_m_additionalAngularDampingFactor_1 = Module["_emscripten_bind_btRigidBodyConstructionInfo_set_m_additionalAngularDampingFactor_1"] = Module["asm"]["$f"]).apply(null, arguments);
-};
+var _emscripten_bind_btRigidBodyConstructionInfo_get_m_friction_0 = Module["_emscripten_bind_btRigidBodyConstructionInfo_get_m_friction_0"] = a0 => (_emscripten_bind_btRigidBodyConstructionInfo_get_m_friction_0 = Module["_emscripten_bind_btRigidBodyConstructionInfo_get_m_friction_0"] = wasmExports["Tf"])(a0);
 
-var _emscripten_bind_btRigidBodyConstructionInfo___destroy___0 = Module["_emscripten_bind_btRigidBodyConstructionInfo___destroy___0"] = function() {
- return (_emscripten_bind_btRigidBodyConstructionInfo___destroy___0 = Module["_emscripten_bind_btRigidBodyConstructionInfo___destroy___0"] = Module["asm"]["ag"]).apply(null, arguments);
-};
+var _emscripten_bind_btRigidBodyConstructionInfo_set_m_friction_1 = Module["_emscripten_bind_btRigidBodyConstructionInfo_set_m_friction_1"] = (a0, a1) => (_emscripten_bind_btRigidBodyConstructionInfo_set_m_friction_1 = Module["_emscripten_bind_btRigidBodyConstructionInfo_set_m_friction_1"] = wasmExports["Uf"])(a0, a1);
 
-var _emscripten_bind_btRigidBody_btRigidBody_1 = Module["_emscripten_bind_btRigidBody_btRigidBody_1"] = function() {
- return (_emscripten_bind_btRigidBody_btRigidBody_1 = Module["_emscripten_bind_btRigidBody_btRigidBody_1"] = Module["asm"]["bg"]).apply(null, arguments);
-};
+var _emscripten_bind_btRigidBodyConstructionInfo_get_m_rollingFriction_0 = Module["_emscripten_bind_btRigidBodyConstructionInfo_get_m_rollingFriction_0"] = a0 => (_emscripten_bind_btRigidBodyConstructionInfo_get_m_rollingFriction_0 = Module["_emscripten_bind_btRigidBodyConstructionInfo_get_m_rollingFriction_0"] = wasmExports["Vf"])(a0);
 
-var _emscripten_bind_btRigidBody_getCenterOfMassTransform_0 = Module["_emscripten_bind_btRigidBody_getCenterOfMassTransform_0"] = function() {
- return (_emscripten_bind_btRigidBody_getCenterOfMassTransform_0 = Module["_emscripten_bind_btRigidBody_getCenterOfMassTransform_0"] = Module["asm"]["cg"]).apply(null, arguments);
-};
+var _emscripten_bind_btRigidBodyConstructionInfo_set_m_rollingFriction_1 = Module["_emscripten_bind_btRigidBodyConstructionInfo_set_m_rollingFriction_1"] = (a0, a1) => (_emscripten_bind_btRigidBodyConstructionInfo_set_m_rollingFriction_1 = Module["_emscripten_bind_btRigidBodyConstructionInfo_set_m_rollingFriction_1"] = wasmExports["Wf"])(a0, a1);
 
-var _emscripten_bind_btRigidBody_getCollisionShape_0 = Module["_emscripten_bind_btRigidBody_getCollisionShape_0"] = function() {
- return (_emscripten_bind_btRigidBody_getCollisionShape_0 = Module["_emscripten_bind_btRigidBody_getCollisionShape_0"] = Module["asm"]["dg"]).apply(null, arguments);
-};
+var _emscripten_bind_btRigidBodyConstructionInfo_get_m_restitution_0 = Module["_emscripten_bind_btRigidBodyConstructionInfo_get_m_restitution_0"] = a0 => (_emscripten_bind_btRigidBodyConstructionInfo_get_m_restitution_0 = Module["_emscripten_bind_btRigidBodyConstructionInfo_get_m_restitution_0"] = wasmExports["Xf"])(a0);
 
-var _emscripten_bind_btRigidBody_isStaticObject_0 = Module["_emscripten_bind_btRigidBody_isStaticObject_0"] = function() {
- return (_emscripten_bind_btRigidBody_isStaticObject_0 = Module["_emscripten_bind_btRigidBody_isStaticObject_0"] = Module["asm"]["eg"]).apply(null, arguments);
-};
+var _emscripten_bind_btRigidBodyConstructionInfo_set_m_restitution_1 = Module["_emscripten_bind_btRigidBodyConstructionInfo_set_m_restitution_1"] = (a0, a1) => (_emscripten_bind_btRigidBodyConstructionInfo_set_m_restitution_1 = Module["_emscripten_bind_btRigidBodyConstructionInfo_set_m_restitution_1"] = wasmExports["Yf"])(a0, a1);
 
-var _emscripten_bind_btRigidBody_setFriction_1 = Module["_emscripten_bind_btRigidBody_setFriction_1"] = function() {
- return (_emscripten_bind_btRigidBody_setFriction_1 = Module["_emscripten_bind_btRigidBody_setFriction_1"] = Module["asm"]["fg"]).apply(null, arguments);
-};
+var _emscripten_bind_btRigidBodyConstructionInfo_get_m_linearSleepingThreshold_0 = Module["_emscripten_bind_btRigidBodyConstructionInfo_get_m_linearSleepingThreshold_0"] = a0 => (_emscripten_bind_btRigidBodyConstructionInfo_get_m_linearSleepingThreshold_0 = Module["_emscripten_bind_btRigidBodyConstructionInfo_get_m_linearSleepingThreshold_0"] = wasmExports["Zf"])(a0);
 
-var _emscripten_bind_btRigidBody_getWorldTransform_0 = Module["_emscripten_bind_btRigidBody_getWorldTransform_0"] = function() {
- return (_emscripten_bind_btRigidBody_getWorldTransform_0 = Module["_emscripten_bind_btRigidBody_getWorldTransform_0"] = Module["asm"]["gg"]).apply(null, arguments);
-};
+var _emscripten_bind_btRigidBodyConstructionInfo_set_m_linearSleepingThreshold_1 = Module["_emscripten_bind_btRigidBodyConstructionInfo_set_m_linearSleepingThreshold_1"] = (a0, a1) => (_emscripten_bind_btRigidBodyConstructionInfo_set_m_linearSleepingThreshold_1 = Module["_emscripten_bind_btRigidBodyConstructionInfo_set_m_linearSleepingThreshold_1"] = wasmExports["_f"])(a0, a1);
 
-var _emscripten_bind_btRigidBody_setCollisionFlags_1 = Module["_emscripten_bind_btRigidBody_setCollisionFlags_1"] = function() {
- return (_emscripten_bind_btRigidBody_setCollisionFlags_1 = Module["_emscripten_bind_btRigidBody_setCollisionFlags_1"] = Module["asm"]["hg"]).apply(null, arguments);
-};
+var _emscripten_bind_btRigidBodyConstructionInfo_get_m_angularSleepingThreshold_0 = Module["_emscripten_bind_btRigidBodyConstructionInfo_get_m_angularSleepingThreshold_0"] = a0 => (_emscripten_bind_btRigidBodyConstructionInfo_get_m_angularSleepingThreshold_0 = Module["_emscripten_bind_btRigidBodyConstructionInfo_get_m_angularSleepingThreshold_0"] = wasmExports["$f"])(a0);
 
-var _emscripten_bind_btRigidBody_setWorldTransform_1 = Module["_emscripten_bind_btRigidBody_setWorldTransform_1"] = function() {
- return (_emscripten_bind_btRigidBody_setWorldTransform_1 = Module["_emscripten_bind_btRigidBody_setWorldTransform_1"] = Module["asm"]["ig"]).apply(null, arguments);
-};
+var _emscripten_bind_btRigidBodyConstructionInfo_set_m_angularSleepingThreshold_1 = Module["_emscripten_bind_btRigidBodyConstructionInfo_set_m_angularSleepingThreshold_1"] = (a0, a1) => (_emscripten_bind_btRigidBodyConstructionInfo_set_m_angularSleepingThreshold_1 = Module["_emscripten_bind_btRigidBodyConstructionInfo_set_m_angularSleepingThreshold_1"] = wasmExports["ag"])(a0, a1);
 
-var _emscripten_bind_btRigidBody_setCollisionShape_1 = Module["_emscripten_bind_btRigidBody_setCollisionShape_1"] = function() {
- return (_emscripten_bind_btRigidBody_setCollisionShape_1 = Module["_emscripten_bind_btRigidBody_setCollisionShape_1"] = Module["asm"]["jg"]).apply(null, arguments);
-};
+var _emscripten_bind_btRigidBodyConstructionInfo_get_m_additionalDamping_0 = Module["_emscripten_bind_btRigidBodyConstructionInfo_get_m_additionalDamping_0"] = a0 => (_emscripten_bind_btRigidBodyConstructionInfo_get_m_additionalDamping_0 = Module["_emscripten_bind_btRigidBodyConstructionInfo_get_m_additionalDamping_0"] = wasmExports["bg"])(a0);
 
-var _emscripten_bind_btRigidBody___destroy___0 = Module["_emscripten_bind_btRigidBody___destroy___0"] = function() {
- return (_emscripten_bind_btRigidBody___destroy___0 = Module["_emscripten_bind_btRigidBody___destroy___0"] = Module["asm"]["kg"]).apply(null, arguments);
-};
+var _emscripten_bind_btRigidBodyConstructionInfo_set_m_additionalDamping_1 = Module["_emscripten_bind_btRigidBodyConstructionInfo_set_m_additionalDamping_1"] = (a0, a1) => (_emscripten_bind_btRigidBodyConstructionInfo_set_m_additionalDamping_1 = Module["_emscripten_bind_btRigidBodyConstructionInfo_set_m_additionalDamping_1"] = wasmExports["cg"])(a0, a1);
 
-var _emscripten_bind_btSequentialImpulseConstraintSolver_btSequentialImpulseConstraintSolver_0 = Module["_emscripten_bind_btSequentialImpulseConstraintSolver_btSequentialImpulseConstraintSolver_0"] = function() {
- return (_emscripten_bind_btSequentialImpulseConstraintSolver_btSequentialImpulseConstraintSolver_0 = Module["_emscripten_bind_btSequentialImpulseConstraintSolver_btSequentialImpulseConstraintSolver_0"] = Module["asm"]["lg"]).apply(null, arguments);
-};
+var _emscripten_bind_btRigidBodyConstructionInfo_get_m_additionalDampingFactor_0 = Module["_emscripten_bind_btRigidBodyConstructionInfo_get_m_additionalDampingFactor_0"] = a0 => (_emscripten_bind_btRigidBodyConstructionInfo_get_m_additionalDampingFactor_0 = Module["_emscripten_bind_btRigidBodyConstructionInfo_get_m_additionalDampingFactor_0"] = wasmExports["dg"])(a0);
 
-var _emscripten_bind_btSequentialImpulseConstraintSolver___destroy___0 = Module["_emscripten_bind_btSequentialImpulseConstraintSolver___destroy___0"] = function() {
- return (_emscripten_bind_btSequentialImpulseConstraintSolver___destroy___0 = Module["_emscripten_bind_btSequentialImpulseConstraintSolver___destroy___0"] = Module["asm"]["mg"]).apply(null, arguments);
-};
+var _emscripten_bind_btRigidBodyConstructionInfo_set_m_additionalDampingFactor_1 = Module["_emscripten_bind_btRigidBodyConstructionInfo_set_m_additionalDampingFactor_1"] = (a0, a1) => (_emscripten_bind_btRigidBodyConstructionInfo_set_m_additionalDampingFactor_1 = Module["_emscripten_bind_btRigidBodyConstructionInfo_set_m_additionalDampingFactor_1"] = wasmExports["eg"])(a0, a1);
 
-var _emscripten_bind_btConstraintSolver___destroy___0 = Module["_emscripten_bind_btConstraintSolver___destroy___0"] = function() {
- return (_emscripten_bind_btConstraintSolver___destroy___0 = Module["_emscripten_bind_btConstraintSolver___destroy___0"] = Module["asm"]["ng"]).apply(null, arguments);
-};
+var _emscripten_bind_btRigidBodyConstructionInfo_get_m_additionalLinearDampingThresholdSqr_0 = Module["_emscripten_bind_btRigidBodyConstructionInfo_get_m_additionalLinearDampingThresholdSqr_0"] = a0 => (_emscripten_bind_btRigidBodyConstructionInfo_get_m_additionalLinearDampingThresholdSqr_0 = Module["_emscripten_bind_btRigidBodyConstructionInfo_get_m_additionalLinearDampingThresholdSqr_0"] = wasmExports["fg"])(a0);
 
-var _emscripten_bind_btDispatcherInfo_get_m_timeStep_0 = Module["_emscripten_bind_btDispatcherInfo_get_m_timeStep_0"] = function() {
- return (_emscripten_bind_btDispatcherInfo_get_m_timeStep_0 = Module["_emscripten_bind_btDispatcherInfo_get_m_timeStep_0"] = Module["asm"]["og"]).apply(null, arguments);
-};
+var _emscripten_bind_btRigidBodyConstructionInfo_set_m_additionalLinearDampingThresholdSqr_1 = Module["_emscripten_bind_btRigidBodyConstructionInfo_set_m_additionalLinearDampingThresholdSqr_1"] = (a0, a1) => (_emscripten_bind_btRigidBodyConstructionInfo_set_m_additionalLinearDampingThresholdSqr_1 = Module["_emscripten_bind_btRigidBodyConstructionInfo_set_m_additionalLinearDampingThresholdSqr_1"] = wasmExports["gg"])(a0, a1);
 
-var _emscripten_bind_btDispatcherInfo_set_m_timeStep_1 = Module["_emscripten_bind_btDispatcherInfo_set_m_timeStep_1"] = function() {
- return (_emscripten_bind_btDispatcherInfo_set_m_timeStep_1 = Module["_emscripten_bind_btDispatcherInfo_set_m_timeStep_1"] = Module["asm"]["pg"]).apply(null, arguments);
-};
+var _emscripten_bind_btRigidBodyConstructionInfo_get_m_additionalAngularDampingThresholdSqr_0 = Module["_emscripten_bind_btRigidBodyConstructionInfo_get_m_additionalAngularDampingThresholdSqr_0"] = a0 => (_emscripten_bind_btRigidBodyConstructionInfo_get_m_additionalAngularDampingThresholdSqr_0 = Module["_emscripten_bind_btRigidBodyConstructionInfo_get_m_additionalAngularDampingThresholdSqr_0"] = wasmExports["hg"])(a0);
 
-var _emscripten_bind_btDispatcherInfo_get_m_stepCount_0 = Module["_emscripten_bind_btDispatcherInfo_get_m_stepCount_0"] = function() {
- return (_emscripten_bind_btDispatcherInfo_get_m_stepCount_0 = Module["_emscripten_bind_btDispatcherInfo_get_m_stepCount_0"] = Module["asm"]["qg"]).apply(null, arguments);
-};
+var _emscripten_bind_btRigidBodyConstructionInfo_set_m_additionalAngularDampingThresholdSqr_1 = Module["_emscripten_bind_btRigidBodyConstructionInfo_set_m_additionalAngularDampingThresholdSqr_1"] = (a0, a1) => (_emscripten_bind_btRigidBodyConstructionInfo_set_m_additionalAngularDampingThresholdSqr_1 = Module["_emscripten_bind_btRigidBodyConstructionInfo_set_m_additionalAngularDampingThresholdSqr_1"] = wasmExports["ig"])(a0, a1);
 
-var _emscripten_bind_btDispatcherInfo_set_m_stepCount_1 = Module["_emscripten_bind_btDispatcherInfo_set_m_stepCount_1"] = function() {
- return (_emscripten_bind_btDispatcherInfo_set_m_stepCount_1 = Module["_emscripten_bind_btDispatcherInfo_set_m_stepCount_1"] = Module["asm"]["rg"]).apply(null, arguments);
-};
+var _emscripten_bind_btRigidBodyConstructionInfo_get_m_additionalAngularDampingFactor_0 = Module["_emscripten_bind_btRigidBodyConstructionInfo_get_m_additionalAngularDampingFactor_0"] = a0 => (_emscripten_bind_btRigidBodyConstructionInfo_get_m_additionalAngularDampingFactor_0 = Module["_emscripten_bind_btRigidBodyConstructionInfo_get_m_additionalAngularDampingFactor_0"] = wasmExports["jg"])(a0);
 
-var _emscripten_bind_btDispatcherInfo_get_m_dispatchFunc_0 = Module["_emscripten_bind_btDispatcherInfo_get_m_dispatchFunc_0"] = function() {
- return (_emscripten_bind_btDispatcherInfo_get_m_dispatchFunc_0 = Module["_emscripten_bind_btDispatcherInfo_get_m_dispatchFunc_0"] = Module["asm"]["sg"]).apply(null, arguments);
-};
+var _emscripten_bind_btRigidBodyConstructionInfo_set_m_additionalAngularDampingFactor_1 = Module["_emscripten_bind_btRigidBodyConstructionInfo_set_m_additionalAngularDampingFactor_1"] = (a0, a1) => (_emscripten_bind_btRigidBodyConstructionInfo_set_m_additionalAngularDampingFactor_1 = Module["_emscripten_bind_btRigidBodyConstructionInfo_set_m_additionalAngularDampingFactor_1"] = wasmExports["kg"])(a0, a1);
 
-var _emscripten_bind_btDispatcherInfo_set_m_dispatchFunc_1 = Module["_emscripten_bind_btDispatcherInfo_set_m_dispatchFunc_1"] = function() {
- return (_emscripten_bind_btDispatcherInfo_set_m_dispatchFunc_1 = Module["_emscripten_bind_btDispatcherInfo_set_m_dispatchFunc_1"] = Module["asm"]["tg"]).apply(null, arguments);
-};
+var _emscripten_bind_btRigidBodyConstructionInfo___destroy___0 = Module["_emscripten_bind_btRigidBodyConstructionInfo___destroy___0"] = a0 => (_emscripten_bind_btRigidBodyConstructionInfo___destroy___0 = Module["_emscripten_bind_btRigidBodyConstructionInfo___destroy___0"] = wasmExports["lg"])(a0);
 
-var _emscripten_bind_btDispatcherInfo_get_m_timeOfImpact_0 = Module["_emscripten_bind_btDispatcherInfo_get_m_timeOfImpact_0"] = function() {
- return (_emscripten_bind_btDispatcherInfo_get_m_timeOfImpact_0 = Module["_emscripten_bind_btDispatcherInfo_get_m_timeOfImpact_0"] = Module["asm"]["ug"]).apply(null, arguments);
-};
+var _emscripten_bind_btRigidBody_btRigidBody_1 = Module["_emscripten_bind_btRigidBody_btRigidBody_1"] = a0 => (_emscripten_bind_btRigidBody_btRigidBody_1 = Module["_emscripten_bind_btRigidBody_btRigidBody_1"] = wasmExports["mg"])(a0);
 
-var _emscripten_bind_btDispatcherInfo_set_m_timeOfImpact_1 = Module["_emscripten_bind_btDispatcherInfo_set_m_timeOfImpact_1"] = function() {
- return (_emscripten_bind_btDispatcherInfo_set_m_timeOfImpact_1 = Module["_emscripten_bind_btDispatcherInfo_set_m_timeOfImpact_1"] = Module["asm"]["vg"]).apply(null, arguments);
-};
+var _emscripten_bind_btRigidBody_getCenterOfMassTransform_0 = Module["_emscripten_bind_btRigidBody_getCenterOfMassTransform_0"] = a0 => (_emscripten_bind_btRigidBody_getCenterOfMassTransform_0 = Module["_emscripten_bind_btRigidBody_getCenterOfMassTransform_0"] = wasmExports["ng"])(a0);
 
-var _emscripten_bind_btDispatcherInfo_get_m_useContinuous_0 = Module["_emscripten_bind_btDispatcherInfo_get_m_useContinuous_0"] = function() {
- return (_emscripten_bind_btDispatcherInfo_get_m_useContinuous_0 = Module["_emscripten_bind_btDispatcherInfo_get_m_useContinuous_0"] = Module["asm"]["wg"]).apply(null, arguments);
-};
+var _emscripten_bind_btRigidBody_getCollisionShape_0 = Module["_emscripten_bind_btRigidBody_getCollisionShape_0"] = a0 => (_emscripten_bind_btRigidBody_getCollisionShape_0 = Module["_emscripten_bind_btRigidBody_getCollisionShape_0"] = wasmExports["og"])(a0);
 
-var _emscripten_bind_btDispatcherInfo_set_m_useContinuous_1 = Module["_emscripten_bind_btDispatcherInfo_set_m_useContinuous_1"] = function() {
- return (_emscripten_bind_btDispatcherInfo_set_m_useContinuous_1 = Module["_emscripten_bind_btDispatcherInfo_set_m_useContinuous_1"] = Module["asm"]["xg"]).apply(null, arguments);
-};
+var _emscripten_bind_btRigidBody_isStaticObject_0 = Module["_emscripten_bind_btRigidBody_isStaticObject_0"] = a0 => (_emscripten_bind_btRigidBody_isStaticObject_0 = Module["_emscripten_bind_btRigidBody_isStaticObject_0"] = wasmExports["pg"])(a0);
 
-var _emscripten_bind_btDispatcherInfo_get_m_enableSatConvex_0 = Module["_emscripten_bind_btDispatcherInfo_get_m_enableSatConvex_0"] = function() {
- return (_emscripten_bind_btDispatcherInfo_get_m_enableSatConvex_0 = Module["_emscripten_bind_btDispatcherInfo_get_m_enableSatConvex_0"] = Module["asm"]["yg"]).apply(null, arguments);
-};
+var _emscripten_bind_btRigidBody_setFriction_1 = Module["_emscripten_bind_btRigidBody_setFriction_1"] = (a0, a1) => (_emscripten_bind_btRigidBody_setFriction_1 = Module["_emscripten_bind_btRigidBody_setFriction_1"] = wasmExports["qg"])(a0, a1);
 
-var _emscripten_bind_btDispatcherInfo_set_m_enableSatConvex_1 = Module["_emscripten_bind_btDispatcherInfo_set_m_enableSatConvex_1"] = function() {
- return (_emscripten_bind_btDispatcherInfo_set_m_enableSatConvex_1 = Module["_emscripten_bind_btDispatcherInfo_set_m_enableSatConvex_1"] = Module["asm"]["zg"]).apply(null, arguments);
-};
+var _emscripten_bind_btRigidBody_getWorldTransform_0 = Module["_emscripten_bind_btRigidBody_getWorldTransform_0"] = a0 => (_emscripten_bind_btRigidBody_getWorldTransform_0 = Module["_emscripten_bind_btRigidBody_getWorldTransform_0"] = wasmExports["rg"])(a0);
 
-var _emscripten_bind_btDispatcherInfo_get_m_enableSPU_0 = Module["_emscripten_bind_btDispatcherInfo_get_m_enableSPU_0"] = function() {
- return (_emscripten_bind_btDispatcherInfo_get_m_enableSPU_0 = Module["_emscripten_bind_btDispatcherInfo_get_m_enableSPU_0"] = Module["asm"]["Ag"]).apply(null, arguments);
-};
+var _emscripten_bind_btRigidBody_setCollisionFlags_1 = Module["_emscripten_bind_btRigidBody_setCollisionFlags_1"] = (a0, a1) => (_emscripten_bind_btRigidBody_setCollisionFlags_1 = Module["_emscripten_bind_btRigidBody_setCollisionFlags_1"] = wasmExports["sg"])(a0, a1);
 
-var _emscripten_bind_btDispatcherInfo_set_m_enableSPU_1 = Module["_emscripten_bind_btDispatcherInfo_set_m_enableSPU_1"] = function() {
- return (_emscripten_bind_btDispatcherInfo_set_m_enableSPU_1 = Module["_emscripten_bind_btDispatcherInfo_set_m_enableSPU_1"] = Module["asm"]["Bg"]).apply(null, arguments);
-};
+var _emscripten_bind_btRigidBody_setWorldTransform_1 = Module["_emscripten_bind_btRigidBody_setWorldTransform_1"] = (a0, a1) => (_emscripten_bind_btRigidBody_setWorldTransform_1 = Module["_emscripten_bind_btRigidBody_setWorldTransform_1"] = wasmExports["tg"])(a0, a1);
 
-var _emscripten_bind_btDispatcherInfo_get_m_useEpa_0 = Module["_emscripten_bind_btDispatcherInfo_get_m_useEpa_0"] = function() {
- return (_emscripten_bind_btDispatcherInfo_get_m_useEpa_0 = Module["_emscripten_bind_btDispatcherInfo_get_m_useEpa_0"] = Module["asm"]["Cg"]).apply(null, arguments);
-};
+var _emscripten_bind_btRigidBody_setCollisionShape_1 = Module["_emscripten_bind_btRigidBody_setCollisionShape_1"] = (a0, a1) => (_emscripten_bind_btRigidBody_setCollisionShape_1 = Module["_emscripten_bind_btRigidBody_setCollisionShape_1"] = wasmExports["ug"])(a0, a1);
 
-var _emscripten_bind_btDispatcherInfo_set_m_useEpa_1 = Module["_emscripten_bind_btDispatcherInfo_set_m_useEpa_1"] = function() {
- return (_emscripten_bind_btDispatcherInfo_set_m_useEpa_1 = Module["_emscripten_bind_btDispatcherInfo_set_m_useEpa_1"] = Module["asm"]["Dg"]).apply(null, arguments);
-};
+var _emscripten_bind_btRigidBody___destroy___0 = Module["_emscripten_bind_btRigidBody___destroy___0"] = a0 => (_emscripten_bind_btRigidBody___destroy___0 = Module["_emscripten_bind_btRigidBody___destroy___0"] = wasmExports["vg"])(a0);
 
-var _emscripten_bind_btDispatcherInfo_get_m_allowedCcdPenetration_0 = Module["_emscripten_bind_btDispatcherInfo_get_m_allowedCcdPenetration_0"] = function() {
- return (_emscripten_bind_btDispatcherInfo_get_m_allowedCcdPenetration_0 = Module["_emscripten_bind_btDispatcherInfo_get_m_allowedCcdPenetration_0"] = Module["asm"]["Eg"]).apply(null, arguments);
-};
+var _emscripten_bind_btSequentialImpulseConstraintSolver_btSequentialImpulseConstraintSolver_0 = Module["_emscripten_bind_btSequentialImpulseConstraintSolver_btSequentialImpulseConstraintSolver_0"] = () => (_emscripten_bind_btSequentialImpulseConstraintSolver_btSequentialImpulseConstraintSolver_0 = Module["_emscripten_bind_btSequentialImpulseConstraintSolver_btSequentialImpulseConstraintSolver_0"] = wasmExports["wg"])();
 
-var _emscripten_bind_btDispatcherInfo_set_m_allowedCcdPenetration_1 = Module["_emscripten_bind_btDispatcherInfo_set_m_allowedCcdPenetration_1"] = function() {
- return (_emscripten_bind_btDispatcherInfo_set_m_allowedCcdPenetration_1 = Module["_emscripten_bind_btDispatcherInfo_set_m_allowedCcdPenetration_1"] = Module["asm"]["Fg"]).apply(null, arguments);
-};
+var _emscripten_bind_btSequentialImpulseConstraintSolver___destroy___0 = Module["_emscripten_bind_btSequentialImpulseConstraintSolver___destroy___0"] = a0 => (_emscripten_bind_btSequentialImpulseConstraintSolver___destroy___0 = Module["_emscripten_bind_btSequentialImpulseConstraintSolver___destroy___0"] = wasmExports["xg"])(a0);
 
-var _emscripten_bind_btDispatcherInfo_get_m_useConvexConservativeDistanceUtil_0 = Module["_emscripten_bind_btDispatcherInfo_get_m_useConvexConservativeDistanceUtil_0"] = function() {
- return (_emscripten_bind_btDispatcherInfo_get_m_useConvexConservativeDistanceUtil_0 = Module["_emscripten_bind_btDispatcherInfo_get_m_useConvexConservativeDistanceUtil_0"] = Module["asm"]["Gg"]).apply(null, arguments);
-};
+var _emscripten_bind_btConstraintSolver___destroy___0 = Module["_emscripten_bind_btConstraintSolver___destroy___0"] = a0 => (_emscripten_bind_btConstraintSolver___destroy___0 = Module["_emscripten_bind_btConstraintSolver___destroy___0"] = wasmExports["yg"])(a0);
 
-var _emscripten_bind_btDispatcherInfo_set_m_useConvexConservativeDistanceUtil_1 = Module["_emscripten_bind_btDispatcherInfo_set_m_useConvexConservativeDistanceUtil_1"] = function() {
- return (_emscripten_bind_btDispatcherInfo_set_m_useConvexConservativeDistanceUtil_1 = Module["_emscripten_bind_btDispatcherInfo_set_m_useConvexConservativeDistanceUtil_1"] = Module["asm"]["Hg"]).apply(null, arguments);
-};
+var _emscripten_bind_btDispatcherInfo_get_m_timeStep_0 = Module["_emscripten_bind_btDispatcherInfo_get_m_timeStep_0"] = a0 => (_emscripten_bind_btDispatcherInfo_get_m_timeStep_0 = Module["_emscripten_bind_btDispatcherInfo_get_m_timeStep_0"] = wasmExports["zg"])(a0);
 
-var _emscripten_bind_btDispatcherInfo_get_m_convexConservativeDistanceThreshold_0 = Module["_emscripten_bind_btDispatcherInfo_get_m_convexConservativeDistanceThreshold_0"] = function() {
- return (_emscripten_bind_btDispatcherInfo_get_m_convexConservativeDistanceThreshold_0 = Module["_emscripten_bind_btDispatcherInfo_get_m_convexConservativeDistanceThreshold_0"] = Module["asm"]["Ig"]).apply(null, arguments);
-};
+var _emscripten_bind_btDispatcherInfo_set_m_timeStep_1 = Module["_emscripten_bind_btDispatcherInfo_set_m_timeStep_1"] = (a0, a1) => (_emscripten_bind_btDispatcherInfo_set_m_timeStep_1 = Module["_emscripten_bind_btDispatcherInfo_set_m_timeStep_1"] = wasmExports["Ag"])(a0, a1);
 
-var _emscripten_bind_btDispatcherInfo_set_m_convexConservativeDistanceThreshold_1 = Module["_emscripten_bind_btDispatcherInfo_set_m_convexConservativeDistanceThreshold_1"] = function() {
- return (_emscripten_bind_btDispatcherInfo_set_m_convexConservativeDistanceThreshold_1 = Module["_emscripten_bind_btDispatcherInfo_set_m_convexConservativeDistanceThreshold_1"] = Module["asm"]["Jg"]).apply(null, arguments);
-};
+var _emscripten_bind_btDispatcherInfo_get_m_stepCount_0 = Module["_emscripten_bind_btDispatcherInfo_get_m_stepCount_0"] = a0 => (_emscripten_bind_btDispatcherInfo_get_m_stepCount_0 = Module["_emscripten_bind_btDispatcherInfo_get_m_stepCount_0"] = wasmExports["Bg"])(a0);
 
-var _emscripten_bind_btDispatcherInfo___destroy___0 = Module["_emscripten_bind_btDispatcherInfo___destroy___0"] = function() {
- return (_emscripten_bind_btDispatcherInfo___destroy___0 = Module["_emscripten_bind_btDispatcherInfo___destroy___0"] = Module["asm"]["Kg"]).apply(null, arguments);
-};
+var _emscripten_bind_btDispatcherInfo_set_m_stepCount_1 = Module["_emscripten_bind_btDispatcherInfo_set_m_stepCount_1"] = (a0, a1) => (_emscripten_bind_btDispatcherInfo_set_m_stepCount_1 = Module["_emscripten_bind_btDispatcherInfo_set_m_stepCount_1"] = wasmExports["Cg"])(a0, a1);
 
-var _emscripten_bind_btContactSolverInfo_get_m_splitImpulse_0 = Module["_emscripten_bind_btContactSolverInfo_get_m_splitImpulse_0"] = function() {
- return (_emscripten_bind_btContactSolverInfo_get_m_splitImpulse_0 = Module["_emscripten_bind_btContactSolverInfo_get_m_splitImpulse_0"] = Module["asm"]["Lg"]).apply(null, arguments);
-};
+var _emscripten_bind_btDispatcherInfo_get_m_dispatchFunc_0 = Module["_emscripten_bind_btDispatcherInfo_get_m_dispatchFunc_0"] = a0 => (_emscripten_bind_btDispatcherInfo_get_m_dispatchFunc_0 = Module["_emscripten_bind_btDispatcherInfo_get_m_dispatchFunc_0"] = wasmExports["Dg"])(a0);
 
-var _emscripten_bind_btContactSolverInfo_set_m_splitImpulse_1 = Module["_emscripten_bind_btContactSolverInfo_set_m_splitImpulse_1"] = function() {
- return (_emscripten_bind_btContactSolverInfo_set_m_splitImpulse_1 = Module["_emscripten_bind_btContactSolverInfo_set_m_splitImpulse_1"] = Module["asm"]["Mg"]).apply(null, arguments);
-};
+var _emscripten_bind_btDispatcherInfo_set_m_dispatchFunc_1 = Module["_emscripten_bind_btDispatcherInfo_set_m_dispatchFunc_1"] = (a0, a1) => (_emscripten_bind_btDispatcherInfo_set_m_dispatchFunc_1 = Module["_emscripten_bind_btDispatcherInfo_set_m_dispatchFunc_1"] = wasmExports["Eg"])(a0, a1);
 
-var _emscripten_bind_btContactSolverInfo_get_m_splitImpulsePenetrationThreshold_0 = Module["_emscripten_bind_btContactSolverInfo_get_m_splitImpulsePenetrationThreshold_0"] = function() {
- return (_emscripten_bind_btContactSolverInfo_get_m_splitImpulsePenetrationThreshold_0 = Module["_emscripten_bind_btContactSolverInfo_get_m_splitImpulsePenetrationThreshold_0"] = Module["asm"]["Ng"]).apply(null, arguments);
-};
+var _emscripten_bind_btDispatcherInfo_get_m_timeOfImpact_0 = Module["_emscripten_bind_btDispatcherInfo_get_m_timeOfImpact_0"] = a0 => (_emscripten_bind_btDispatcherInfo_get_m_timeOfImpact_0 = Module["_emscripten_bind_btDispatcherInfo_get_m_timeOfImpact_0"] = wasmExports["Fg"])(a0);
 
-var _emscripten_bind_btContactSolverInfo_set_m_splitImpulsePenetrationThreshold_1 = Module["_emscripten_bind_btContactSolverInfo_set_m_splitImpulsePenetrationThreshold_1"] = function() {
- return (_emscripten_bind_btContactSolverInfo_set_m_splitImpulsePenetrationThreshold_1 = Module["_emscripten_bind_btContactSolverInfo_set_m_splitImpulsePenetrationThreshold_1"] = Module["asm"]["Og"]).apply(null, arguments);
-};
+var _emscripten_bind_btDispatcherInfo_set_m_timeOfImpact_1 = Module["_emscripten_bind_btDispatcherInfo_set_m_timeOfImpact_1"] = (a0, a1) => (_emscripten_bind_btDispatcherInfo_set_m_timeOfImpact_1 = Module["_emscripten_bind_btDispatcherInfo_set_m_timeOfImpact_1"] = wasmExports["Gg"])(a0, a1);
 
-var _emscripten_bind_btContactSolverInfo_get_m_numIterations_0 = Module["_emscripten_bind_btContactSolverInfo_get_m_numIterations_0"] = function() {
- return (_emscripten_bind_btContactSolverInfo_get_m_numIterations_0 = Module["_emscripten_bind_btContactSolverInfo_get_m_numIterations_0"] = Module["asm"]["Pg"]).apply(null, arguments);
-};
+var _emscripten_bind_btDispatcherInfo_get_m_useContinuous_0 = Module["_emscripten_bind_btDispatcherInfo_get_m_useContinuous_0"] = a0 => (_emscripten_bind_btDispatcherInfo_get_m_useContinuous_0 = Module["_emscripten_bind_btDispatcherInfo_get_m_useContinuous_0"] = wasmExports["Hg"])(a0);
 
-var _emscripten_bind_btContactSolverInfo_set_m_numIterations_1 = Module["_emscripten_bind_btContactSolverInfo_set_m_numIterations_1"] = function() {
- return (_emscripten_bind_btContactSolverInfo_set_m_numIterations_1 = Module["_emscripten_bind_btContactSolverInfo_set_m_numIterations_1"] = Module["asm"]["Qg"]).apply(null, arguments);
-};
+var _emscripten_bind_btDispatcherInfo_set_m_useContinuous_1 = Module["_emscripten_bind_btDispatcherInfo_set_m_useContinuous_1"] = (a0, a1) => (_emscripten_bind_btDispatcherInfo_set_m_useContinuous_1 = Module["_emscripten_bind_btDispatcherInfo_set_m_useContinuous_1"] = wasmExports["Ig"])(a0, a1);
 
-var _emscripten_bind_btContactSolverInfo___destroy___0 = Module["_emscripten_bind_btContactSolverInfo___destroy___0"] = function() {
- return (_emscripten_bind_btContactSolverInfo___destroy___0 = Module["_emscripten_bind_btContactSolverInfo___destroy___0"] = Module["asm"]["Rg"]).apply(null, arguments);
-};
+var _emscripten_bind_btDispatcherInfo_get_m_enableSatConvex_0 = Module["_emscripten_bind_btDispatcherInfo_get_m_enableSatConvex_0"] = a0 => (_emscripten_bind_btDispatcherInfo_get_m_enableSatConvex_0 = Module["_emscripten_bind_btDispatcherInfo_get_m_enableSatConvex_0"] = wasmExports["Jg"])(a0);
 
-var _emscripten_bind_btDiscreteDynamicsWorld_btDiscreteDynamicsWorld_4 = Module["_emscripten_bind_btDiscreteDynamicsWorld_btDiscreteDynamicsWorld_4"] = function() {
- return (_emscripten_bind_btDiscreteDynamicsWorld_btDiscreteDynamicsWorld_4 = Module["_emscripten_bind_btDiscreteDynamicsWorld_btDiscreteDynamicsWorld_4"] = Module["asm"]["Sg"]).apply(null, arguments);
-};
+var _emscripten_bind_btDispatcherInfo_set_m_enableSatConvex_1 = Module["_emscripten_bind_btDispatcherInfo_set_m_enableSatConvex_1"] = (a0, a1) => (_emscripten_bind_btDispatcherInfo_set_m_enableSatConvex_1 = Module["_emscripten_bind_btDispatcherInfo_set_m_enableSatConvex_1"] = wasmExports["Kg"])(a0, a1);
 
-var _emscripten_bind_btDiscreteDynamicsWorld_setGravity_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_setGravity_1"] = function() {
- return (_emscripten_bind_btDiscreteDynamicsWorld_setGravity_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_setGravity_1"] = Module["asm"]["Tg"]).apply(null, arguments);
-};
+var _emscripten_bind_btDispatcherInfo_get_m_enableSPU_0 = Module["_emscripten_bind_btDispatcherInfo_get_m_enableSPU_0"] = a0 => (_emscripten_bind_btDispatcherInfo_get_m_enableSPU_0 = Module["_emscripten_bind_btDispatcherInfo_get_m_enableSPU_0"] = wasmExports["Lg"])(a0);
 
-var _emscripten_bind_btDiscreteDynamicsWorld_getGravity_0 = Module["_emscripten_bind_btDiscreteDynamicsWorld_getGravity_0"] = function() {
- return (_emscripten_bind_btDiscreteDynamicsWorld_getGravity_0 = Module["_emscripten_bind_btDiscreteDynamicsWorld_getGravity_0"] = Module["asm"]["Ug"]).apply(null, arguments);
-};
+var _emscripten_bind_btDispatcherInfo_set_m_enableSPU_1 = Module["_emscripten_bind_btDispatcherInfo_set_m_enableSPU_1"] = (a0, a1) => (_emscripten_bind_btDispatcherInfo_set_m_enableSPU_1 = Module["_emscripten_bind_btDispatcherInfo_set_m_enableSPU_1"] = wasmExports["Mg"])(a0, a1);
 
-var _emscripten_bind_btDiscreteDynamicsWorld_addRigidBody_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_addRigidBody_1"] = function() {
- return (_emscripten_bind_btDiscreteDynamicsWorld_addRigidBody_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_addRigidBody_1"] = Module["asm"]["Vg"]).apply(null, arguments);
-};
+var _emscripten_bind_btDispatcherInfo_get_m_useEpa_0 = Module["_emscripten_bind_btDispatcherInfo_get_m_useEpa_0"] = a0 => (_emscripten_bind_btDispatcherInfo_get_m_useEpa_0 = Module["_emscripten_bind_btDispatcherInfo_get_m_useEpa_0"] = wasmExports["Ng"])(a0);
 
-var _emscripten_bind_btDiscreteDynamicsWorld_addRigidBody_3 = Module["_emscripten_bind_btDiscreteDynamicsWorld_addRigidBody_3"] = function() {
- return (_emscripten_bind_btDiscreteDynamicsWorld_addRigidBody_3 = Module["_emscripten_bind_btDiscreteDynamicsWorld_addRigidBody_3"] = Module["asm"]["Wg"]).apply(null, arguments);
-};
+var _emscripten_bind_btDispatcherInfo_set_m_useEpa_1 = Module["_emscripten_bind_btDispatcherInfo_set_m_useEpa_1"] = (a0, a1) => (_emscripten_bind_btDispatcherInfo_set_m_useEpa_1 = Module["_emscripten_bind_btDispatcherInfo_set_m_useEpa_1"] = wasmExports["Og"])(a0, a1);
 
-var _emscripten_bind_btDiscreteDynamicsWorld_removeRigidBody_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_removeRigidBody_1"] = function() {
- return (_emscripten_bind_btDiscreteDynamicsWorld_removeRigidBody_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_removeRigidBody_1"] = Module["asm"]["Xg"]).apply(null, arguments);
-};
+var _emscripten_bind_btDispatcherInfo_get_m_allowedCcdPenetration_0 = Module["_emscripten_bind_btDispatcherInfo_get_m_allowedCcdPenetration_0"] = a0 => (_emscripten_bind_btDispatcherInfo_get_m_allowedCcdPenetration_0 = Module["_emscripten_bind_btDispatcherInfo_get_m_allowedCcdPenetration_0"] = wasmExports["Pg"])(a0);
 
-var _emscripten_bind_btDiscreteDynamicsWorld_stepSimulation_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_stepSimulation_1"] = function() {
- return (_emscripten_bind_btDiscreteDynamicsWorld_stepSimulation_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_stepSimulation_1"] = Module["asm"]["Yg"]).apply(null, arguments);
-};
+var _emscripten_bind_btDispatcherInfo_set_m_allowedCcdPenetration_1 = Module["_emscripten_bind_btDispatcherInfo_set_m_allowedCcdPenetration_1"] = (a0, a1) => (_emscripten_bind_btDispatcherInfo_set_m_allowedCcdPenetration_1 = Module["_emscripten_bind_btDispatcherInfo_set_m_allowedCcdPenetration_1"] = wasmExports["Qg"])(a0, a1);
 
-var _emscripten_bind_btDiscreteDynamicsWorld_stepSimulation_2 = Module["_emscripten_bind_btDiscreteDynamicsWorld_stepSimulation_2"] = function() {
- return (_emscripten_bind_btDiscreteDynamicsWorld_stepSimulation_2 = Module["_emscripten_bind_btDiscreteDynamicsWorld_stepSimulation_2"] = Module["asm"]["Zg"]).apply(null, arguments);
-};
+var _emscripten_bind_btDispatcherInfo_get_m_useConvexConservativeDistanceUtil_0 = Module["_emscripten_bind_btDispatcherInfo_get_m_useConvexConservativeDistanceUtil_0"] = a0 => (_emscripten_bind_btDispatcherInfo_get_m_useConvexConservativeDistanceUtil_0 = Module["_emscripten_bind_btDispatcherInfo_get_m_useConvexConservativeDistanceUtil_0"] = wasmExports["Rg"])(a0);
 
-var _emscripten_bind_btDiscreteDynamicsWorld_stepSimulation_3 = Module["_emscripten_bind_btDiscreteDynamicsWorld_stepSimulation_3"] = function() {
- return (_emscripten_bind_btDiscreteDynamicsWorld_stepSimulation_3 = Module["_emscripten_bind_btDiscreteDynamicsWorld_stepSimulation_3"] = Module["asm"]["_g"]).apply(null, arguments);
-};
+var _emscripten_bind_btDispatcherInfo_set_m_useConvexConservativeDistanceUtil_1 = Module["_emscripten_bind_btDispatcherInfo_set_m_useConvexConservativeDistanceUtil_1"] = (a0, a1) => (_emscripten_bind_btDispatcherInfo_set_m_useConvexConservativeDistanceUtil_1 = Module["_emscripten_bind_btDispatcherInfo_set_m_useConvexConservativeDistanceUtil_1"] = wasmExports["Sg"])(a0, a1);
 
-var _emscripten_bind_btDiscreteDynamicsWorld_getDispatcher_0 = Module["_emscripten_bind_btDiscreteDynamicsWorld_getDispatcher_0"] = function() {
- return (_emscripten_bind_btDiscreteDynamicsWorld_getDispatcher_0 = Module["_emscripten_bind_btDiscreteDynamicsWorld_getDispatcher_0"] = Module["asm"]["$g"]).apply(null, arguments);
-};
+var _emscripten_bind_btDispatcherInfo_get_m_convexConservativeDistanceThreshold_0 = Module["_emscripten_bind_btDispatcherInfo_get_m_convexConservativeDistanceThreshold_0"] = a0 => (_emscripten_bind_btDispatcherInfo_get_m_convexConservativeDistanceThreshold_0 = Module["_emscripten_bind_btDispatcherInfo_get_m_convexConservativeDistanceThreshold_0"] = wasmExports["Tg"])(a0);
 
-var _emscripten_bind_btDiscreteDynamicsWorld_addCollisionObject_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_addCollisionObject_1"] = function() {
- return (_emscripten_bind_btDiscreteDynamicsWorld_addCollisionObject_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_addCollisionObject_1"] = Module["asm"]["ah"]).apply(null, arguments);
-};
+var _emscripten_bind_btDispatcherInfo_set_m_convexConservativeDistanceThreshold_1 = Module["_emscripten_bind_btDispatcherInfo_set_m_convexConservativeDistanceThreshold_1"] = (a0, a1) => (_emscripten_bind_btDispatcherInfo_set_m_convexConservativeDistanceThreshold_1 = Module["_emscripten_bind_btDispatcherInfo_set_m_convexConservativeDistanceThreshold_1"] = wasmExports["Ug"])(a0, a1);
 
-var _emscripten_bind_btDiscreteDynamicsWorld_addCollisionObject_2 = Module["_emscripten_bind_btDiscreteDynamicsWorld_addCollisionObject_2"] = function() {
- return (_emscripten_bind_btDiscreteDynamicsWorld_addCollisionObject_2 = Module["_emscripten_bind_btDiscreteDynamicsWorld_addCollisionObject_2"] = Module["asm"]["bh"]).apply(null, arguments);
-};
+var _emscripten_bind_btDispatcherInfo___destroy___0 = Module["_emscripten_bind_btDispatcherInfo___destroy___0"] = a0 => (_emscripten_bind_btDispatcherInfo___destroy___0 = Module["_emscripten_bind_btDispatcherInfo___destroy___0"] = wasmExports["Vg"])(a0);
 
-var _emscripten_bind_btDiscreteDynamicsWorld_addCollisionObject_3 = Module["_emscripten_bind_btDiscreteDynamicsWorld_addCollisionObject_3"] = function() {
- return (_emscripten_bind_btDiscreteDynamicsWorld_addCollisionObject_3 = Module["_emscripten_bind_btDiscreteDynamicsWorld_addCollisionObject_3"] = Module["asm"]["ch"]).apply(null, arguments);
-};
+var _emscripten_bind_btContactSolverInfo_get_m_splitImpulse_0 = Module["_emscripten_bind_btContactSolverInfo_get_m_splitImpulse_0"] = a0 => (_emscripten_bind_btContactSolverInfo_get_m_splitImpulse_0 = Module["_emscripten_bind_btContactSolverInfo_get_m_splitImpulse_0"] = wasmExports["Wg"])(a0);
 
-var _emscripten_bind_btDiscreteDynamicsWorld_removeCollisionObject_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_removeCollisionObject_1"] = function() {
- return (_emscripten_bind_btDiscreteDynamicsWorld_removeCollisionObject_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_removeCollisionObject_1"] = Module["asm"]["dh"]).apply(null, arguments);
-};
+var _emscripten_bind_btContactSolverInfo_set_m_splitImpulse_1 = Module["_emscripten_bind_btContactSolverInfo_set_m_splitImpulse_1"] = (a0, a1) => (_emscripten_bind_btContactSolverInfo_set_m_splitImpulse_1 = Module["_emscripten_bind_btContactSolverInfo_set_m_splitImpulse_1"] = wasmExports["Xg"])(a0, a1);
 
-var _emscripten_bind_btDiscreteDynamicsWorld_getBroadphase_0 = Module["_emscripten_bind_btDiscreteDynamicsWorld_getBroadphase_0"] = function() {
- return (_emscripten_bind_btDiscreteDynamicsWorld_getBroadphase_0 = Module["_emscripten_bind_btDiscreteDynamicsWorld_getBroadphase_0"] = Module["asm"]["eh"]).apply(null, arguments);
-};
+var _emscripten_bind_btContactSolverInfo_get_m_splitImpulsePenetrationThreshold_0 = Module["_emscripten_bind_btContactSolverInfo_get_m_splitImpulsePenetrationThreshold_0"] = a0 => (_emscripten_bind_btContactSolverInfo_get_m_splitImpulsePenetrationThreshold_0 = Module["_emscripten_bind_btContactSolverInfo_get_m_splitImpulsePenetrationThreshold_0"] = wasmExports["Yg"])(a0);
 
-var _emscripten_bind_btDiscreteDynamicsWorld_addAction_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_addAction_1"] = function() {
- return (_emscripten_bind_btDiscreteDynamicsWorld_addAction_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_addAction_1"] = Module["asm"]["fh"]).apply(null, arguments);
-};
+var _emscripten_bind_btContactSolverInfo_set_m_splitImpulsePenetrationThreshold_1 = Module["_emscripten_bind_btContactSolverInfo_set_m_splitImpulsePenetrationThreshold_1"] = (a0, a1) => (_emscripten_bind_btContactSolverInfo_set_m_splitImpulsePenetrationThreshold_1 = Module["_emscripten_bind_btContactSolverInfo_set_m_splitImpulsePenetrationThreshold_1"] = wasmExports["Zg"])(a0, a1);
 
-var _emscripten_bind_btDiscreteDynamicsWorld_removeAction_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_removeAction_1"] = function() {
- return (_emscripten_bind_btDiscreteDynamicsWorld_removeAction_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_removeAction_1"] = Module["asm"]["gh"]).apply(null, arguments);
-};
+var _emscripten_bind_btContactSolverInfo_get_m_numIterations_0 = Module["_emscripten_bind_btContactSolverInfo_get_m_numIterations_0"] = a0 => (_emscripten_bind_btContactSolverInfo_get_m_numIterations_0 = Module["_emscripten_bind_btContactSolverInfo_get_m_numIterations_0"] = wasmExports["_g"])(a0);
 
-var _emscripten_bind_btDiscreteDynamicsWorld_getSolverInfo_0 = Module["_emscripten_bind_btDiscreteDynamicsWorld_getSolverInfo_0"] = function() {
- return (_emscripten_bind_btDiscreteDynamicsWorld_getSolverInfo_0 = Module["_emscripten_bind_btDiscreteDynamicsWorld_getSolverInfo_0"] = Module["asm"]["hh"]).apply(null, arguments);
-};
+var _emscripten_bind_btContactSolverInfo_set_m_numIterations_1 = Module["_emscripten_bind_btContactSolverInfo_set_m_numIterations_1"] = (a0, a1) => (_emscripten_bind_btContactSolverInfo_set_m_numIterations_1 = Module["_emscripten_bind_btContactSolverInfo_set_m_numIterations_1"] = wasmExports["$g"])(a0, a1);
 
-var _emscripten_bind_btDiscreteDynamicsWorld_setInternalTickCallback_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_setInternalTickCallback_1"] = function() {
- return (_emscripten_bind_btDiscreteDynamicsWorld_setInternalTickCallback_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_setInternalTickCallback_1"] = Module["asm"]["ih"]).apply(null, arguments);
-};
+var _emscripten_bind_btContactSolverInfo___destroy___0 = Module["_emscripten_bind_btContactSolverInfo___destroy___0"] = a0 => (_emscripten_bind_btContactSolverInfo___destroy___0 = Module["_emscripten_bind_btContactSolverInfo___destroy___0"] = wasmExports["ah"])(a0);
 
-var _emscripten_bind_btDiscreteDynamicsWorld_setInternalTickCallback_2 = Module["_emscripten_bind_btDiscreteDynamicsWorld_setInternalTickCallback_2"] = function() {
- return (_emscripten_bind_btDiscreteDynamicsWorld_setInternalTickCallback_2 = Module["_emscripten_bind_btDiscreteDynamicsWorld_setInternalTickCallback_2"] = Module["asm"]["jh"]).apply(null, arguments);
-};
+var _emscripten_bind_btDiscreteDynamicsWorld_btDiscreteDynamicsWorld_4 = Module["_emscripten_bind_btDiscreteDynamicsWorld_btDiscreteDynamicsWorld_4"] = (a0, a1, a2, a3) => (_emscripten_bind_btDiscreteDynamicsWorld_btDiscreteDynamicsWorld_4 = Module["_emscripten_bind_btDiscreteDynamicsWorld_btDiscreteDynamicsWorld_4"] = wasmExports["bh"])(a0, a1, a2, a3);
 
-var _emscripten_bind_btDiscreteDynamicsWorld_setInternalTickCallback_3 = Module["_emscripten_bind_btDiscreteDynamicsWorld_setInternalTickCallback_3"] = function() {
- return (_emscripten_bind_btDiscreteDynamicsWorld_setInternalTickCallback_3 = Module["_emscripten_bind_btDiscreteDynamicsWorld_setInternalTickCallback_3"] = Module["asm"]["kh"]).apply(null, arguments);
-};
+var _emscripten_bind_btDiscreteDynamicsWorld_setGravity_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_setGravity_1"] = (a0, a1) => (_emscripten_bind_btDiscreteDynamicsWorld_setGravity_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_setGravity_1"] = wasmExports["ch"])(a0, a1);
 
-var _emscripten_bind_btDiscreteDynamicsWorld___destroy___0 = Module["_emscripten_bind_btDiscreteDynamicsWorld___destroy___0"] = function() {
- return (_emscripten_bind_btDiscreteDynamicsWorld___destroy___0 = Module["_emscripten_bind_btDiscreteDynamicsWorld___destroy___0"] = Module["asm"]["lh"]).apply(null, arguments);
-};
+var _emscripten_bind_btDiscreteDynamicsWorld_getGravity_0 = Module["_emscripten_bind_btDiscreteDynamicsWorld_getGravity_0"] = a0 => (_emscripten_bind_btDiscreteDynamicsWorld_getGravity_0 = Module["_emscripten_bind_btDiscreteDynamicsWorld_getGravity_0"] = wasmExports["dh"])(a0);
 
-var _emscripten_bind_btKinematicCharacterController_btKinematicCharacterController_3 = Module["_emscripten_bind_btKinematicCharacterController_btKinematicCharacterController_3"] = function() {
- return (_emscripten_bind_btKinematicCharacterController_btKinematicCharacterController_3 = Module["_emscripten_bind_btKinematicCharacterController_btKinematicCharacterController_3"] = Module["asm"]["mh"]).apply(null, arguments);
-};
+var _emscripten_bind_btDiscreteDynamicsWorld_addRigidBody_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_addRigidBody_1"] = (a0, a1) => (_emscripten_bind_btDiscreteDynamicsWorld_addRigidBody_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_addRigidBody_1"] = wasmExports["eh"])(a0, a1);
 
-var _emscripten_bind_btKinematicCharacterController_btKinematicCharacterController_4 = Module["_emscripten_bind_btKinematicCharacterController_btKinematicCharacterController_4"] = function() {
- return (_emscripten_bind_btKinematicCharacterController_btKinematicCharacterController_4 = Module["_emscripten_bind_btKinematicCharacterController_btKinematicCharacterController_4"] = Module["asm"]["nh"]).apply(null, arguments);
-};
+var _emscripten_bind_btDiscreteDynamicsWorld_addRigidBody_3 = Module["_emscripten_bind_btDiscreteDynamicsWorld_addRigidBody_3"] = (a0, a1, a2, a3) => (_emscripten_bind_btDiscreteDynamicsWorld_addRigidBody_3 = Module["_emscripten_bind_btDiscreteDynamicsWorld_addRigidBody_3"] = wasmExports["fh"])(a0, a1, a2, a3);
 
-var _emscripten_bind_btKinematicCharacterController_setUp_1 = Module["_emscripten_bind_btKinematicCharacterController_setUp_1"] = function() {
- return (_emscripten_bind_btKinematicCharacterController_setUp_1 = Module["_emscripten_bind_btKinematicCharacterController_setUp_1"] = Module["asm"]["oh"]).apply(null, arguments);
-};
+var _emscripten_bind_btDiscreteDynamicsWorld_removeRigidBody_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_removeRigidBody_1"] = (a0, a1) => (_emscripten_bind_btDiscreteDynamicsWorld_removeRigidBody_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_removeRigidBody_1"] = wasmExports["gh"])(a0, a1);
 
-var _emscripten_bind_btKinematicCharacterController_setWalkDirection_1 = Module["_emscripten_bind_btKinematicCharacterController_setWalkDirection_1"] = function() {
- return (_emscripten_bind_btKinematicCharacterController_setWalkDirection_1 = Module["_emscripten_bind_btKinematicCharacterController_setWalkDirection_1"] = Module["asm"]["ph"]).apply(null, arguments);
-};
+var _emscripten_bind_btDiscreteDynamicsWorld_stepSimulation_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_stepSimulation_1"] = (a0, a1) => (_emscripten_bind_btDiscreteDynamicsWorld_stepSimulation_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_stepSimulation_1"] = wasmExports["hh"])(a0, a1);
 
-var _emscripten_bind_btKinematicCharacterController_warp_1 = Module["_emscripten_bind_btKinematicCharacterController_warp_1"] = function() {
- return (_emscripten_bind_btKinematicCharacterController_warp_1 = Module["_emscripten_bind_btKinematicCharacterController_warp_1"] = Module["asm"]["qh"]).apply(null, arguments);
-};
+var _emscripten_bind_btDiscreteDynamicsWorld_stepSimulation_2 = Module["_emscripten_bind_btDiscreteDynamicsWorld_stepSimulation_2"] = (a0, a1, a2) => (_emscripten_bind_btDiscreteDynamicsWorld_stepSimulation_2 = Module["_emscripten_bind_btDiscreteDynamicsWorld_stepSimulation_2"] = wasmExports["ih"])(a0, a1, a2);
 
-var _emscripten_bind_btKinematicCharacterController_preStep_1 = Module["_emscripten_bind_btKinematicCharacterController_preStep_1"] = function() {
- return (_emscripten_bind_btKinematicCharacterController_preStep_1 = Module["_emscripten_bind_btKinematicCharacterController_preStep_1"] = Module["asm"]["rh"]).apply(null, arguments);
-};
+var _emscripten_bind_btDiscreteDynamicsWorld_stepSimulation_3 = Module["_emscripten_bind_btDiscreteDynamicsWorld_stepSimulation_3"] = (a0, a1, a2, a3) => (_emscripten_bind_btDiscreteDynamicsWorld_stepSimulation_3 = Module["_emscripten_bind_btDiscreteDynamicsWorld_stepSimulation_3"] = wasmExports["jh"])(a0, a1, a2, a3);
 
-var _emscripten_bind_btKinematicCharacterController_playerStep_2 = Module["_emscripten_bind_btKinematicCharacterController_playerStep_2"] = function() {
- return (_emscripten_bind_btKinematicCharacterController_playerStep_2 = Module["_emscripten_bind_btKinematicCharacterController_playerStep_2"] = Module["asm"]["sh"]).apply(null, arguments);
-};
+var _emscripten_bind_btDiscreteDynamicsWorld_getDispatcher_0 = Module["_emscripten_bind_btDiscreteDynamicsWorld_getDispatcher_0"] = a0 => (_emscripten_bind_btDiscreteDynamicsWorld_getDispatcher_0 = Module["_emscripten_bind_btDiscreteDynamicsWorld_getDispatcher_0"] = wasmExports["kh"])(a0);
 
-var _emscripten_bind_btKinematicCharacterController_setFallSpeed_1 = Module["_emscripten_bind_btKinematicCharacterController_setFallSpeed_1"] = function() {
- return (_emscripten_bind_btKinematicCharacterController_setFallSpeed_1 = Module["_emscripten_bind_btKinematicCharacterController_setFallSpeed_1"] = Module["asm"]["th"]).apply(null, arguments);
-};
+var _emscripten_bind_btDiscreteDynamicsWorld_addCollisionObject_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_addCollisionObject_1"] = (a0, a1) => (_emscripten_bind_btDiscreteDynamicsWorld_addCollisionObject_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_addCollisionObject_1"] = wasmExports["lh"])(a0, a1);
 
-var _emscripten_bind_btKinematicCharacterController_setJumpSpeed_1 = Module["_emscripten_bind_btKinematicCharacterController_setJumpSpeed_1"] = function() {
- return (_emscripten_bind_btKinematicCharacterController_setJumpSpeed_1 = Module["_emscripten_bind_btKinematicCharacterController_setJumpSpeed_1"] = Module["asm"]["uh"]).apply(null, arguments);
-};
+var _emscripten_bind_btDiscreteDynamicsWorld_addCollisionObject_2 = Module["_emscripten_bind_btDiscreteDynamicsWorld_addCollisionObject_2"] = (a0, a1, a2) => (_emscripten_bind_btDiscreteDynamicsWorld_addCollisionObject_2 = Module["_emscripten_bind_btDiscreteDynamicsWorld_addCollisionObject_2"] = wasmExports["mh"])(a0, a1, a2);
 
-var _emscripten_bind_btKinematicCharacterController_setMaxJumpHeight_1 = Module["_emscripten_bind_btKinematicCharacterController_setMaxJumpHeight_1"] = function() {
- return (_emscripten_bind_btKinematicCharacterController_setMaxJumpHeight_1 = Module["_emscripten_bind_btKinematicCharacterController_setMaxJumpHeight_1"] = Module["asm"]["vh"]).apply(null, arguments);
-};
+var _emscripten_bind_btDiscreteDynamicsWorld_addCollisionObject_3 = Module["_emscripten_bind_btDiscreteDynamicsWorld_addCollisionObject_3"] = (a0, a1, a2, a3) => (_emscripten_bind_btDiscreteDynamicsWorld_addCollisionObject_3 = Module["_emscripten_bind_btDiscreteDynamicsWorld_addCollisionObject_3"] = wasmExports["nh"])(a0, a1, a2, a3);
 
-var _emscripten_bind_btKinematicCharacterController_canJump_0 = Module["_emscripten_bind_btKinematicCharacterController_canJump_0"] = function() {
- return (_emscripten_bind_btKinematicCharacterController_canJump_0 = Module["_emscripten_bind_btKinematicCharacterController_canJump_0"] = Module["asm"]["wh"]).apply(null, arguments);
-};
+var _emscripten_bind_btDiscreteDynamicsWorld_removeCollisionObject_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_removeCollisionObject_1"] = (a0, a1) => (_emscripten_bind_btDiscreteDynamicsWorld_removeCollisionObject_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_removeCollisionObject_1"] = wasmExports["oh"])(a0, a1);
 
-var _emscripten_bind_btKinematicCharacterController_jump_0 = Module["_emscripten_bind_btKinematicCharacterController_jump_0"] = function() {
- return (_emscripten_bind_btKinematicCharacterController_jump_0 = Module["_emscripten_bind_btKinematicCharacterController_jump_0"] = Module["asm"]["xh"]).apply(null, arguments);
-};
+var _emscripten_bind_btDiscreteDynamicsWorld_getBroadphase_0 = Module["_emscripten_bind_btDiscreteDynamicsWorld_getBroadphase_0"] = a0 => (_emscripten_bind_btDiscreteDynamicsWorld_getBroadphase_0 = Module["_emscripten_bind_btDiscreteDynamicsWorld_getBroadphase_0"] = wasmExports["ph"])(a0);
 
-var _emscripten_bind_btKinematicCharacterController_jump_1 = Module["_emscripten_bind_btKinematicCharacterController_jump_1"] = function() {
- return (_emscripten_bind_btKinematicCharacterController_jump_1 = Module["_emscripten_bind_btKinematicCharacterController_jump_1"] = Module["asm"]["yh"]).apply(null, arguments);
-};
+var _emscripten_bind_btDiscreteDynamicsWorld_addAction_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_addAction_1"] = (a0, a1) => (_emscripten_bind_btDiscreteDynamicsWorld_addAction_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_addAction_1"] = wasmExports["qh"])(a0, a1);
 
-var _emscripten_bind_btKinematicCharacterController_setGravity_1 = Module["_emscripten_bind_btKinematicCharacterController_setGravity_1"] = function() {
- return (_emscripten_bind_btKinematicCharacterController_setGravity_1 = Module["_emscripten_bind_btKinematicCharacterController_setGravity_1"] = Module["asm"]["zh"]).apply(null, arguments);
-};
+var _emscripten_bind_btDiscreteDynamicsWorld_removeAction_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_removeAction_1"] = (a0, a1) => (_emscripten_bind_btDiscreteDynamicsWorld_removeAction_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_removeAction_1"] = wasmExports["rh"])(a0, a1);
 
-var _emscripten_bind_btKinematicCharacterController_getGravity_0 = Module["_emscripten_bind_btKinematicCharacterController_getGravity_0"] = function() {
- return (_emscripten_bind_btKinematicCharacterController_getGravity_0 = Module["_emscripten_bind_btKinematicCharacterController_getGravity_0"] = Module["asm"]["Ah"]).apply(null, arguments);
-};
+var _emscripten_bind_btDiscreteDynamicsWorld_getSolverInfo_0 = Module["_emscripten_bind_btDiscreteDynamicsWorld_getSolverInfo_0"] = a0 => (_emscripten_bind_btDiscreteDynamicsWorld_getSolverInfo_0 = Module["_emscripten_bind_btDiscreteDynamicsWorld_getSolverInfo_0"] = wasmExports["sh"])(a0);
 
-var _emscripten_bind_btKinematicCharacterController_setMaxSlope_1 = Module["_emscripten_bind_btKinematicCharacterController_setMaxSlope_1"] = function() {
- return (_emscripten_bind_btKinematicCharacterController_setMaxSlope_1 = Module["_emscripten_bind_btKinematicCharacterController_setMaxSlope_1"] = Module["asm"]["Bh"]).apply(null, arguments);
-};
+var _emscripten_bind_btDiscreteDynamicsWorld_setInternalTickCallback_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_setInternalTickCallback_1"] = (a0, a1) => (_emscripten_bind_btDiscreteDynamicsWorld_setInternalTickCallback_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_setInternalTickCallback_1"] = wasmExports["th"])(a0, a1);
 
-var _emscripten_bind_btKinematicCharacterController_getGhostObject_0 = Module["_emscripten_bind_btKinematicCharacterController_getGhostObject_0"] = function() {
- return (_emscripten_bind_btKinematicCharacterController_getGhostObject_0 = Module["_emscripten_bind_btKinematicCharacterController_getGhostObject_0"] = Module["asm"]["Ch"]).apply(null, arguments);
-};
+var _emscripten_bind_btDiscreteDynamicsWorld_setInternalTickCallback_2 = Module["_emscripten_bind_btDiscreteDynamicsWorld_setInternalTickCallback_2"] = (a0, a1, a2) => (_emscripten_bind_btDiscreteDynamicsWorld_setInternalTickCallback_2 = Module["_emscripten_bind_btDiscreteDynamicsWorld_setInternalTickCallback_2"] = wasmExports["uh"])(a0, a1, a2);
 
-var _emscripten_bind_btKinematicCharacterController_setUseGhostSweepTest_1 = Module["_emscripten_bind_btKinematicCharacterController_setUseGhostSweepTest_1"] = function() {
- return (_emscripten_bind_btKinematicCharacterController_setUseGhostSweepTest_1 = Module["_emscripten_bind_btKinematicCharacterController_setUseGhostSweepTest_1"] = Module["asm"]["Dh"]).apply(null, arguments);
-};
+var _emscripten_bind_btDiscreteDynamicsWorld_setInternalTickCallback_3 = Module["_emscripten_bind_btDiscreteDynamicsWorld_setInternalTickCallback_3"] = (a0, a1, a2, a3) => (_emscripten_bind_btDiscreteDynamicsWorld_setInternalTickCallback_3 = Module["_emscripten_bind_btDiscreteDynamicsWorld_setInternalTickCallback_3"] = wasmExports["vh"])(a0, a1, a2, a3);
 
-var _emscripten_bind_btKinematicCharacterController_onGround_0 = Module["_emscripten_bind_btKinematicCharacterController_onGround_0"] = function() {
- return (_emscripten_bind_btKinematicCharacterController_onGround_0 = Module["_emscripten_bind_btKinematicCharacterController_onGround_0"] = Module["asm"]["Eh"]).apply(null, arguments);
-};
+var _emscripten_bind_btDiscreteDynamicsWorld___destroy___0 = Module["_emscripten_bind_btDiscreteDynamicsWorld___destroy___0"] = a0 => (_emscripten_bind_btDiscreteDynamicsWorld___destroy___0 = Module["_emscripten_bind_btDiscreteDynamicsWorld___destroy___0"] = wasmExports["wh"])(a0);
 
-var _emscripten_bind_btKinematicCharacterController_setUpInterpolate_1 = Module["_emscripten_bind_btKinematicCharacterController_setUpInterpolate_1"] = function() {
- return (_emscripten_bind_btKinematicCharacterController_setUpInterpolate_1 = Module["_emscripten_bind_btKinematicCharacterController_setUpInterpolate_1"] = Module["asm"]["Fh"]).apply(null, arguments);
-};
+var _emscripten_bind_btKinematicCharacterController_btKinematicCharacterController_3 = Module["_emscripten_bind_btKinematicCharacterController_btKinematicCharacterController_3"] = (a0, a1, a2) => (_emscripten_bind_btKinematicCharacterController_btKinematicCharacterController_3 = Module["_emscripten_bind_btKinematicCharacterController_btKinematicCharacterController_3"] = wasmExports["xh"])(a0, a1, a2);
 
-var _emscripten_bind_btKinematicCharacterController_setMaxPenetrationDepth_1 = Module["_emscripten_bind_btKinematicCharacterController_setMaxPenetrationDepth_1"] = function() {
- return (_emscripten_bind_btKinematicCharacterController_setMaxPenetrationDepth_1 = Module["_emscripten_bind_btKinematicCharacterController_setMaxPenetrationDepth_1"] = Module["asm"]["Gh"]).apply(null, arguments);
-};
+var _emscripten_bind_btKinematicCharacterController_btKinematicCharacterController_4 = Module["_emscripten_bind_btKinematicCharacterController_btKinematicCharacterController_4"] = (a0, a1, a2, a3) => (_emscripten_bind_btKinematicCharacterController_btKinematicCharacterController_4 = Module["_emscripten_bind_btKinematicCharacterController_btKinematicCharacterController_4"] = wasmExports["yh"])(a0, a1, a2, a3);
 
-var _emscripten_bind_btKinematicCharacterController_getMaxPenetrationDepth_0 = Module["_emscripten_bind_btKinematicCharacterController_getMaxPenetrationDepth_0"] = function() {
- return (_emscripten_bind_btKinematicCharacterController_getMaxPenetrationDepth_0 = Module["_emscripten_bind_btKinematicCharacterController_getMaxPenetrationDepth_0"] = Module["asm"]["Hh"]).apply(null, arguments);
-};
+var _emscripten_bind_btKinematicCharacterController_setUp_1 = Module["_emscripten_bind_btKinematicCharacterController_setUp_1"] = (a0, a1) => (_emscripten_bind_btKinematicCharacterController_setUp_1 = Module["_emscripten_bind_btKinematicCharacterController_setUp_1"] = wasmExports["zh"])(a0, a1);
 
-var _emscripten_bind_btKinematicCharacterController_setStepHeight_1 = Module["_emscripten_bind_btKinematicCharacterController_setStepHeight_1"] = function() {
- return (_emscripten_bind_btKinematicCharacterController_setStepHeight_1 = Module["_emscripten_bind_btKinematicCharacterController_setStepHeight_1"] = Module["asm"]["Ih"]).apply(null, arguments);
-};
+var _emscripten_bind_btKinematicCharacterController_setWalkDirection_1 = Module["_emscripten_bind_btKinematicCharacterController_setWalkDirection_1"] = (a0, a1) => (_emscripten_bind_btKinematicCharacterController_setWalkDirection_1 = Module["_emscripten_bind_btKinematicCharacterController_setWalkDirection_1"] = wasmExports["Ah"])(a0, a1);
 
-var _emscripten_bind_btKinematicCharacterController_updateAction_2 = Module["_emscripten_bind_btKinematicCharacterController_updateAction_2"] = function() {
- return (_emscripten_bind_btKinematicCharacterController_updateAction_2 = Module["_emscripten_bind_btKinematicCharacterController_updateAction_2"] = Module["asm"]["Jh"]).apply(null, arguments);
-};
+var _emscripten_bind_btKinematicCharacterController_warp_1 = Module["_emscripten_bind_btKinematicCharacterController_warp_1"] = (a0, a1) => (_emscripten_bind_btKinematicCharacterController_warp_1 = Module["_emscripten_bind_btKinematicCharacterController_warp_1"] = wasmExports["Bh"])(a0, a1);
 
-var _emscripten_bind_btKinematicCharacterController___destroy___0 = Module["_emscripten_bind_btKinematicCharacterController___destroy___0"] = function() {
- return (_emscripten_bind_btKinematicCharacterController___destroy___0 = Module["_emscripten_bind_btKinematicCharacterController___destroy___0"] = Module["asm"]["Kh"]).apply(null, arguments);
-};
+var _emscripten_bind_btKinematicCharacterController_preStep_1 = Module["_emscripten_bind_btKinematicCharacterController_preStep_1"] = (a0, a1) => (_emscripten_bind_btKinematicCharacterController_preStep_1 = Module["_emscripten_bind_btKinematicCharacterController_preStep_1"] = wasmExports["Ch"])(a0, a1);
 
-var _emscripten_bind_btPairCachingGhostObject_btPairCachingGhostObject_0 = Module["_emscripten_bind_btPairCachingGhostObject_btPairCachingGhostObject_0"] = function() {
- return (_emscripten_bind_btPairCachingGhostObject_btPairCachingGhostObject_0 = Module["_emscripten_bind_btPairCachingGhostObject_btPairCachingGhostObject_0"] = Module["asm"]["Lh"]).apply(null, arguments);
-};
+var _emscripten_bind_btKinematicCharacterController_playerStep_2 = Module["_emscripten_bind_btKinematicCharacterController_playerStep_2"] = (a0, a1, a2) => (_emscripten_bind_btKinematicCharacterController_playerStep_2 = Module["_emscripten_bind_btKinematicCharacterController_playerStep_2"] = wasmExports["Dh"])(a0, a1, a2);
 
-var _emscripten_bind_btPairCachingGhostObject_getCollisionShape_0 = Module["_emscripten_bind_btPairCachingGhostObject_getCollisionShape_0"] = function() {
- return (_emscripten_bind_btPairCachingGhostObject_getCollisionShape_0 = Module["_emscripten_bind_btPairCachingGhostObject_getCollisionShape_0"] = Module["asm"]["Mh"]).apply(null, arguments);
-};
+var _emscripten_bind_btKinematicCharacterController_setFallSpeed_1 = Module["_emscripten_bind_btKinematicCharacterController_setFallSpeed_1"] = (a0, a1) => (_emscripten_bind_btKinematicCharacterController_setFallSpeed_1 = Module["_emscripten_bind_btKinematicCharacterController_setFallSpeed_1"] = wasmExports["Eh"])(a0, a1);
 
-var _emscripten_bind_btPairCachingGhostObject_isStaticObject_0 = Module["_emscripten_bind_btPairCachingGhostObject_isStaticObject_0"] = function() {
- return (_emscripten_bind_btPairCachingGhostObject_isStaticObject_0 = Module["_emscripten_bind_btPairCachingGhostObject_isStaticObject_0"] = Module["asm"]["Nh"]).apply(null, arguments);
-};
+var _emscripten_bind_btKinematicCharacterController_setJumpSpeed_1 = Module["_emscripten_bind_btKinematicCharacterController_setJumpSpeed_1"] = (a0, a1) => (_emscripten_bind_btKinematicCharacterController_setJumpSpeed_1 = Module["_emscripten_bind_btKinematicCharacterController_setJumpSpeed_1"] = wasmExports["Fh"])(a0, a1);
 
-var _emscripten_bind_btPairCachingGhostObject_setFriction_1 = Module["_emscripten_bind_btPairCachingGhostObject_setFriction_1"] = function() {
- return (_emscripten_bind_btPairCachingGhostObject_setFriction_1 = Module["_emscripten_bind_btPairCachingGhostObject_setFriction_1"] = Module["asm"]["Oh"]).apply(null, arguments);
-};
+var _emscripten_bind_btKinematicCharacterController_setMaxJumpHeight_1 = Module["_emscripten_bind_btKinematicCharacterController_setMaxJumpHeight_1"] = (a0, a1) => (_emscripten_bind_btKinematicCharacterController_setMaxJumpHeight_1 = Module["_emscripten_bind_btKinematicCharacterController_setMaxJumpHeight_1"] = wasmExports["Gh"])(a0, a1);
 
-var _emscripten_bind_btPairCachingGhostObject_getWorldTransform_0 = Module["_emscripten_bind_btPairCachingGhostObject_getWorldTransform_0"] = function() {
- return (_emscripten_bind_btPairCachingGhostObject_getWorldTransform_0 = Module["_emscripten_bind_btPairCachingGhostObject_getWorldTransform_0"] = Module["asm"]["Ph"]).apply(null, arguments);
-};
+var _emscripten_bind_btKinematicCharacterController_canJump_0 = Module["_emscripten_bind_btKinematicCharacterController_canJump_0"] = a0 => (_emscripten_bind_btKinematicCharacterController_canJump_0 = Module["_emscripten_bind_btKinematicCharacterController_canJump_0"] = wasmExports["Hh"])(a0);
 
-var _emscripten_bind_btPairCachingGhostObject_setCollisionFlags_1 = Module["_emscripten_bind_btPairCachingGhostObject_setCollisionFlags_1"] = function() {
- return (_emscripten_bind_btPairCachingGhostObject_setCollisionFlags_1 = Module["_emscripten_bind_btPairCachingGhostObject_setCollisionFlags_1"] = Module["asm"]["Qh"]).apply(null, arguments);
-};
+var _emscripten_bind_btKinematicCharacterController_jump_0 = Module["_emscripten_bind_btKinematicCharacterController_jump_0"] = a0 => (_emscripten_bind_btKinematicCharacterController_jump_0 = Module["_emscripten_bind_btKinematicCharacterController_jump_0"] = wasmExports["Ih"])(a0);
 
-var _emscripten_bind_btPairCachingGhostObject_setWorldTransform_1 = Module["_emscripten_bind_btPairCachingGhostObject_setWorldTransform_1"] = function() {
- return (_emscripten_bind_btPairCachingGhostObject_setWorldTransform_1 = Module["_emscripten_bind_btPairCachingGhostObject_setWorldTransform_1"] = Module["asm"]["Rh"]).apply(null, arguments);
-};
+var _emscripten_bind_btKinematicCharacterController_jump_1 = Module["_emscripten_bind_btKinematicCharacterController_jump_1"] = (a0, a1) => (_emscripten_bind_btKinematicCharacterController_jump_1 = Module["_emscripten_bind_btKinematicCharacterController_jump_1"] = wasmExports["Jh"])(a0, a1);
 
-var _emscripten_bind_btPairCachingGhostObject_setCollisionShape_1 = Module["_emscripten_bind_btPairCachingGhostObject_setCollisionShape_1"] = function() {
- return (_emscripten_bind_btPairCachingGhostObject_setCollisionShape_1 = Module["_emscripten_bind_btPairCachingGhostObject_setCollisionShape_1"] = Module["asm"]["Sh"]).apply(null, arguments);
-};
+var _emscripten_bind_btKinematicCharacterController_setGravity_1 = Module["_emscripten_bind_btKinematicCharacterController_setGravity_1"] = (a0, a1) => (_emscripten_bind_btKinematicCharacterController_setGravity_1 = Module["_emscripten_bind_btKinematicCharacterController_setGravity_1"] = wasmExports["Kh"])(a0, a1);
 
-var _emscripten_bind_btPairCachingGhostObject_getNumOverlappingObjects_0 = Module["_emscripten_bind_btPairCachingGhostObject_getNumOverlappingObjects_0"] = function() {
- return (_emscripten_bind_btPairCachingGhostObject_getNumOverlappingObjects_0 = Module["_emscripten_bind_btPairCachingGhostObject_getNumOverlappingObjects_0"] = Module["asm"]["Th"]).apply(null, arguments);
-};
+var _emscripten_bind_btKinematicCharacterController_getGravity_0 = Module["_emscripten_bind_btKinematicCharacterController_getGravity_0"] = a0 => (_emscripten_bind_btKinematicCharacterController_getGravity_0 = Module["_emscripten_bind_btKinematicCharacterController_getGravity_0"] = wasmExports["Lh"])(a0);
 
-var _emscripten_bind_btPairCachingGhostObject_getOverlappingObject_1 = Module["_emscripten_bind_btPairCachingGhostObject_getOverlappingObject_1"] = function() {
- return (_emscripten_bind_btPairCachingGhostObject_getOverlappingObject_1 = Module["_emscripten_bind_btPairCachingGhostObject_getOverlappingObject_1"] = Module["asm"]["Uh"]).apply(null, arguments);
-};
+var _emscripten_bind_btKinematicCharacterController_setMaxSlope_1 = Module["_emscripten_bind_btKinematicCharacterController_setMaxSlope_1"] = (a0, a1) => (_emscripten_bind_btKinematicCharacterController_setMaxSlope_1 = Module["_emscripten_bind_btKinematicCharacterController_setMaxSlope_1"] = wasmExports["Mh"])(a0, a1);
 
-var _emscripten_bind_btPairCachingGhostObject___destroy___0 = Module["_emscripten_bind_btPairCachingGhostObject___destroy___0"] = function() {
- return (_emscripten_bind_btPairCachingGhostObject___destroy___0 = Module["_emscripten_bind_btPairCachingGhostObject___destroy___0"] = Module["asm"]["Vh"]).apply(null, arguments);
-};
+var _emscripten_bind_btKinematicCharacterController_setUseGhostSweepTest_1 = Module["_emscripten_bind_btKinematicCharacterController_setUseGhostSweepTest_1"] = (a0, a1) => (_emscripten_bind_btKinematicCharacterController_setUseGhostSweepTest_1 = Module["_emscripten_bind_btKinematicCharacterController_setUseGhostSweepTest_1"] = wasmExports["Nh"])(a0, a1);
 
-var _emscripten_bind_btGhostPairCallback_btGhostPairCallback_0 = Module["_emscripten_bind_btGhostPairCallback_btGhostPairCallback_0"] = function() {
- return (_emscripten_bind_btGhostPairCallback_btGhostPairCallback_0 = Module["_emscripten_bind_btGhostPairCallback_btGhostPairCallback_0"] = Module["asm"]["Wh"]).apply(null, arguments);
-};
+var _emscripten_bind_btKinematicCharacterController_onGround_0 = Module["_emscripten_bind_btKinematicCharacterController_onGround_0"] = a0 => (_emscripten_bind_btKinematicCharacterController_onGround_0 = Module["_emscripten_bind_btKinematicCharacterController_onGround_0"] = wasmExports["Oh"])(a0);
 
-var _emscripten_bind_btGhostPairCallback___destroy___0 = Module["_emscripten_bind_btGhostPairCallback___destroy___0"] = function() {
- return (_emscripten_bind_btGhostPairCallback___destroy___0 = Module["_emscripten_bind_btGhostPairCallback___destroy___0"] = Module["asm"]["Xh"]).apply(null, arguments);
-};
+var _emscripten_bind_btKinematicCharacterController_setUpInterpolate_1 = Module["_emscripten_bind_btKinematicCharacterController_setUpInterpolate_1"] = (a0, a1) => (_emscripten_bind_btKinematicCharacterController_setUpInterpolate_1 = Module["_emscripten_bind_btKinematicCharacterController_setUpInterpolate_1"] = wasmExports["Ph"])(a0, a1);
 
-var _emscripten_enum_PHY_ScalarType_PHY_FLOAT = Module["_emscripten_enum_PHY_ScalarType_PHY_FLOAT"] = function() {
- return (_emscripten_enum_PHY_ScalarType_PHY_FLOAT = Module["_emscripten_enum_PHY_ScalarType_PHY_FLOAT"] = Module["asm"]["Yh"]).apply(null, arguments);
-};
+var _emscripten_bind_btKinematicCharacterController_setMaxPenetrationDepth_1 = Module["_emscripten_bind_btKinematicCharacterController_setMaxPenetrationDepth_1"] = (a0, a1) => (_emscripten_bind_btKinematicCharacterController_setMaxPenetrationDepth_1 = Module["_emscripten_bind_btKinematicCharacterController_setMaxPenetrationDepth_1"] = wasmExports["Qh"])(a0, a1);
 
-var _emscripten_enum_PHY_ScalarType_PHY_DOUBLE = Module["_emscripten_enum_PHY_ScalarType_PHY_DOUBLE"] = function() {
- return (_emscripten_enum_PHY_ScalarType_PHY_DOUBLE = Module["_emscripten_enum_PHY_ScalarType_PHY_DOUBLE"] = Module["asm"]["Zh"]).apply(null, arguments);
-};
+var _emscripten_bind_btKinematicCharacterController_getMaxPenetrationDepth_0 = Module["_emscripten_bind_btKinematicCharacterController_getMaxPenetrationDepth_0"] = a0 => (_emscripten_bind_btKinematicCharacterController_getMaxPenetrationDepth_0 = Module["_emscripten_bind_btKinematicCharacterController_getMaxPenetrationDepth_0"] = wasmExports["Rh"])(a0);
 
-var _emscripten_enum_PHY_ScalarType_PHY_INTEGER = Module["_emscripten_enum_PHY_ScalarType_PHY_INTEGER"] = function() {
- return (_emscripten_enum_PHY_ScalarType_PHY_INTEGER = Module["_emscripten_enum_PHY_ScalarType_PHY_INTEGER"] = Module["asm"]["_h"]).apply(null, arguments);
-};
+var _emscripten_bind_btKinematicCharacterController_setStepHeight_1 = Module["_emscripten_bind_btKinematicCharacterController_setStepHeight_1"] = (a0, a1) => (_emscripten_bind_btKinematicCharacterController_setStepHeight_1 = Module["_emscripten_bind_btKinematicCharacterController_setStepHeight_1"] = wasmExports["Sh"])(a0, a1);
 
-var _emscripten_enum_PHY_ScalarType_PHY_SHORT = Module["_emscripten_enum_PHY_ScalarType_PHY_SHORT"] = function() {
- return (_emscripten_enum_PHY_ScalarType_PHY_SHORT = Module["_emscripten_enum_PHY_ScalarType_PHY_SHORT"] = Module["asm"]["$h"]).apply(null, arguments);
-};
+var _emscripten_bind_btKinematicCharacterController_updateAction_2 = Module["_emscripten_bind_btKinematicCharacterController_updateAction_2"] = (a0, a1, a2) => (_emscripten_bind_btKinematicCharacterController_updateAction_2 = Module["_emscripten_bind_btKinematicCharacterController_updateAction_2"] = wasmExports["Th"])(a0, a1, a2);
 
-var _emscripten_enum_PHY_ScalarType_PHY_FIXEDPOINT88 = Module["_emscripten_enum_PHY_ScalarType_PHY_FIXEDPOINT88"] = function() {
- return (_emscripten_enum_PHY_ScalarType_PHY_FIXEDPOINT88 = Module["_emscripten_enum_PHY_ScalarType_PHY_FIXEDPOINT88"] = Module["asm"]["ai"]).apply(null, arguments);
-};
+var _emscripten_bind_btKinematicCharacterController___destroy___0 = Module["_emscripten_bind_btKinematicCharacterController___destroy___0"] = a0 => (_emscripten_bind_btKinematicCharacterController___destroy___0 = Module["_emscripten_bind_btKinematicCharacterController___destroy___0"] = wasmExports["Uh"])(a0);
 
-var _emscripten_enum_PHY_ScalarType_PHY_UCHAR = Module["_emscripten_enum_PHY_ScalarType_PHY_UCHAR"] = function() {
- return (_emscripten_enum_PHY_ScalarType_PHY_UCHAR = Module["_emscripten_enum_PHY_ScalarType_PHY_UCHAR"] = Module["asm"]["bi"]).apply(null, arguments);
-};
+var _emscripten_bind_btPairCachingGhostObject_btPairCachingGhostObject_0 = Module["_emscripten_bind_btPairCachingGhostObject_btPairCachingGhostObject_0"] = () => (_emscripten_bind_btPairCachingGhostObject_btPairCachingGhostObject_0 = Module["_emscripten_bind_btPairCachingGhostObject_btPairCachingGhostObject_0"] = wasmExports["Vh"])();
 
-var _emscripten_enum_eGIMPACT_SHAPE_TYPE_CONST_GIMPACT_COMPOUND_SHAPE = Module["_emscripten_enum_eGIMPACT_SHAPE_TYPE_CONST_GIMPACT_COMPOUND_SHAPE"] = function() {
- return (_emscripten_enum_eGIMPACT_SHAPE_TYPE_CONST_GIMPACT_COMPOUND_SHAPE = Module["_emscripten_enum_eGIMPACT_SHAPE_TYPE_CONST_GIMPACT_COMPOUND_SHAPE"] = Module["asm"]["ci"]).apply(null, arguments);
-};
+var _emscripten_bind_btPairCachingGhostObject_getCollisionShape_0 = Module["_emscripten_bind_btPairCachingGhostObject_getCollisionShape_0"] = a0 => (_emscripten_bind_btPairCachingGhostObject_getCollisionShape_0 = Module["_emscripten_bind_btPairCachingGhostObject_getCollisionShape_0"] = wasmExports["Wh"])(a0);
 
-var _emscripten_enum_eGIMPACT_SHAPE_TYPE_CONST_GIMPACT_TRIMESH_SHAPE_PART = Module["_emscripten_enum_eGIMPACT_SHAPE_TYPE_CONST_GIMPACT_TRIMESH_SHAPE_PART"] = function() {
- return (_emscripten_enum_eGIMPACT_SHAPE_TYPE_CONST_GIMPACT_TRIMESH_SHAPE_PART = Module["_emscripten_enum_eGIMPACT_SHAPE_TYPE_CONST_GIMPACT_TRIMESH_SHAPE_PART"] = Module["asm"]["di"]).apply(null, arguments);
-};
+var _emscripten_bind_btPairCachingGhostObject_isStaticObject_0 = Module["_emscripten_bind_btPairCachingGhostObject_isStaticObject_0"] = a0 => (_emscripten_bind_btPairCachingGhostObject_isStaticObject_0 = Module["_emscripten_bind_btPairCachingGhostObject_isStaticObject_0"] = wasmExports["Xh"])(a0);
 
-var _emscripten_enum_eGIMPACT_SHAPE_TYPE_CONST_GIMPACT_TRIMESH_SHAPE = Module["_emscripten_enum_eGIMPACT_SHAPE_TYPE_CONST_GIMPACT_TRIMESH_SHAPE"] = function() {
- return (_emscripten_enum_eGIMPACT_SHAPE_TYPE_CONST_GIMPACT_TRIMESH_SHAPE = Module["_emscripten_enum_eGIMPACT_SHAPE_TYPE_CONST_GIMPACT_TRIMESH_SHAPE"] = Module["asm"]["ei"]).apply(null, arguments);
-};
+var _emscripten_bind_btPairCachingGhostObject_setFriction_1 = Module["_emscripten_bind_btPairCachingGhostObject_setFriction_1"] = (a0, a1) => (_emscripten_bind_btPairCachingGhostObject_setFriction_1 = Module["_emscripten_bind_btPairCachingGhostObject_setFriction_1"] = wasmExports["Yh"])(a0, a1);
 
-var _emscripten_enum_btConstraintParams_BT_CONSTRAINT_ERP = Module["_emscripten_enum_btConstraintParams_BT_CONSTRAINT_ERP"] = function() {
- return (_emscripten_enum_btConstraintParams_BT_CONSTRAINT_ERP = Module["_emscripten_enum_btConstraintParams_BT_CONSTRAINT_ERP"] = Module["asm"]["fi"]).apply(null, arguments);
-};
+var _emscripten_bind_btPairCachingGhostObject_getWorldTransform_0 = Module["_emscripten_bind_btPairCachingGhostObject_getWorldTransform_0"] = a0 => (_emscripten_bind_btPairCachingGhostObject_getWorldTransform_0 = Module["_emscripten_bind_btPairCachingGhostObject_getWorldTransform_0"] = wasmExports["Zh"])(a0);
 
-var _emscripten_enum_btConstraintParams_BT_CONSTRAINT_STOP_ERP = Module["_emscripten_enum_btConstraintParams_BT_CONSTRAINT_STOP_ERP"] = function() {
- return (_emscripten_enum_btConstraintParams_BT_CONSTRAINT_STOP_ERP = Module["_emscripten_enum_btConstraintParams_BT_CONSTRAINT_STOP_ERP"] = Module["asm"]["gi"]).apply(null, arguments);
-};
+var _emscripten_bind_btPairCachingGhostObject_setCollisionFlags_1 = Module["_emscripten_bind_btPairCachingGhostObject_setCollisionFlags_1"] = (a0, a1) => (_emscripten_bind_btPairCachingGhostObject_setCollisionFlags_1 = Module["_emscripten_bind_btPairCachingGhostObject_setCollisionFlags_1"] = wasmExports["_h"])(a0, a1);
 
-var _emscripten_enum_btConstraintParams_BT_CONSTRAINT_CFM = Module["_emscripten_enum_btConstraintParams_BT_CONSTRAINT_CFM"] = function() {
- return (_emscripten_enum_btConstraintParams_BT_CONSTRAINT_CFM = Module["_emscripten_enum_btConstraintParams_BT_CONSTRAINT_CFM"] = Module["asm"]["hi"]).apply(null, arguments);
-};
+var _emscripten_bind_btPairCachingGhostObject_setWorldTransform_1 = Module["_emscripten_bind_btPairCachingGhostObject_setWorldTransform_1"] = (a0, a1) => (_emscripten_bind_btPairCachingGhostObject_setWorldTransform_1 = Module["_emscripten_bind_btPairCachingGhostObject_setWorldTransform_1"] = wasmExports["$h"])(a0, a1);
 
-var _emscripten_enum_btConstraintParams_BT_CONSTRAINT_STOP_CFM = Module["_emscripten_enum_btConstraintParams_BT_CONSTRAINT_STOP_CFM"] = function() {
- return (_emscripten_enum_btConstraintParams_BT_CONSTRAINT_STOP_CFM = Module["_emscripten_enum_btConstraintParams_BT_CONSTRAINT_STOP_CFM"] = Module["asm"]["ii"]).apply(null, arguments);
-};
+var _emscripten_bind_btPairCachingGhostObject_setCollisionShape_1 = Module["_emscripten_bind_btPairCachingGhostObject_setCollisionShape_1"] = (a0, a1) => (_emscripten_bind_btPairCachingGhostObject_setCollisionShape_1 = Module["_emscripten_bind_btPairCachingGhostObject_setCollisionShape_1"] = wasmExports["ai"])(a0, a1);
 
-var _malloc = Module["_malloc"] = function() {
- return (_malloc = Module["_malloc"] = Module["asm"]["ki"]).apply(null, arguments);
-};
+var _emscripten_bind_btPairCachingGhostObject_getNumOverlappingObjects_0 = Module["_emscripten_bind_btPairCachingGhostObject_getNumOverlappingObjects_0"] = a0 => (_emscripten_bind_btPairCachingGhostObject_getNumOverlappingObjects_0 = Module["_emscripten_bind_btPairCachingGhostObject_getNumOverlappingObjects_0"] = wasmExports["bi"])(a0);
+
+var _emscripten_bind_btPairCachingGhostObject_getOverlappingObject_1 = Module["_emscripten_bind_btPairCachingGhostObject_getOverlappingObject_1"] = (a0, a1) => (_emscripten_bind_btPairCachingGhostObject_getOverlappingObject_1 = Module["_emscripten_bind_btPairCachingGhostObject_getOverlappingObject_1"] = wasmExports["ci"])(a0, a1);
+
+var _emscripten_bind_btPairCachingGhostObject___destroy___0 = Module["_emscripten_bind_btPairCachingGhostObject___destroy___0"] = a0 => (_emscripten_bind_btPairCachingGhostObject___destroy___0 = Module["_emscripten_bind_btPairCachingGhostObject___destroy___0"] = wasmExports["di"])(a0);
+
+var _emscripten_bind_btGhostPairCallback_btGhostPairCallback_0 = Module["_emscripten_bind_btGhostPairCallback_btGhostPairCallback_0"] = () => (_emscripten_bind_btGhostPairCallback_btGhostPairCallback_0 = Module["_emscripten_bind_btGhostPairCallback_btGhostPairCallback_0"] = wasmExports["ei"])();
+
+var _emscripten_bind_btGhostPairCallback___destroy___0 = Module["_emscripten_bind_btGhostPairCallback___destroy___0"] = a0 => (_emscripten_bind_btGhostPairCallback___destroy___0 = Module["_emscripten_bind_btGhostPairCallback___destroy___0"] = wasmExports["fi"])(a0);
+
+var _emscripten_enum_PHY_ScalarType_PHY_FLOAT = Module["_emscripten_enum_PHY_ScalarType_PHY_FLOAT"] = () => (_emscripten_enum_PHY_ScalarType_PHY_FLOAT = Module["_emscripten_enum_PHY_ScalarType_PHY_FLOAT"] = wasmExports["gi"])();
+
+var _emscripten_enum_PHY_ScalarType_PHY_DOUBLE = Module["_emscripten_enum_PHY_ScalarType_PHY_DOUBLE"] = () => (_emscripten_enum_PHY_ScalarType_PHY_DOUBLE = Module["_emscripten_enum_PHY_ScalarType_PHY_DOUBLE"] = wasmExports["hi"])();
+
+var _emscripten_enum_PHY_ScalarType_PHY_INTEGER = Module["_emscripten_enum_PHY_ScalarType_PHY_INTEGER"] = () => (_emscripten_enum_PHY_ScalarType_PHY_INTEGER = Module["_emscripten_enum_PHY_ScalarType_PHY_INTEGER"] = wasmExports["ii"])();
+
+var _emscripten_enum_PHY_ScalarType_PHY_SHORT = Module["_emscripten_enum_PHY_ScalarType_PHY_SHORT"] = () => (_emscripten_enum_PHY_ScalarType_PHY_SHORT = Module["_emscripten_enum_PHY_ScalarType_PHY_SHORT"] = wasmExports["ji"])();
+
+var _emscripten_enum_PHY_ScalarType_PHY_FIXEDPOINT88 = Module["_emscripten_enum_PHY_ScalarType_PHY_FIXEDPOINT88"] = () => (_emscripten_enum_PHY_ScalarType_PHY_FIXEDPOINT88 = Module["_emscripten_enum_PHY_ScalarType_PHY_FIXEDPOINT88"] = wasmExports["ki"])();
+
+var _emscripten_enum_PHY_ScalarType_PHY_UCHAR = Module["_emscripten_enum_PHY_ScalarType_PHY_UCHAR"] = () => (_emscripten_enum_PHY_ScalarType_PHY_UCHAR = Module["_emscripten_enum_PHY_ScalarType_PHY_UCHAR"] = wasmExports["li"])();
+
+var _emscripten_enum_eGIMPACT_SHAPE_TYPE_CONST_GIMPACT_COMPOUND_SHAPE = Module["_emscripten_enum_eGIMPACT_SHAPE_TYPE_CONST_GIMPACT_COMPOUND_SHAPE"] = () => (_emscripten_enum_eGIMPACT_SHAPE_TYPE_CONST_GIMPACT_COMPOUND_SHAPE = Module["_emscripten_enum_eGIMPACT_SHAPE_TYPE_CONST_GIMPACT_COMPOUND_SHAPE"] = wasmExports["mi"])();
+
+var _emscripten_enum_eGIMPACT_SHAPE_TYPE_CONST_GIMPACT_TRIMESH_SHAPE_PART = Module["_emscripten_enum_eGIMPACT_SHAPE_TYPE_CONST_GIMPACT_TRIMESH_SHAPE_PART"] = () => (_emscripten_enum_eGIMPACT_SHAPE_TYPE_CONST_GIMPACT_TRIMESH_SHAPE_PART = Module["_emscripten_enum_eGIMPACT_SHAPE_TYPE_CONST_GIMPACT_TRIMESH_SHAPE_PART"] = wasmExports["ni"])();
+
+var _emscripten_enum_eGIMPACT_SHAPE_TYPE_CONST_GIMPACT_TRIMESH_SHAPE = Module["_emscripten_enum_eGIMPACT_SHAPE_TYPE_CONST_GIMPACT_TRIMESH_SHAPE"] = () => (_emscripten_enum_eGIMPACT_SHAPE_TYPE_CONST_GIMPACT_TRIMESH_SHAPE = Module["_emscripten_enum_eGIMPACT_SHAPE_TYPE_CONST_GIMPACT_TRIMESH_SHAPE"] = wasmExports["oi"])();
+
+var _emscripten_enum_btConstraintParams_BT_CONSTRAINT_ERP = Module["_emscripten_enum_btConstraintParams_BT_CONSTRAINT_ERP"] = () => (_emscripten_enum_btConstraintParams_BT_CONSTRAINT_ERP = Module["_emscripten_enum_btConstraintParams_BT_CONSTRAINT_ERP"] = wasmExports["pi"])();
+
+var _emscripten_enum_btConstraintParams_BT_CONSTRAINT_STOP_ERP = Module["_emscripten_enum_btConstraintParams_BT_CONSTRAINT_STOP_ERP"] = () => (_emscripten_enum_btConstraintParams_BT_CONSTRAINT_STOP_ERP = Module["_emscripten_enum_btConstraintParams_BT_CONSTRAINT_STOP_ERP"] = wasmExports["qi"])();
+
+var _emscripten_enum_btConstraintParams_BT_CONSTRAINT_CFM = Module["_emscripten_enum_btConstraintParams_BT_CONSTRAINT_CFM"] = () => (_emscripten_enum_btConstraintParams_BT_CONSTRAINT_CFM = Module["_emscripten_enum_btConstraintParams_BT_CONSTRAINT_CFM"] = wasmExports["ri"])();
+
+var _emscripten_enum_btConstraintParams_BT_CONSTRAINT_STOP_CFM = Module["_emscripten_enum_btConstraintParams_BT_CONSTRAINT_STOP_CFM"] = () => (_emscripten_enum_btConstraintParams_BT_CONSTRAINT_STOP_CFM = Module["_emscripten_enum_btConstraintParams_BT_CONSTRAINT_STOP_CFM"] = wasmExports["si"])();
+
+var ___errno_location = () => (___errno_location = wasmExports["__errno_location"])();
+
+var ___start_em_js = Module["___start_em_js"] = 19490;
 
-Module["UTF8ToString"] = UTF8ToString;
+var ___stop_em_js = Module["___stop_em_js"] = 19588;
 
 Module["addFunction"] = addFunction;
+
+Module["UTF8ToString"] = UTF8ToString;
 
 var calledRun;
 
@@ -2597,8 +1614,7 @@ dependenciesFulfilled = function runCaller() {
  if (!calledRun) dependenciesFulfilled = runCaller;
 };
 
-function run(args) {
- args = args || arguments_;
+function run() {
  if (runDependencies > 0) {
   return;
  }
@@ -2612,7 +1628,6 @@ function run(args) {
   Module["calledRun"] = true;
   if (ABORT) return;
   initRuntime();
-  preMain();
   readyPromiseResolve(Module);
   if (Module["onRuntimeInitialized"]) Module["onRuntimeInitialized"]();
   postRun();
@@ -2629,8 +1644,6 @@ function run(args) {
   doRun();
  }
 }
-
-Module["run"] = run;
 
 if (Module["preInit"]) {
  if (typeof Module["preInit"] == "function") Module["preInit"] = [ Module["preInit"] ];
@@ -2710,25 +1723,25 @@ var ensureCache = {
  pos: 0,
  temps: [],
  needed: 0,
- prepare: function() {
+ prepare() {
   if (ensureCache.needed) {
    for (var i = 0; i < ensureCache.temps.length; i++) {
-    Module["_free"](ensureCache.temps[i]);
+    Module["_webidl_free"](ensureCache.temps[i]);
    }
    ensureCache.temps.length = 0;
-   Module["_free"](ensureCache.buffer);
+   Module["_webidl_free"](ensureCache.buffer);
    ensureCache.buffer = 0;
    ensureCache.size += ensureCache.needed;
    ensureCache.needed = 0;
   }
   if (!ensureCache.buffer) {
    ensureCache.size += 128;
-   ensureCache.buffer = Module["_malloc"](ensureCache.size);
+   ensureCache.buffer = Module["_webidl_malloc"](ensureCache.size);
    assert(ensureCache.buffer);
   }
   ensureCache.pos = 0;
  },
- alloc: function(array, view) {
+ alloc(array, view) {
   assert(ensureCache.buffer);
   var bytes = view.BYTES_PER_ELEMENT;
   var len = array.length * bytes;
@@ -2737,7 +1750,7 @@ var ensureCache = {
   if (ensureCache.pos + len >= ensureCache.size) {
    assert(len > 0);
    ensureCache.needed += len;
-   ret = Module["_malloc"](len);
+   ret = Module["_webidl_malloc"](len);
    ensureCache.temps.push(ret);
   } else {
    ret = ensureCache.buffer + ensureCache.pos;
@@ -2745,7 +1758,7 @@ var ensureCache = {
   }
   return ret;
  },
- copy: function(array, view, offset) {
+ copy(array, view, offset) {
   offset >>>= 0;
   var bytes = view.BYTES_PER_ELEMENT;
   switch (bytes) {
@@ -4675,6 +3688,68 @@ btConvexHullShape.prototype["__destroy__"] = btConvexHullShape.prototype.__destr
  _emscripten_bind_btConvexHullShape___destroy___0(self);
 };
 
+function btCompoundShape(enableDynamicAabbTree) {
+ if (enableDynamicAabbTree && typeof enableDynamicAabbTree === "object") enableDynamicAabbTree = enableDynamicAabbTree.ptr;
+ if (enableDynamicAabbTree === undefined) {
+  this.ptr = _emscripten_bind_btCompoundShape_btCompoundShape_0();
+  getCache(btCompoundShape)[this.ptr] = this;
+  return;
+ }
+ this.ptr = _emscripten_bind_btCompoundShape_btCompoundShape_1(enableDynamicAabbTree);
+ getCache(btCompoundShape)[this.ptr] = this;
+}
+
+btCompoundShape.prototype = Object.create(btCollisionShape.prototype);
+
+btCompoundShape.prototype.constructor = btCompoundShape;
+
+btCompoundShape.prototype.__class__ = btCompoundShape;
+
+btCompoundShape.__cache__ = {};
+
+Module["btCompoundShape"] = btCompoundShape;
+
+btCompoundShape.prototype["addChildShape"] = btCompoundShape.prototype.addChildShape = function(localTransform, shape) {
+ var self = this.ptr;
+ if (localTransform && typeof localTransform === "object") localTransform = localTransform.ptr;
+ if (shape && typeof shape === "object") shape = shape.ptr;
+ _emscripten_bind_btCompoundShape_addChildShape_2(self, localTransform, shape);
+};
+
+btCompoundShape.prototype["setMargin"] = btCompoundShape.prototype.setMargin = function(margin) {
+ var self = this.ptr;
+ if (margin && typeof margin === "object") margin = margin.ptr;
+ _emscripten_bind_btCompoundShape_setMargin_1(self, margin);
+};
+
+btCompoundShape.prototype["getMargin"] = btCompoundShape.prototype.getMargin = function() {
+ var self = this.ptr;
+ return _emscripten_bind_btCompoundShape_getMargin_0(self);
+};
+
+btCompoundShape.prototype["setLocalScaling"] = btCompoundShape.prototype.setLocalScaling = function(scaling) {
+ var self = this.ptr;
+ if (scaling && typeof scaling === "object") scaling = scaling.ptr;
+ _emscripten_bind_btCompoundShape_setLocalScaling_1(self, scaling);
+};
+
+btCompoundShape.prototype["getLocalScaling"] = btCompoundShape.prototype.getLocalScaling = function() {
+ var self = this.ptr;
+ return wrapPointer(_emscripten_bind_btCompoundShape_getLocalScaling_0(self), btVector3);
+};
+
+btCompoundShape.prototype["calculateLocalInertia"] = btCompoundShape.prototype.calculateLocalInertia = function(mass, inertia) {
+ var self = this.ptr;
+ if (mass && typeof mass === "object") mass = mass.ptr;
+ if (inertia && typeof inertia === "object") inertia = inertia.ptr;
+ _emscripten_bind_btCompoundShape_calculateLocalInertia_2(self, mass, inertia);
+};
+
+btCompoundShape.prototype["__destroy__"] = btCompoundShape.prototype.__destroy__ = function() {
+ var self = this.ptr;
+ _emscripten_bind_btCompoundShape___destroy___0(self);
+};
+
 function btIndexedMesh() {
  throw "cannot construct a btIndexedMesh, no constructor in IDL";
 }
@@ -6340,11 +5415,6 @@ btKinematicCharacterController.prototype["setMaxSlope"] = btKinematicCharacterCo
  _emscripten_bind_btKinematicCharacterController_setMaxSlope_1(self, slopeRadians);
 };
 
-btKinematicCharacterController.prototype["getGhostObject"] = btKinematicCharacterController.prototype.getGhostObject = function() {
- var self = this.ptr;
- return wrapPointer(_emscripten_bind_btKinematicCharacterController_getGhostObject_0(self), btPairCachingGhostObject);
-};
-
 btKinematicCharacterController.prototype["setUseGhostSweepTest"] = btKinematicCharacterController.prototype.setUseGhostSweepTest = function(useGhostObjectSweepTest) {
  var self = this.ptr;
  if (useGhostObjectSweepTest && typeof useGhostObjectSweepTest === "object") useGhostObjectSweepTest = useGhostObjectSweepTest.ptr;
@@ -6497,7 +5567,7 @@ btGhostPairCallback.prototype["__destroy__"] = btGhostPairCallback.prototype.__d
   Module["BT_CONSTRAINT_CFM"] = _emscripten_enum_btConstraintParams_BT_CONSTRAINT_CFM();
   Module["BT_CONSTRAINT_STOP_CFM"] = _emscripten_enum_btConstraintParams_BT_CONSTRAINT_STOP_CFM();
  }
- if (runtimeInitialized) setupEnums(); else addOnPreMain(setupEnums);
+ if (runtimeInitialized) setupEnums(); else addOnInit(setupEnums);
 })();
 
 Module["CONTACT_ADDED_CALLBACK_SIGNATURE"] = "iiiiiiii";
@@ -6511,14 +5581,13 @@ Module["INTERNAL_TICK_CALLBACK_SIGNATURE"] = "vif";
 this["Ammo"] = Module;
 
 
-  return Ammo.ready
+  return moduleArg.ready
 }
+
 );
 })();
 if (typeof exports === 'object' && typeof module === 'object')
   module.exports = Ammo;
 else if (typeof define === 'function' && define['amd'])
-  define([], function() { return Ammo; });
-else if (typeof exports === 'object')
-  exports["Ammo"] = Ammo;
+  define([], () => Ammo);
 export {Ammo};

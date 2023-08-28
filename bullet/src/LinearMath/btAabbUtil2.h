@@ -184,7 +184,7 @@ SIMD_FORCE_INLINE	void btTransformAabb(const btVector3& halfExtents, btScalar ma
 	btVector3 halfExtentsWithMargin = halfExtents+btVector3(margin,margin,margin);
 	btMatrix3x3 abs_b = t.getBasis().absolute();  
 	btVector3 center = t.getOrigin();
-    btVector3 extent = halfExtentsWithMargin.dot3( abs_b[0], abs_b[1], abs_b[2] );
+  btVector3 extent = halfExtentsWithMargin.dot3( abs_b[0], abs_b[1], abs_b[2] );
 	aabbMinOut = center - extent;
 	aabbMaxOut = center + extent;
 }

@@ -115,6 +115,8 @@ public:
 		return m_collisionMargin;
 	}
 
+	inline btScalar getMarginInline() const { return m_collisionMargin; }
+
 	btScalar	getMarginNV() const
 	{
 		return m_collisionMargin;

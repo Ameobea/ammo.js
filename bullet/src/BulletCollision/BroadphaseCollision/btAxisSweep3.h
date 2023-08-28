@@ -255,8 +255,7 @@ void	btAxisSweep3Internal<BP_FP_INT_TYPE>::destroyProxy(btBroadphaseProxy* proxy
 }
 
 template <typename BP_FP_INT_TYPE>
-void	btAxisSweep3Internal<BP_FP_INT_TYPE>::setAabb(btBroadphaseProxy* proxy,const btVector3& aabbMin,const btVector3& aabbMax,btDispatcher* dispatcher)
-{
+void btAxisSweep3Internal<BP_FP_INT_TYPE>::setAabb(btBroadphaseProxy* proxy, const btVector3& aabbMin, const btVector3& aabbMax, btDispatcher* dispatcher) {
 	Handle* handle = static_cast<Handle*>(proxy);
 	handle->m_aabbMin = aabbMin;
 	handle->m_aabbMax = aabbMax;

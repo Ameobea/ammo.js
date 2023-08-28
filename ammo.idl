@@ -402,18 +402,18 @@ btConvexHullShape implements btCollisionShape;
 //   [Const] btVector3 getVertexPointer();
 // };
 
-// interface btCompoundShape {
-//   void btCompoundShape(optional boolean enableDynamicAabbTree);
-//   void addChildShape([Const, Ref] btTransform localTransform, btCollisionShape shape);
-//   void removeChildShape(btCollisionShape shape);
-//   void removeChildShapeByIndex(long childShapeindex);
-//   [Const] long getNumChildShapes();
-//   btCollisionShape getChildShape(long index);
-//   void updateChildTransform(long childIndex, [Const, Ref] btTransform newChildTransform, optional boolean shouldRecalculateLocalAabb);
-//   void setMargin(float margin);
-//   float getMargin();
-// };
-// btCompoundShape implements btCollisionShape;
+interface btCompoundShape {
+  void btCompoundShape(optional boolean enableDynamicAabbTree);
+  void addChildShape([Const, Ref] btTransform localTransform, btCollisionShape shape);
+  // void removeChildShape(btCollisionShape shape);
+  // void removeChildShapeByIndex(long childShapeindex);
+  // [Const] long getNumChildShapes();
+  // btCollisionShape getChildShape(long index);
+  // void updateChildTransform(long childIndex, [Const, Ref] btTransform newChildTransform, optional boolean shouldRecalculateLocalAabb);
+  void setMargin(float margin);
+  float getMargin();
+};
+btCompoundShape implements btCollisionShape;
 
 interface btStridingMeshInterface {
   void setScaling([Const, Ref] btVector3 scaling);
@@ -1034,7 +1034,7 @@ interface btKinematicCharacterController {
   [Value] btVector3 getGravity ();
   void setMaxSlope (float slopeRadians);
   // float getMaxSlope ();
-  btPairCachingGhostObject getGhostObject ();
+  // btPairCachingGhostObject getGhostObject ();
   void setUseGhostSweepTest (boolean useGhostObjectSweepTest);
   boolean onGround ();
   void setUpInterpolate (boolean value);
