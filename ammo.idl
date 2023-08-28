@@ -28,66 +28,66 @@ interface btVector3 {
   float x();
   float y();
   float z();
-  void setX(float x);
-  void setY(float y);
-  void setZ(float z);
+  // void setX(float x);
+  // void setY(float y);
+  // void setZ(float z);
   void setValue(float x, float y, float z);
-  void normalize();
-  [Value] btVector3 rotate([Ref] btVector3 wAxis, float angle);
-  float dot([Ref] btVector3 v);
-  [Operator="*=", Ref] btVector3 op_mul(float x);
-  [Operator="+=", Ref] btVector3 op_add([Ref] btVector3 v);
-  [Operator="-=", Ref] btVector3 op_sub([Ref] btVector3 v);
+  // void normalize();
+  // [Value] btVector3 rotate([Ref] btVector3 wAxis, float angle);
+  // float dot([Ref] btVector3 v);
+  // [Operator="*=", Ref] btVector3 op_mul(float x);
+  // [Operator="+=", Ref] btVector3 op_add([Ref] btVector3 v);
+  // [Operator="-=", Ref] btVector3 op_sub([Ref] btVector3 v);
 };
 
-interface btVector4 {
-  void btVector4();
-  void btVector4(float x, float y, float z, float w);
-  float w();
-  void setValue(float x, float y, float z, float w);
-};
-btVector4 implements btVector3;
+// interface btVector4 {
+//   void btVector4();
+//   void btVector4(float x, float y, float z, float w);
+//   float w();
+//   void setValue(float x, float y, float z, float w);
+// };
+// btVector4 implements btVector3;
 
-interface btQuadWord {
-  float x();
-  float y();
-  float z();
-  float w();
-  void setX(float x);
-  void setY(float y);
-  void setZ(float z);
-  void setW(float w);
-};
+// interface btQuadWord {
+//   float x();
+//   float y();
+//   float z();
+//   float w();
+//   void setX(float x);
+//   void setY(float y);
+//   void setZ(float z);
+//   void setW(float w);
+// };
 
 interface btQuaternion {
   void btQuaternion(float x, float y, float z, float w);
-  void setValue(float x, float y, float z, float w);
-  void setEulerZYX(float z, float y, float x);
-  void setRotation([Ref] btVector3 axis, float angle);
-  void normalize();
-  float length2();
-  float length();
-  float dot([Ref] btQuaternion q);
-  [Value] btQuaternion normalized();
-  [Value] btVector3 getAxis();
-  [Value] btQuaternion inverse();
-  float getAngle();
-  float getAngleShortestPath();
-  float angle([Ref] btQuaternion q);
-  float angleShortestPath([Ref] btQuaternion q);
-  [Operator="+=", Ref] btQuaternion op_add([Ref] btQuaternion q);
-  [Operator="-=", Ref] btQuaternion op_sub([Ref] btQuaternion q);
-  [Operator="*=", Ref] btQuaternion op_mul(float s);
-  [Operator="*=", Ref] btQuaternion op_mulq([Ref] btQuaternion q);
-  [Operator="/=", Ref] btQuaternion op_div(float s);
+  // void setValue(float x, float y, float z, float w);
+  // void setEulerZYX(float z, float y, float x);
+  // void setRotation([Ref] btVector3 axis, float angle);
+  // void normalize();
+  // float length2();
+  // float length();
+  // float dot([Ref] btQuaternion q);
+  // [Value] btQuaternion normalized();
+  // [Value] btVector3 getAxis();
+  // [Value] btQuaternion inverse();
+  // float getAngle();
+  // float getAngleShortestPath();
+  // float angle([Ref] btQuaternion q);
+  // float angleShortestPath([Ref] btQuaternion q);
+  // [Operator="+=", Ref] btQuaternion op_add([Ref] btQuaternion q);
+  // [Operator="-=", Ref] btQuaternion op_sub([Ref] btQuaternion q);
+  // [Operator="*=", Ref] btQuaternion op_mul(float s);
+  // [Operator="*=", Ref] btQuaternion op_mulq([Ref] btQuaternion q);
+  // [Operator="/=", Ref] btQuaternion op_div(float s);
 };
-btQuaternion implements btQuadWord;
+// btQuaternion implements btQuadWord;
 
-interface btMatrix3x3 {
-  void setEulerZYX(float ex, float ey, float ez);
-  void getRotation([Ref] btQuaternion q);
-  [Value] btVector3 getRow(long y);
-};
+// interface btMatrix3x3 {
+//   // void setEulerZYX(float ex, float ey, float ez);
+//   // void getRotation([Ref] btQuaternion q);
+//   [Value] btVector3 getRow(long y);
+// };
 
 interface btTransform {
   void btTransform();
@@ -97,11 +97,11 @@ interface btTransform {
   void setOrigin([Ref] btVector3 origin);
   void setRotation([Ref] btQuaternion rotation);
   [Ref] btVector3 getOrigin();
-  [Value] btQuaternion getRotation();
-  [Ref] btMatrix3x3 getBasis();
+  // [Value] btQuaternion getRotation();
+  // [Ref] btMatrix3x3 getBasis();
   // void setFromOpenGLMatrix(float[] m);
-  [Value] btTransform inverse();
-  [Operator="*=", Ref] btTransform op_mul([Ref] btTransform t);
+  // [Value] btTransform inverse();
+  // [Operator="*=", Ref] btTransform op_mul([Ref] btTransform t);
 };
 
 interface btMotionState {
@@ -111,7 +111,7 @@ interface btMotionState {
 
 interface btDefaultMotionState {
   void btDefaultMotionState([Ref] optional btTransform startTrans, [Ref] optional btTransform centerOfMassOffset);
-  [Value] attribute btTransform m_graphicsWorldTrans;
+  // [Value] attribute btTransform m_graphicsWorldTrans;
 };
 btDefaultMotionState implements btMotionState;
 
@@ -119,7 +119,7 @@ btDefaultMotionState implements btMotionState;
 
 interface btCollisionObject {
   // void setAnisotropicFriction([Const, Ref] btVector3 anisotropicFriction, long frictionMode);
-  btCollisionShape getCollisionShape();
+  // btCollisionShape getCollisionShape();
   // void setContactProcessingThreshold(float contactProcessingThreshold);
   // void setActivationState(long newState);
   // void forceActivationState(long newState);
@@ -132,7 +132,7 @@ interface btCollisionObject {
   // [Const] float getFriction();
   // [Const] float getRollingFriction();
   // void setRestitution(float rest);
-  void setFriction(float frict);
+  // void setFriction(float frict);
   // void setRollingFriction(float frict);
   [Ref] btTransform getWorldTransform();
   // long getCollisionFlags();
@@ -148,12 +148,12 @@ interface btCollisionObject {
   // [Const] btBroadphaseProxy getBroadphaseHandle();
 };
 
-[NoDelete]
-interface btCollisionObjectWrapper {
-  [Const, Ref] btTransform getWorldTransform();
-  [Const] btCollisionObject getCollisionObject();
-  [Const] btCollisionShape getCollisionShape();
-};
+// [NoDelete]
+// interface btCollisionObjectWrapper {
+//   [Const, Ref] btTransform getWorldTransform();
+//   [Const] btCollisionObject getCollisionObject();
+//   [Const] btCollisionShape getCollisionShape();
+// };
 
 // [Prefix="btCollisionWorld::"]
 // interface RayResultCallback {
@@ -200,20 +200,20 @@ interface btCollisionObjectWrapper {
 // };
 // AllHitsRayResultCallback implements RayResultCallback;
 
-interface btManifoldPoint {
-  [Const, Ref] btVector3 getPositionWorldOnA();
-  [Const, Ref] btVector3 getPositionWorldOnB();
-  [Const] double getAppliedImpulse();
-  [Const] double getDistance();
-  [Value] attribute btVector3 m_localPointA;
-  [Value] attribute btVector3 m_localPointB;
-  [Value] attribute btVector3 m_positionWorldOnB;
-  [Value] attribute btVector3 m_positionWorldOnA;
-  [Value] attribute btVector3 m_normalWorldOnB;
+// interface btManifoldPoint {
+//   [Const, Ref] btVector3 getPositionWorldOnA();
+//   [Const, Ref] btVector3 getPositionWorldOnB();
+//   [Const] double getAppliedImpulse();
+//   [Const] double getDistance();
+//   [Value] attribute btVector3 m_localPointA;
+//   [Value] attribute btVector3 m_localPointB;
+//   [Value] attribute btVector3 m_positionWorldOnB;
+//   [Value] attribute btVector3 m_positionWorldOnA;
+//   [Value] attribute btVector3 m_normalWorldOnB;
 
-  // Contact callback support
-  attribute any m_userPersistentData;
-};
+//   // Contact callback support
+//   attribute any m_userPersistentData;
+// };
 
 // [Prefix="btCollisionWorld::"]
 // interface ContactResultCallback {
@@ -226,30 +226,30 @@ interface btManifoldPoint {
 //   float addSingleResult([Ref] btManifoldPoint cp, [Const] btCollisionObjectWrapper colObj0Wrap, long partId0, long index0, [Const] btCollisionObjectWrapper colObj1Wrap, long partId1, long index1);
 // };
 
-[Prefix="btCollisionWorld::"]
-interface LocalShapeInfo {
-    attribute long m_shapePart;
-    attribute long m_triangleIndex;
- };
+// [Prefix="btCollisionWorld::"]
+// interface LocalShapeInfo {
+//     attribute long m_shapePart;
+//     attribute long m_triangleIndex;
+//  };
 
-[Prefix="btCollisionWorld::"]
-interface LocalConvexResult  {
-  void LocalConvexResult([Const] btCollisionObject hitCollisionObject, LocalShapeInfo localShapeInfo, [Const, Ref] btVector3 hitNormalLocal, [Const, Ref] btVector3 hitPointLocal, float hitFraction);
-  [Const] attribute btCollisionObject m_hitCollisionObject;
-  attribute LocalShapeInfo m_localShapeInfo;
-  [Value] attribute btVector3 m_hitNormalLocal;
-  [Value] attribute btVector3 m_hitPointLocal;
-  attribute float m_hitFraction;
-};
+// [Prefix="btCollisionWorld::"]
+// interface LocalConvexResult  {
+//   void LocalConvexResult([Const] btCollisionObject hitCollisionObject, LocalShapeInfo localShapeInfo, [Const, Ref] btVector3 hitNormalLocal, [Const, Ref] btVector3 hitPointLocal, float hitFraction);
+//   [Const] attribute btCollisionObject m_hitCollisionObject;
+//   // attribute LocalShapeInfo m_localShapeInfo;
+//   [Value] attribute btVector3 m_hitNormalLocal;
+//   [Value] attribute btVector3 m_hitPointLocal;
+//   attribute float m_hitFraction;
+// };
 
-[Prefix="btCollisionWorld::"]
-interface ConvexResultCallback {
-  // abstract base class, no constructor
-  boolean hasHit();
-  attribute short m_collisionFilterGroup;
-  attribute short m_collisionFilterMask;
-  attribute float m_closestHitFraction;
-};
+// [Prefix="btCollisionWorld::"]
+// interface ConvexResultCallback {
+//   // abstract base class, no constructor
+//   boolean hasHit();
+//   attribute short m_collisionFilterGroup;
+//   attribute short m_collisionFilterMask;
+//   attribute float m_closestHitFraction;
+// };
 
 // [Prefix="btCollisionWorld::"]
 // interface ClosestConvexResultCallback {
@@ -263,36 +263,36 @@ interface ConvexResultCallback {
 // ClosestConvexResultCallback implements ConvexResultCallback;
 
 interface btCollisionShape {
-  void setLocalScaling([Const, Ref] btVector3 scaling);
-  [Const, Ref] btVector3 getLocalScaling();
-  void calculateLocalInertia(float mass, [Ref] btVector3 inertia);
-  void setMargin(float margin);
-  float getMargin();
+  // void setLocalScaling([Const, Ref] btVector3 scaling);
+  // [Const, Ref] btVector3 getLocalScaling();
+  // void calculateLocalInertia(float mass, [Ref] btVector3 inertia);
+  // void setMargin(float margin);
+  // float getMargin();
 };
 
 interface btConvexShape {
 };
 btConvexShape implements btCollisionShape;
 
-interface btConvexTriangleMeshShape {
-  void btConvexTriangleMeshShape(btStridingMeshInterface meshInterface, optional boolean calcAabb);
-};
-btConvexTriangleMeshShape implements btConvexShape;
+// interface btConvexTriangleMeshShape {
+//   void btConvexTriangleMeshShape(btStridingMeshInterface meshInterface, optional boolean calcAabb);
+// };
+// btConvexTriangleMeshShape implements btConvexShape;
 
 interface btBoxShape {
   void btBoxShape([Ref] btVector3 boxHalfExtents);
-  void setMargin(float margin);
-  float getMargin();
+  // void setMargin(float margin);
+  // float getMargin();
 };
 btBoxShape implements btCollisionShape;
 
 interface btCapsuleShape {
   void btCapsuleShape(float radius, float height);
-  void setMargin(float margin);
-  float getMargin();
-  long getUpAxis();
-  float getRadius();
-  float getHalfHeight();
+  // void setMargin(float margin);
+  // float getMargin();
+  // long getUpAxis();
+  // float getRadius();
+  // float getHalfHeight();
 };
 btCapsuleShape implements btCollisionShape;
 
@@ -386,7 +386,7 @@ btCapsuleShape implements btCollisionShape;
 interface btConvexHullShape {
   void btConvexHullShape([Const] optional float[] points, optional long numPoints);
   void addPoint([Const, Ref] btVector3 point, optional boolean recalculateLocalAABB);
-  void setMargin(float margin);
+  // void setMargin(float margin);
   // float getMargin();
   // long getNumVertices();
   // boolean initializePolyhedralFeatures(long shiftVerticesByMargin);
@@ -410,66 +410,66 @@ interface btCompoundShape {
   // [Const] long getNumChildShapes();
   // btCollisionShape getChildShape(long index);
   // void updateChildTransform(long childIndex, [Const, Ref] btTransform newChildTransform, optional boolean shouldRecalculateLocalAabb);
-  void setMargin(float margin);
-  float getMargin();
+  // void setMargin(float margin);
+  // float getMargin();
 };
 btCompoundShape implements btCollisionShape;
 
 interface btStridingMeshInterface {
-  void setScaling([Const, Ref] btVector3 scaling);
+  // void setScaling([Const, Ref] btVector3 scaling);
 };
 
-interface btIndexedMesh {
-  attribute long m_numTriangles;
-};
+// interface btIndexedMesh {
+//   attribute long m_numTriangles;
+// };
 
-interface btIndexedMeshArray {
-  long size();
-  [Const, Ref] btIndexedMesh at(long n);
-};
+// interface btIndexedMeshArray {
+//   long size();
+//   [Const, Ref] btIndexedMesh at(long n);
+// };
 
 interface btTriangleMesh {
   void btTriangleMesh(optional boolean use32bitIndices, optional boolean use4componentVertices);
   void addTriangle([Const, Ref] btVector3 vertex0, [Const, Ref] btVector3 vertex1, [Const, Ref] btVector3 vertex2, optional boolean removeDuplicateVertices);
-  long findOrAddVertex([Const, Ref] btVector3 vertex, boolean removeDuplicateVertices);
-  void addIndex(long index);
+  // long findOrAddVertex([Const, Ref] btVector3 vertex, boolean removeDuplicateVertices);
+  // void addIndex(long index);
   void preallocateIndices(long numindices);
   void preallocateVertices(long numverts);
- [Ref] btIndexedMeshArray getIndexedMeshArray();
+//  [Ref] btIndexedMeshArray getIndexedMeshArray();
 };
 btTriangleMesh implements btStridingMeshInterface;
 
-enum PHY_ScalarType {
-    "PHY_FLOAT",
-    "PHY_DOUBLE",
-    "PHY_INTEGER",
-    "PHY_SHORT",
-    "PHY_FIXEDPOINT88",
-    "PHY_UCHAR"
-};
+// enum PHY_ScalarType {
+//     "PHY_FLOAT",
+//     "PHY_DOUBLE",
+//     "PHY_INTEGER",
+//     "PHY_SHORT",
+//     "PHY_FIXEDPOINT88",
+//     "PHY_UCHAR"
+// };
 
-interface btConcaveShape {
-};
-btConcaveShape implements btCollisionShape;
+// interface btConcaveShape {
+// };
+// btConcaveShape implements btCollisionShape;
 
-interface btEmptyShape {
-  void btEmptyShape();
-};
-btEmptyShape implements btConcaveShape;
+// interface btEmptyShape {
+//   void btEmptyShape();
+// };
+// btEmptyShape implements btConcaveShape;
 
 // interface btStaticPlaneShape {
 //   void btStaticPlaneShape([Const, Ref] btVector3 planeNormal, float planeConstant);
 // };
 // btStaticPlaneShape implements btConcaveShape;
 
-interface btTriangleMeshShape {
-};
-btTriangleMeshShape implements btConcaveShape;
+// interface btTriangleMeshShape {
+// };
+// btTriangleMeshShape implements btConcaveShape;
 
 interface btBvhTriangleMeshShape {
   void btBvhTriangleMeshShape(btStridingMeshInterface meshInterface, boolean useQuantizedAabbCompression, optional boolean buildBvh);
 };
-btBvhTriangleMeshShape implements btTriangleMeshShape;
+// btBvhTriangleMeshShape implements btTriangleMeshShape;
 
 // interface btHeightfieldTerrainShape {
 //     void btHeightfieldTerrainShape(long heightStickWidth, long heightStickLength, VoidPtr heightfieldData, float heightScale, float minHeight, float maxHeight, long upAxis, PHY_ScalarType hdt, boolean flipQuadEdges);
@@ -480,60 +480,60 @@ btBvhTriangleMeshShape implements btTriangleMeshShape;
 
 // GImpact
 
-interface btAABB {
-  void btAABB([ Const, Ref ] btVector3 V1, [ Const, Ref ] btVector3 V2, [ Const, Ref ] btVector3 V3, float margin);
-  void invalidate();
-  void increment_margin(float margin);
-  void copy_with_margin([ Const, Ref ] btAABB other, float margin);
-};
+// interface btAABB {
+//   void btAABB([ Const, Ref ] btVector3 V1, [ Const, Ref ] btVector3 V2, [ Const, Ref ] btVector3 V3, float margin);
+//   void invalidate();
+//   void increment_margin(float margin);
+//   void copy_with_margin([ Const, Ref ] btAABB other, float margin);
+// };
 
-interface btPrimitiveTriangle {
-  // void btPrimitiveTriangle();
-};
+// interface btPrimitiveTriangle {
+//   void btPrimitiveTriangle();
+// };
 
-interface btTriangleShapeEx {
-  void btTriangleShapeEx([ Const, Ref ] btVector3 p1, [ Const, Ref ] btVector3 p2, [ Const, Ref ] btVector3 p3);
-  void getAabb([ Const, Ref ] btTransform t, [ Ref ] btVector3 aabbMin, [ Ref ] btVector3 aabbMax);
-  void applyTransform([ Const, Ref ] btTransform t);
-  // void buildTriPlane([ Ref ] btVector4 plane);
-};
+// interface btTriangleShapeEx {
+//   void btTriangleShapeEx([ Const, Ref ] btVector3 p1, [ Const, Ref ] btVector3 p2, [ Const, Ref ] btVector3 p3);
+//   void getAabb([ Const, Ref ] btTransform t, [ Ref ] btVector3 aabbMin, [ Ref ] btVector3 aabbMax);
+//   void applyTransform([ Const, Ref ] btTransform t);
+//   void buildTriPlane([ Ref ] btVector4 plane);
+// };
 
-interface btPrimitiveManagerBase {
-  boolean is_trimesh();
-  long get_primitive_count();
-  void get_primitive_box(long prim_index , [Ref] btAABB primbox);
-  void get_primitive_triangle(long prim_index, [Ref] btPrimitiveTriangle triangle);
-};
+// interface btPrimitiveManagerBase {
+//   boolean is_trimesh();
+//   long get_primitive_count();
+//   void get_primitive_box(long prim_index , [Ref] btAABB primbox);
+//   void get_primitive_triangle(long prim_index, [Ref] btPrimitiveTriangle triangle);
+// };
 
-enum eGIMPACT_SHAPE_TYPE {
-	"CONST_GIMPACT_COMPOUND_SHAPE",
-	"CONST_GIMPACT_TRIMESH_SHAPE_PART",
-	"CONST_GIMPACT_TRIMESH_SHAPE"
-};
+// enum eGIMPACT_SHAPE_TYPE {
+// 	"CONST_GIMPACT_COMPOUND_SHAPE",
+// 	"CONST_GIMPACT_TRIMESH_SHAPE_PART",
+// 	"CONST_GIMPACT_TRIMESH_SHAPE"
+// };
 
-interface btTetrahedronShapeEx {
-    void btTetrahedronShapeEx();
-    void setVertices([ Const, Ref ] btVector3 v0, [ Const, Ref ] btVector3 v1, [ Const, Ref ] btVector3 v2, [ Const, Ref ] btVector3 v3);
-};
+// interface btTetrahedronShapeEx {
+//     void btTetrahedronShapeEx();
+//     void setVertices([ Const, Ref ] btVector3 v0, [ Const, Ref ] btVector3 v1, [ Const, Ref ] btVector3 v2, [ Const, Ref ] btVector3 v3);
+// };
 
-interface btGImpactShapeInterface {
-  void updateBound();
-  void postUpdate();
-  long getShapeType();
-  [Const] DOMString getName();
-  eGIMPACT_SHAPE_TYPE getGImpactShapeType();
-  [Const] btPrimitiveManagerBase getPrimitiveManager();
-  long getNumChildShapes();
-  boolean childrenHasTransform();
-  boolean needsRetrieveTriangles();
-  boolean needsRetrieveTetrahedrons();
-  void getBulletTriangle(long prim_index, [Ref] btTriangleShapeEx triangle);
-  void getBulletTetrahedron(long prim_index, [Ref] btTetrahedronShapeEx tetrahedron);
-  [Const] btCollisionShape getChildShape(long index);
-  [Value] btTransform getChildTransform(long index);
-  void setChildTransform(long index, [Const, Ref] btTransform transform);
-};
-btGImpactShapeInterface implements btConcaveShape;
+// interface btGImpactShapeInterface {
+//   void updateBound();
+//   void postUpdate();
+//   long getShapeType();
+//   [Const] DOMString getName();
+//   eGIMPACT_SHAPE_TYPE getGImpactShapeType();
+//   [Const] btPrimitiveManagerBase getPrimitiveManager();
+//   long getNumChildShapes();
+//   boolean childrenHasTransform();
+//   boolean needsRetrieveTriangles();
+//   boolean needsRetrieveTetrahedrons();
+//   void getBulletTriangle(long prim_index, [Ref] btTriangleShapeEx triangle);
+//   void getBulletTetrahedron(long prim_index, [Ref] btTetrahedronShapeEx tetrahedron);
+//   [Const] btCollisionShape getChildShape(long index);
+//   [Value] btTransform getChildTransform(long index);
+//   void setChildTransform(long index, [Const, Ref] btTransform transform);
+// };
+// btGImpactShapeInterface implements btConcaveShape;
 
 // [Prefix="btGImpactCompoundShape::"]
 // interface CompoundPrimitiveManager {
@@ -602,25 +602,25 @@ btGImpactShapeInterface implements btConcaveShape;
 // };
 // btGImpactMeshShape implements btGImpactShapeInterface;
 
-interface btCollisionAlgorithmConstructionInfo {
-	void btCollisionAlgorithmConstructionInfo();
-	void btCollisionAlgorithmConstructionInfo(btDispatcher dispatcher, long temp);
-	attribute btDispatcher m_dispatcher1;
-	// attribute btPersistentManifold m_manifold;
-};
+// interface btCollisionAlgorithmConstructionInfo {
+// 	void btCollisionAlgorithmConstructionInfo();
+// 	void btCollisionAlgorithmConstructionInfo(btDispatcher dispatcher, long temp);
+// 	attribute btDispatcher m_dispatcher1;
+// 	attribute btPersistentManifold m_manifold;
+// };
 
-interface btCollisionAlgorithm {
-};
+// interface btCollisionAlgorithm {
+// };
 
-interface btActivatingCollisionAlgorithm {
-};
-btActivatingCollisionAlgorithm implements btCollisionAlgorithm;
+// interface btActivatingCollisionAlgorithm {
+// };
+// btActivatingCollisionAlgorithm implements btCollisionAlgorithm;
 
-interface btGImpactCollisionAlgorithm {
-  void btGImpactCollisionAlgorithm([Const, Ref] btCollisionAlgorithmConstructionInfo ci, [Const] btCollisionObjectWrapper body0Wrap, [Const] btCollisionObjectWrapper body1Wrap);
-  static void registerAlgorithm(btCollisionDispatcher dispatcher);
-};
-btGImpactCollisionAlgorithm implements btActivatingCollisionAlgorithm;
+// interface btGImpactCollisionAlgorithm {
+//   void btGImpactCollisionAlgorithm([Const, Ref] btCollisionAlgorithmConstructionInfo ci, [Const] btCollisionObjectWrapper body0Wrap, [Const] btCollisionObjectWrapper body1Wrap);
+//   static void registerAlgorithm(btCollisionDispatcher dispatcher);
+// };
+// btGImpactCollisionAlgorithm implements btActivatingCollisionAlgorithm;
 
 //
 
@@ -641,21 +641,21 @@ interface btDefaultCollisionConfiguration {
 // };
 
 interface btDispatcher {
-  long getNumManifolds();
+  // long getNumManifolds();
   // btPersistentManifold getManifoldByIndexInternal(long index);
 };
 
 interface btCollisionDispatcher {
   void btCollisionDispatcher(btDefaultCollisionConfiguration conf);
 };
-btCollisionDispatcher implements btDispatcher;
+// btCollisionDispatcher implements btDispatcher;
 
 interface btOverlappingPairCallback {
 };
 
 interface btOverlappingPairCache {
   void setInternalGhostPairCallback(btOverlappingPairCallback ghostPairCallback);
-  [Const] float getNumOverlappingPairs();
+  // [Const] float getNumOverlappingPairs();
 };
 
 // interface btAxisSweep3 {
@@ -674,10 +674,10 @@ interface btDbvtBroadphase {
   void optimize();
 };
 
-interface btBroadphaseProxy {
-  attribute long m_collisionFilterGroup;
-  attribute long m_collisionFilterMask;
-};
+// interface btBroadphaseProxy {
+//   attribute long m_collisionFilterGroup;
+//   attribute long m_collisionFilterMask;
+// };
 
 
 // Dynamics
@@ -685,24 +685,24 @@ interface btBroadphaseProxy {
 [Prefix="btRigidBody::"]
 interface btRigidBodyConstructionInfo {
   void btRigidBodyConstructionInfo(float mass, btMotionState motionState, btCollisionShape collisionShape, [Ref] optional btVector3 localInertia);
-  attribute float m_linearDamping;
-  attribute float m_angularDamping;
-  attribute float m_friction;
-  attribute float m_rollingFriction;
-  attribute float m_restitution;
-  attribute float m_linearSleepingThreshold;
-  attribute float m_angularSleepingThreshold;
-  attribute boolean m_additionalDamping;
-  attribute float m_additionalDampingFactor;
-  attribute float m_additionalLinearDampingThresholdSqr;
-  attribute float m_additionalAngularDampingThresholdSqr;
-  attribute float m_additionalAngularDampingFactor;
+  // attribute float m_linearDamping;
+  // attribute float m_angularDamping;
+  // attribute float m_friction;
+  // attribute float m_rollingFriction;
+  // attribute float m_restitution;
+  // attribute float m_linearSleepingThreshold;
+  // attribute float m_angularSleepingThreshold;
+  // attribute boolean m_additionalDamping;
+  // attribute float m_additionalDampingFactor;
+  // attribute float m_additionalLinearDampingThresholdSqr;
+  // attribute float m_additionalAngularDampingThresholdSqr;
+  // attribute float m_additionalAngularDampingFactor;
 };
 
 interface btRigidBody {
   void btRigidBody([Const, Ref] btRigidBodyConstructionInfo constructionInfo);
 
-  [Const, Ref] btTransform getCenterOfMassTransform();
+  // [Const, Ref] btTransform getCenterOfMassTransform();
   // void setCenterOfMassTransform([Const, Ref] btTransform xform);
   // void setSleepingThresholds(float linear, float angular);
   // [Const] float getLinearDamping();
@@ -753,12 +753,12 @@ btRigidBody implements btCollisionObject;
 //   void setParam(long num, float value, long axis);
 // };
 
-enum btConstraintParams {
-  "BT_CONSTRAINT_ERP",
-  "BT_CONSTRAINT_STOP_ERP",
-  "BT_CONSTRAINT_CFM",
-  "BT_CONSTRAINT_STOP_CFM"
-};
+// enum btConstraintParams {
+//   "BT_CONSTRAINT_ERP",
+//   "BT_CONSTRAINT_STOP_ERP",
+//   "BT_CONSTRAINT_CFM",
+//   "BT_CONSTRAINT_STOP_CFM"
+// };
 
 // interface btPoint2PointConstraint {
 //   void btPoint2PointConstraint([Ref] btRigidBody rbA, [Ref] btRigidBody rbB, [Ref] btVector3 pivotInA, [Ref] btVector3 pivotInB);
@@ -798,6 +798,7 @@ enum btConstraintParams {
 interface btSequentialImpulseConstraintSolver {
   void btSequentialImpulseConstraintSolver();
 };
+btSequentialImpulseConstraintSolver implements btConstraintSolver;
 
 // interface btConeTwistConstraint {
 //   void btConeTwistConstraint([Ref] btRigidBody rbA, [Ref] btRigidBody rbB, [Ref] btTransform rbAFrame, [Ref] btTransform rbBFrame);
@@ -859,19 +860,19 @@ interface btSequentialImpulseConstraintSolver {
 interface btConstraintSolver {
 };
 
-interface btDispatcherInfo {
-  attribute float m_timeStep;
-  attribute long m_stepCount;
-  attribute long m_dispatchFunc;
-  attribute float m_timeOfImpact;
-  attribute boolean m_useContinuous;
-  attribute boolean m_enableSatConvex;
-  attribute boolean m_enableSPU;
-  attribute boolean m_useEpa;
-  attribute float m_allowedCcdPenetration;
-  attribute boolean m_useConvexConservativeDistanceUtil;
-  attribute float m_convexConservativeDistanceThreshold;
-};
+// interface btDispatcherInfo {
+//   attribute float m_timeStep;
+//   attribute long m_stepCount;
+//   attribute long m_dispatchFunc;
+//   attribute float m_timeOfImpact;
+//   attribute boolean m_useContinuous;
+//   attribute boolean m_enableSatConvex;
+//   attribute boolean m_enableSPU;
+//   attribute boolean m_useEpa;
+//   attribute float m_allowedCcdPenetration;
+//   attribute boolean m_useConvexConservativeDistanceUtil;
+//   attribute float m_convexConservativeDistanceThreshold;
+// };
 
 interface btCollisionWorld {
   btDispatcher getDispatcher();
@@ -880,7 +881,7 @@ interface btCollisionWorld {
   // [Ref] btDispatcherInfo getDispatchInfo();
   void addCollisionObject(btCollisionObject collisionObject, optional short collisionFilterGroup, optional short collisionFilterMask);
   void removeCollisionObject(btCollisionObject collisionObject);
-  [Const] btBroadphaseInterface getBroadphase ();
+  [Const] btBroadphaseInterface getBroadphase();
   // void convexSweepTest([Const] btConvexShape castShape, [Const, Ref] btTransform from, [Const, Ref] btTransform to, [Ref] ConvexResultCallback resultCallback, float allowedCcdPenetration);
   // void contactPairTest(btCollisionObject colObjA, btCollisionObject colObjB, [Ref] ContactResultCallback resultCallback);
   // void contactTest(btCollisionObject colObj, [Ref] ContactResultCallback resultCallback);
@@ -891,17 +892,17 @@ interface btCollisionWorld {
   // void debugDrawObject([Const, Ref] btTransform worldTransform, [Const] btCollisionShape shape, [Const, Ref] btVector3 color);
 };
 
-interface btContactSolverInfo {
-  attribute boolean m_splitImpulse;
-  attribute long m_splitImpulsePenetrationThreshold;
-  attribute long m_numIterations;
-};
+// interface btContactSolverInfo {
+//   attribute boolean m_splitImpulse;
+//   attribute long m_splitImpulsePenetrationThreshold;
+//   attribute long m_numIterations;
+// };
 
 interface btDynamicsWorld {
   void addAction(btActionInterface action);
-  void removeAction(btActionInterface action);
-  [Ref] btContactSolverInfo getSolverInfo();
-  void setInternalTickCallback(VoidPtr cb, optional VoidPtr worldUserInfo, optional boolean isPreTick);
+  // void removeAction(btActionInterface action);
+  // [Ref] btContactSolverInfo getSolverInfo();
+  // void setInternalTickCallback(VoidPtr cb, optional VoidPtr worldUserInfo, optional boolean isPreTick);
 };
 btDynamicsWorld implements btCollisionWorld;
 
@@ -909,7 +910,7 @@ interface btDiscreteDynamicsWorld {
   void btDiscreteDynamicsWorld(btDispatcher dispatcher, btBroadphaseInterface pairCache, btConstraintSolver constraintSolver, btCollisionConfiguration collisionConfiguration);
 
   void setGravity([Ref] btVector3 gravity);
-  [Value] btVector3 getGravity();
+  // [Value] btVector3 getGravity();
 
   void addRigidBody(btRigidBody body);
   void addRigidBody(btRigidBody body, short group, short mask);
@@ -1012,7 +1013,7 @@ btDiscreteDynamicsWorld implements btDynamicsWorld;
 // };
 
 interface btActionInterface {
-    void updateAction (btCollisionWorld collisionWorld, float deltaTimeStep);
+    // void updateAction (btCollisionWorld collisionWorld, float deltaTimeStep);
 };
 
 interface btKinematicCharacterController {
@@ -1080,7 +1081,7 @@ btKinematicCharacterController implements btActionInterface;
 interface btGhostObject {
   void btGhostObject();
   long getNumOverlappingObjects();
-  btCollisionObject getOverlappingObject(long index);
+  // btCollisionObject getOverlappingObject(long index);
 };
 btGhostObject implements btCollisionObject;
 
