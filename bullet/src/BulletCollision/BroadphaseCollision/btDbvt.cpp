@@ -228,7 +228,7 @@ static void						fetchleaves(btDbvt* pdbvt,
 }
 
 //
-static void						split(	const tNodeArray& leaves,
+static void split(	const tNodeArray& leaves,
 									  tNodeArray& left,
 									  tNodeArray& right,
 									  const btVector3& org,
@@ -236,8 +236,7 @@ static void						split(	const tNodeArray& leaves,
 {
 	left.resize(0);
 	right.resize(0);
-	for(int i=0,ni=leaves.size();i<ni;++i)
-	{
+	for(int i=0,ni=leaves.size();i<ni;++i) {
 		if(btDot(axis,leaves[i]->volume.Center()-org)<0)
 			left.push_back(leaves[i]);
 		else
@@ -263,11 +262,9 @@ static btDbvtVolume				bounds(	const tNodeArray& leaves)
 }
 
 //
-static void						bottomup(	btDbvt* pdbvt,
-										 tNodeArray& leaves)
-{
-	while(leaves.size()>1)
-	{
+static void bottomup(	btDbvt* pdbvt,
+										 tNodeArray& leaves) {
+	while(leaves.size()>1) {
 		btScalar	minsize=SIMD_INFINITY;
 		int			minidx[2]={-1,-1};
 		for(int i=0;i<leaves.size();++i)
@@ -295,83 +292,80 @@ static void						bottomup(	btDbvt* pdbvt,
 	}
 }
 
+static const btVector3	axis[]={btVector3(1,0,0),
+		btVector3(0,1,0),
+		btVector3(0,0,1)};
+
 //
-static btDbvtNode*			topdown(btDbvt* pdbvt,
+static btDbvtNode* topdown(btDbvt* pdbvt,
 									tNodeArray& leaves,
 									int bu_treshold)
 {
-	static const btVector3	axis[]={btVector3(1,0,0),
-		btVector3(0,1,0),
-		btVector3(0,0,1)};
-	if(leaves.size()>1)
-	{
-		if(leaves.size()>bu_treshold)
-		{
-			const btDbvtVolume	vol=bounds(leaves);
-			const btVector3			org=vol.Center();
-			tNodeArray				sets[2];
-			int						bestaxis=-1;
-			int						bestmidp=leaves.size();
-			int						splitcount[3][2]={{0,0},{0,0},{0,0}};
-			int i;
-			for( i=0;i<leaves.size();++i)
-			{
-				const btVector3	x=leaves[i]->volume.Center()-org;
-				for(int j=0;j<3;++j)
-				{
-					++splitcount[j][btDot(x,axis[j])>0?1:0];
-				}
-			}
-			for( i=0;i<3;++i)
-			{
-				if((splitcount[i][0]>0)&&(splitcount[i][1]>0))
-				{
-					const int	midp=(int)btFabs(btScalar(splitcount[i][0]-splitcount[i][1]));
-					if(midp<bestmidp)
-					{
-						bestaxis=i;
-						bestmidp=midp;
-					}
-				}
-			}
-			if(bestaxis>=0)
-			{
-				sets[0].reserve(splitcount[bestaxis][0]);
-				sets[1].reserve(splitcount[bestaxis][1]);
-				split(leaves,sets[0],sets[1],org,axis[bestaxis]);
-			}
-			else
-			{
-				sets[0].reserve(leaves.size()/2+1);
-				sets[1].reserve(leaves.size()/2);
-				for(int i=0,ni=leaves.size();i<ni;++i)
-				{
-					sets[i&1].push_back(leaves[i]);
-				}
-			}
-			btDbvtNode*	node=createnode(pdbvt,0,vol,0);
-			node->childs[0]=topdown(pdbvt,sets[0],bu_treshold);
-			node->childs[1]=topdown(pdbvt,sets[1],bu_treshold);
-			node->childs[0]->parent=node;
-			node->childs[1]->parent=node;
-			return(node);
-		}
-		else
-		{
-			bottomup(pdbvt,leaves);
-			return(leaves[0]);
+	if (leaves.size() <= 1) {
+		return leaves[0];
+	}
+
+	if (leaves.size() <= bu_treshold) {
+		bottomup(pdbvt,leaves);
+		return leaves[0];
+	}
+
+	const btDbvtVolume	vol=bounds(leaves);
+	const btVector3			org=vol.Center();
+	tNodeArray				sets[2];
+	int						bestaxis=-1;
+	int						bestmidp=leaves.size();
+	int						splitcount[3][2]={{0,0},{0,0},{0,0}};
+	int i;
+	for(i=0; i<leaves.size(); ++i) {
+		const btVector3	x=leaves[i]->volume.Center()-org;
+		for(int j=0; j<3; ++j) {
+			++splitcount[j][btDot(x,axis[j])>0?1:0];
 		}
 	}
-	return(leaves[0]);
+	for (i=0; i<3; ++i) {
+		if ((splitcount[i][0]>0)&&(splitcount[i][1]>0)) {
+			const int	midp=(int)btFabs(btScalar(splitcount[i][0]-splitcount[i][1]));
+			if(midp<bestmidp) {
+				bestaxis=i;
+				bestmidp=midp;
+			}
+		}
+	}
+	if (bestaxis >= 0) {
+		sets[0].reserve(splitcount[bestaxis][0]);
+		sets[1].reserve(splitcount[bestaxis][1]);
+		split(leaves, sets[0], sets[1], org, axis[bestaxis]);
+
+		// I'm pretty sure this is a bug
+		if (sets[0].size() == 0 || sets[1].size() == 0) {
+			printf("failed to split nodes; size=%d, bestaxis=%i\n", leaves.size(), bestaxis);
+			sets[0].clear();
+			sets[1].clear();
+			bestaxis = -1;
+		}
+	}
+	
+	if (bestaxis < 0) {
+		sets[0].reserve(leaves.size()/2+1);
+		sets[1].reserve(leaves.size()/2);
+		for(int i=0,ni=leaves.size(); i<ni; ++i) {
+			sets[i&1].push_back(leaves[i]);
+		}
+	}
+	btDbvtNode*	node=createnode(pdbvt,0,vol,0);
+	node->childs[0]=topdown(pdbvt,sets[0],bu_treshold);
+	node->childs[1]=topdown(pdbvt,sets[1],bu_treshold);
+	node->childs[0]->parent=node;
+	node->childs[1]->parent=node;
+	return node;
 }
 
 //
-static DBVT_INLINE btDbvtNode*	sort(btDbvtNode* n,btDbvtNode*& r)
-{
+static DBVT_INLINE btDbvtNode*	sort(btDbvtNode* n,btDbvtNode*& r) {
 	btDbvtNode*	p=n->parent;
 	btAssert(n->isinternal());
-	if(p>n)
-	{
+	if(p>n) {
 		const int		i=indexof(n);
 		const int		j=1-i;
 		btDbvtNode*	s=p->childs[j];
@@ -448,8 +442,7 @@ void			btDbvt::optimizeBottomUp()
 }
 
 //
-void			btDbvt::optimizeTopDown(int bu_treshold)
-{
+void btDbvt::optimizeTopDown(int bu_treshold) {
 	if(m_root)
 	{
 		tNodeArray	leaves;
@@ -460,8 +453,7 @@ void			btDbvt::optimizeTopDown(int bu_treshold)
 }
 
 //
-void			btDbvt::optimizeIncremental(int passes)
-{
+void btDbvt::optimizeIncremental(int passes) {
 	if(passes<0) passes=m_leaves;
 	if(m_root&&(passes>0))
 	{

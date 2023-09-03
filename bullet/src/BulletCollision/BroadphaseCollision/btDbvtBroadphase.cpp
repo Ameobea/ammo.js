@@ -593,8 +593,7 @@ void							btDbvtBroadphase::collide(btDispatcher* dispatcher)
 }
 
 //
-void							btDbvtBroadphase::optimize()
-{
+void btDbvtBroadphase::optimize() {
 	m_sets[0].optimizeTopDown();
 	m_sets[1].optimizeTopDown();
 }
@@ -612,7 +611,7 @@ const btOverlappingPairCache*	btDbvtBroadphase::getOverlappingPairCache() const
 }
 
 //
-void							btDbvtBroadphase::getBroadphaseAabb(btVector3& aabbMin,btVector3& aabbMax) const
+void btDbvtBroadphase::getBroadphaseAabb(btVector3& aabbMin,btVector3& aabbMax) const
 {
 
 	ATTRIBUTE_ALIGNED16(btDbvtVolume)	bounds;

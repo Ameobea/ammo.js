@@ -313,13 +313,11 @@ void btKinematicCharacterController::stepUp(btCollisionWorld* world)
 		// fix penetration if we hit a ceiling for example
 		int numPenetrationLoops = 0;
 		m_touchingContact = false;
-		while (recoverFromPenetration(world))
-		{
+		while (recoverFromPenetration(world)) {
 			numPenetrationLoops++;
 			m_touchingContact = true;
-			if (numPenetrationLoops > 8)
-			{
-				printf("character could not recover from penetration in `stepUp` = %d\n", numPenetrationLoops);
+			if (numPenetrationLoops > 8) {
+				// printf("character could not recover from penetration in `stepUp` = %d\n", numPenetrationLoops);
 				break;
 			}
 		}
@@ -332,9 +330,7 @@ void btKinematicCharacterController::stepUp(btCollisionWorld* world)
 			m_verticalVelocity = 0.0;
 			m_currentStepOffset = m_stepHeight;
 		}
-	}
-	else
-	{
+	} else {
 		m_currentStepOffset = stepHeight;
 		m_currentPosition = m_targetPosition;
 	}
@@ -858,7 +854,7 @@ void btKinematicCharacterController::playerStep(btCollisionWorld* collisionWorld
 		m_touchingContact = true;
 		if (numPenetrationLoops > 8)
 		{
-			printf("character could not recover from penetration in `stepDown` = %d\n", numPenetrationLoops);
+			// printf("character could not recover from penetration in `stepDown` = %d\n", numPenetrationLoops);
 			break;
 		}
 	}

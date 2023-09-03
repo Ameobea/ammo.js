@@ -343,10 +343,10 @@ btCapsuleShape implements btCollisionShape;
 // };
 // btMultiSphereShape implements btCollisionShape;
 
-// interface btConeShape {
-//   void btConeShape(float radius, float height);
-// };
-// btConeShape implements btCollisionShape;
+interface btConeShape {
+  void btConeShape(float radius, float height);
+};
+btConeShape implements btCollisionShape;
 
 // interface btConeShapeX {
 //   void btConeShapeX(float radius, float height);
