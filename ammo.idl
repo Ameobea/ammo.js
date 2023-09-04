@@ -142,7 +142,7 @@ interface btCollisionObject {
   // void setCcdMotionThreshold (float ccdMotionThreshold);
   // void setCcdSweptSphereRadius (float radius);
   // long getUserIndex();
-  // void setUserIndex(long index);
+  void setUserIndex(long index);
   // VoidPtr getUserPointer();
   // void setUserPointer(VoidPtr userPointer);
   // [Const] btBroadphaseProxy getBroadphaseHandle();
@@ -1042,6 +1042,9 @@ interface btKinematicCharacterController {
   void setMaxPenetrationDepth (float d);
   // float getMaxPenetrationDepth ();
   void setStepHeight (float h);
+  float getVerticalVelocity();
+  boolean isJumping();
+  long getFloorUserIndex();
 };
 btKinematicCharacterController implements btActionInterface;
 

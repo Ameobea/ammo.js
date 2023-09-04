@@ -65,7 +65,7 @@ protected:
 
 	btVector3 m_jumpPosition;
 
-	//some internal variables
+	// some internal variables
 	btVector3 m_currentPosition;
 	btScalar m_currentStepOffset;
 	btVector3 m_targetPosition;
@@ -73,7 +73,7 @@ protected:
 	btQuaternion m_currentOrientation;
 	btQuaternion m_targetOrientation;
 
-	///keep track of the contact manifolds
+	/// keep track of the contact manifolds
 	btManifoldArray m_manifoldArray;
 
 	bool m_touchingContact;
@@ -89,6 +89,17 @@ protected:
 	btScalar m_velocityTimeInterval;
 	btVector3 m_up;
 	btVector3 m_jumpAxis;
+
+	/// If we know nothing in the world is going to move around except the player,
+	/// we can fast-path some checks.
+	bool worldIsStatic = true;
+
+	/// Stores the `userIndex` of the collision object that the player is standing on.
+	///
+	/// If `onGround()` is not true, then this is the index of the last object that the player was standing on.
+	///
+	/// Defaults to -1 if the player has never been on the ground.
+	int floorUserIndex = -1;
 
 	static btVector3* getUpAxisDirections();
 	bool m_interpolateUp;
@@ -118,13 +129,12 @@ public:
 	~btKinematicCharacterController();
 
 	///btActionInterface interface
-	virtual void updateAction(btCollisionWorld * collisionWorld, btScalar deltaTime)
-	{
+	virtual void updateAction(btCollisionWorld * collisionWorld, btScalar deltaTime) {
 		preStep(collisionWorld);
 		playerStep(collisionWorld, deltaTime);
 	}
 
-	///btActionInterface interface
+	/// btActionInterface interface
 	void debugDraw(btIDebugDraw * debugDrawer);
 
 	void setUp(const btVector3& up);
@@ -188,13 +198,18 @@ public:
 	btScalar getMaxPenetrationDepth() const;
 
 	btPairCachingGhostObject* getGhostObject();
-	void setUseGhostSweepTest(bool useGhostObjectSweepTest)
-	{
+	void setUseGhostSweepTest(bool useGhostObjectSweepTest) {
 		m_useGhostObjectSweepTest = useGhostObjectSweepTest;
 	}
 
 	bool onGround() const;
 	void setUpInterpolate(bool value);
+
+	btScalar getVerticalVelocity() const { return m_verticalVelocity; }
+
+	bool isJumping() const { return m_wasJumping; }
+
+	int getFloorUserIndex() const { return floorUserIndex; }
 };
 
 #endif  // BT_KINEMATIC_CHARACTER_CONTROLLER_H

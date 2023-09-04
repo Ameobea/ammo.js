@@ -44,33 +44,27 @@ btCollisionObject::btCollisionObject()
 	m_worldTransform.setIdentity();
 }
 
-btCollisionObject::~btCollisionObject()
-{
-}
+btCollisionObject::~btCollisionObject() {}
 
-void btCollisionObject::setActivationState(int newState) const
-{ 
-	if ( (m_activationState1 != DISABLE_DEACTIVATION) && (m_activationState1 != DISABLE_SIMULATION))
+void btCollisionObject::setActivationState(int newState) const { 
+	if ( (m_activationState1 != DISABLE_DEACTIVATION) && (m_activationState1 != DISABLE_SIMULATION)) {
 		m_activationState1 = newState;
+	}
 }
 
-void btCollisionObject::forceActivationState(int newState) const
-{
+void btCollisionObject::forceActivationState(int newState) const {
 	m_activationState1 = newState;
 }
 
-void btCollisionObject::activate(bool forceActivation) const
-{
-	if (forceActivation || !(m_collisionFlags & (CF_STATIC_OBJECT|CF_KINEMATIC_OBJECT)))
-	{
+void btCollisionObject::activate(bool forceActivation) const {
+	if (forceActivation || !(m_collisionFlags & (CF_STATIC_OBJECT|CF_KINEMATIC_OBJECT))) {
 		setActivationState(ACTIVE_TAG);
 		m_deactivationTime = btScalar(0.);
 	}
 }
 
-const char* btCollisionObject::serialize(void* dataBuffer, btSerializer* serializer) const
-{
-
+const char* btCollisionObject::serialize(void* dataBuffer, btSerializer* serializer) const {
+	return 0;
 	btCollisionObjectData* dataOut = (btCollisionObjectData*)dataBuffer;
 
 	m_worldTransform.serialize(dataOut->m_worldTransform);
@@ -110,6 +104,7 @@ const char* btCollisionObject::serialize(void* dataBuffer, btSerializer* seriali
 
 void btCollisionObject::serializeSingleObject(class btSerializer* serializer) const
 {
+	return;
 	int len = calculateSerializeBufferSize();
 	btChunk* chunk = serializer->allocate(len,1);
 	const char* structType = serialize(chunk->m_oldPtr, serializer);

@@ -1339,6 +1339,7 @@ SIMD_FORCE_INLINE void	btVector3::deSerializeDouble(const struct	btVector3Double
 
 SIMD_FORCE_INLINE	void	btVector3::serialize(struct	btVector3Data& dataOut) const
 {
+	return;
 	///could also do a memcpy, check if it is worth it
 	for (int i=0;i<4;i++)
 		dataOut.m_floats[i] = m_floats[i];

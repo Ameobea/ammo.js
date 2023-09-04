@@ -862,6 +862,7 @@ unsigned btQuantizedBvh::calculateSerializeBufferSize() const
 
 bool btQuantizedBvh::serialize(void *o_alignedDataBuffer, unsigned /*i_dataBufferSize */, bool i_swapEndian) const
 {
+	return false;
 	btAssert(m_subtreeHeaderCount == m_SubtreeHeaders.size());
 	m_subtreeHeaderCount = m_SubtreeHeaders.size();
 

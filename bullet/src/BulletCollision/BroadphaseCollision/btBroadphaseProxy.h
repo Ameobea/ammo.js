@@ -82,45 +82,47 @@ CONCAVE_SHAPES_END_HERE,
 
 ///The btBroadphaseProxy is the main class that can be used with the Bullet broadphases. 
 ///It stores collision shape type information, collision filter information and a client object, typically a btCollisionObject or btRigidBody.
-ATTRIBUTE_ALIGNED16(struct) btBroadphaseProxy
-{
+ATTRIBUTE_ALIGNED16(struct) btBroadphaseProxy {
 
 BT_DECLARE_ALIGNED_ALLOCATOR();
 	
 	///optional filtering to cull potential collisions
-	enum CollisionFilterGroups
-	{
-	        DefaultFilter = 1,
-	        StaticFilter = 2,
-	        KinematicFilter = 4,
-	        DebrisFilter = 8,
-			SensorTrigger = 16,
-			CharacterFilter = 32,
-	        AllFilter = -1 //all bits sets: DefaultFilter | StaticFilter | KinematicFilter | DebrisFilter | SensorTrigger
+	enum CollisionFilterGroups {
+		DefaultFilter = 1,
+		StaticFilter = 2,
+		KinematicFilter = 4,
+		DebrisFilter = 8,
+		SensorTrigger = 16,
+		CharacterFilter = 32,
+		AllFilter = -1 // all bits sets: DefaultFilter | StaticFilter | KinematicFilter | DebrisFilter | SensorTrigger
 	};
 
-	//Usually the client btCollisionObject or Rigidbody class
+	// Usually the client btCollisionObject or Rigidbody class
 	void*	m_clientObject;
 	short int m_collisionFilterGroup;
 	short int m_collisionFilterMask;
 	void*	m_multiSapParentProxy;		
-	int			m_uniqueId;//m_uniqueId is introduced for paircache. could get rid of this, by calculating the address offset etc.
+	int			m_uniqueId;// m_uniqueId is introduced for paircache. could get rid of this, by calculating the address offset etc.
 
 	btVector3	m_aabbMin;
 	btVector3	m_aabbMax;
 
-	SIMD_FORCE_INLINE int getUid() const
-	{
+	SIMD_FORCE_INLINE int getUid() const {
 		return m_uniqueId;
 	}
 
 	//used for memory pools
-	btBroadphaseProxy() :m_clientObject(0),m_multiSapParentProxy(0)
-	{
+	btBroadphaseProxy() :m_clientObject(0),m_multiSapParentProxy(0) {
 	}
 
-	btBroadphaseProxy(const btVector3& aabbMin,const btVector3& aabbMax,void* userPtr,short int collisionFilterGroup, short int collisionFilterMask,void* multiSapParentProxy=0)
-		:m_clientObject(userPtr),
+	btBroadphaseProxy(
+		const btVector3& aabbMin,
+		const btVector3& aabbMax,
+		void* userPtr,
+		short int collisionFilterGroup,
+		short int collisionFilterMask,
+		void* multiSapParentProxy=0
+	): m_clientObject(userPtr),
 		m_collisionFilterGroup(collisionFilterGroup),
 		m_collisionFilterMask(collisionFilterMask),
 		m_aabbMin(aabbMin),
@@ -129,70 +131,53 @@ BT_DECLARE_ALIGNED_ALLOCATOR();
 		m_multiSapParentProxy = multiSapParentProxy;
 	}
 
-	
-
-	static SIMD_FORCE_INLINE bool isPolyhedral(int proxyType)
-	{
+	static SIMD_FORCE_INLINE bool isPolyhedral(int proxyType) {
 		return (proxyType  < IMPLICIT_CONVEX_SHAPES_START_HERE);
 	}
 
-	static SIMD_FORCE_INLINE bool	isConvex(int proxyType)
-	{
+	static SIMD_FORCE_INLINE bool	isConvex(int proxyType) {
 		return (proxyType < CONCAVE_SHAPES_START_HERE);
 	}
 
-	static SIMD_FORCE_INLINE bool	isNonMoving(int proxyType)
-	{
+	static SIMD_FORCE_INLINE bool	isNonMoving(int proxyType) {
 		return (isConcave(proxyType) && !(proxyType==GIMPACT_SHAPE_PROXYTYPE));
 	}
 
-	static SIMD_FORCE_INLINE bool	isConcave(int proxyType)
-	{
+	static SIMD_FORCE_INLINE bool	isConcave(int proxyType) {
 		return ((proxyType > CONCAVE_SHAPES_START_HERE) &&
 			(proxyType < CONCAVE_SHAPES_END_HERE));
 	}
-	static SIMD_FORCE_INLINE bool	isCompound(int proxyType)
-	{
+	static SIMD_FORCE_INLINE bool	isCompound(int proxyType) {
 		return (proxyType == COMPOUND_SHAPE_PROXYTYPE);
 	}
 
-	static SIMD_FORCE_INLINE bool	isSoftBody(int proxyType)
-	{
+	static SIMD_FORCE_INLINE bool	isSoftBody(int proxyType) {
 		return (proxyType == SOFTBODY_SHAPE_PROXYTYPE);
 	}
 
-	static SIMD_FORCE_INLINE bool isInfinite(int proxyType)
-	{
+	static SIMD_FORCE_INLINE bool isInfinite(int proxyType) {
 		return (proxyType == STATIC_PLANE_PROXYTYPE);
 	}
 
-	static SIMD_FORCE_INLINE bool isConvex2d(int proxyType)
-	{
+	static SIMD_FORCE_INLINE bool isConvex2d(int proxyType) {
 		return (proxyType == BOX_2D_SHAPE_PROXYTYPE) ||	(proxyType == CONVEX_2D_SHAPE_PROXYTYPE);
-	}
-
-	
-}
-;
+	}	
+};
 
 class btCollisionAlgorithm;
 
 struct btBroadphaseProxy;
 
-
-
 ///The btBroadphasePair class contains a pair of aabb-overlapping objects.
 ///A btDispatcher can search a btCollisionAlgorithm that performs exact/narrowphase collision detection on the actual collision shapes.
-ATTRIBUTE_ALIGNED16(struct) btBroadphasePair
-{
+ATTRIBUTE_ALIGNED16(struct) btBroadphasePair {
 	btBroadphasePair ()
 		:
 	m_pProxy0(0),
 		m_pProxy1(0),
 		m_algorithm(0),
 		m_internalInfo1(0)
-	{
-	}
+	{ }
 
 BT_DECLARE_ALIGNED_ALLOCATOR();
 
@@ -200,54 +185,34 @@ BT_DECLARE_ALIGNED_ALLOCATOR();
 		:		m_pProxy0(other.m_pProxy0),
 				m_pProxy1(other.m_pProxy1),
 				m_algorithm(other.m_algorithm),
-				m_internalInfo1(other.m_internalInfo1)
-	{
-	}
-	btBroadphasePair(btBroadphaseProxy& proxy0,btBroadphaseProxy& proxy1)
-	{
+				m_internalInfo1(other.m_internalInfo1) {}
 
-		//keep them sorted, so the std::set operations work
-		if (proxy0.m_uniqueId < proxy1.m_uniqueId)
-        { 
-            m_pProxy0 = &proxy0; 
-            m_pProxy1 = &proxy1; 
-        }
-        else 
-        { 
+	btBroadphasePair(btBroadphaseProxy& proxy0,btBroadphaseProxy& proxy1) {
+		// keep them sorted, so the std::set operations work
+		if (proxy0.m_uniqueId < proxy1.m_uniqueId) { 
+			m_pProxy0 = &proxy0; 
+			m_pProxy1 = &proxy1; 
+		} else { 
 			m_pProxy0 = &proxy1; 
-            m_pProxy1 = &proxy0; 
-        }
+			m_pProxy1 = &proxy0; 
+    }
 
 		m_algorithm = 0;
 		m_internalInfo1 = 0;
-
 	}
 	
 	btBroadphaseProxy* m_pProxy0;
 	btBroadphaseProxy* m_pProxy1;
 	
 	mutable btCollisionAlgorithm* m_algorithm;
-	union { void* m_internalInfo1; int m_internalTmpValue;};//don't use this data, it will be removed in future version.
+	union { void* m_internalInfo1; int m_internalTmpValue;}; //don't use this data, it will be removed in future version.
 
 };
 
-/*
-//comparison for set operation, see Solid DT_Encounter
-SIMD_FORCE_INLINE bool operator<(const btBroadphasePair& a, const btBroadphasePair& b) 
-{ 
-    return a.m_pProxy0 < b.m_pProxy0 || 
-        (a.m_pProxy0 == b.m_pProxy0 && a.m_pProxy1 < b.m_pProxy1); 
-}
-*/
-
-
-
-class btBroadphasePairSortPredicate
-{
+class btBroadphasePairSortPredicate {
 	public:
 
-		bool operator() ( const btBroadphasePair& a, const btBroadphasePair& b ) const
-		{
+		bool operator() ( const btBroadphasePair& a, const btBroadphasePair& b ) const {
 			const int uidA0 = a.m_pProxy0 ? a.m_pProxy0->m_uniqueId : -1;
 			const int uidB0 = b.m_pProxy0 ? b.m_pProxy0->m_uniqueId : -1;
 			const int uidA1 = a.m_pProxy1 ? a.m_pProxy1->m_uniqueId : -1;
@@ -259,12 +224,9 @@ class btBroadphasePairSortPredicate
 		}
 };
 
-
 SIMD_FORCE_INLINE bool operator==(const btBroadphasePair& a, const btBroadphasePair& b) 
 {
 	 return (a.m_pProxy0 == b.m_pProxy0) && (a.m_pProxy1 == b.m_pProxy1);
 }
 
-
 #endif //BT_BROADPHASE_PROXY_H
-

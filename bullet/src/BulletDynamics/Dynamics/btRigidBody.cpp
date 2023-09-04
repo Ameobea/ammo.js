@@ -360,6 +360,7 @@ int	btRigidBody::calculateSerializeBufferSize()	const
 	///fills the dataBuffer and returns the struct name (and 0 on failure)
 const char*	btRigidBody::serialize(void* dataBuffer, class btSerializer* serializer) const
 {
+	return 0;
 	btRigidBodyData* rbd = (btRigidBodyData*) dataBuffer;
 
 	btCollisionObject::serialize(&rbd->m_collisionObjectData, serializer);
@@ -388,10 +389,9 @@ const char*	btRigidBody::serialize(void* dataBuffer, class btSerializer* seriali
 	return btRigidBodyDataName;
 }
 
-
-
 void btRigidBody::serializeSingleObject(class btSerializer* serializer) const
 {
+	return;
 	btChunk* chunk = serializer->allocate(calculateSerializeBufferSize(),1);
 	const char* structType = serialize(chunk->m_oldPtr, serializer);
 	serializer->finalizeChunk(chunk,structType,BT_RIGIDBODY_CODE,(void*)this);

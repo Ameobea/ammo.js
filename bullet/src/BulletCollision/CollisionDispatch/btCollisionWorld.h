@@ -260,11 +260,9 @@ public:
 			
 			m_closestHitFraction = rayResult.m_hitFraction;
 			m_collisionObject = rayResult.m_collisionObject;
-			if (normalInWorldSpace)
-			{
+			if (normalInWorldSpace) {
 				m_hitNormalWorld = rayResult.m_hitNormalLocal;
-			} else
-			{
+			} else {
 				///need to transform normal into worldspace
 				m_hitNormalWorld = m_collisionObject->getWorldTransform().getBasis()*rayResult.m_hitNormalLocal;
 			}
@@ -273,13 +271,10 @@ public:
 		}
 	};
 
-	struct	AllHitsRayResultCallback : public RayResultCallback
-	{
+	struct AllHitsRayResultCallback : public RayResultCallback {
 		AllHitsRayResultCallback(const btVector3&	rayFromWorld,const btVector3&	rayToWorld)
 		:m_rayFromWorld(rayFromWorld),
-		m_rayToWorld(rayToWorld)
-		{
-		}
+		m_rayToWorld(rayToWorld) {}
 
 		btAlignedObjectArray<const btCollisionObject*>		m_collisionObjects;
 
@@ -290,16 +285,13 @@ public:
 		btAlignedObjectArray<btVector3>	m_hitPointWorld;
 		btAlignedObjectArray<btScalar> m_hitFractions;
 			
-		virtual	btScalar	addSingleResult(LocalRayResult& rayResult,bool normalInWorldSpace)
-		{
+		virtual	btScalar	addSingleResult(LocalRayResult& rayResult,bool normalInWorldSpace) {
 			m_collisionObject = rayResult.m_collisionObject;
 			m_collisionObjects.push_back(rayResult.m_collisionObject);
 			btVector3 hitNormalWorld;
-			if (normalInWorldSpace)
-			{
+			if (normalInWorldSpace) {
 				hitNormalWorld = rayResult.m_hitNormalLocal;
-			} else
-			{
+			} else {
 				///need to transform normal into worldspace
 				hitNormalWorld = m_collisionObject->getWorldTransform().getBasis()*rayResult.m_hitNormalLocal;
 			}
@@ -313,8 +305,7 @@ public:
 	};
 
 
-	struct LocalConvexResult
-	{
+	struct LocalConvexResult {
 		LocalConvexResult(const btCollisionObject*	hitCollisionObject, 
 			LocalShapeInfo*	localShapeInfo,
 			const btVector3&		hitNormalLocal,
@@ -325,9 +316,7 @@ public:
 		m_localShapeInfo(localShapeInfo),
 		m_hitNormalLocal(hitNormalLocal),
 		m_hitPointLocal(hitPointLocal),
-		m_hitFraction(hitFraction)
-		{
-		}
+		m_hitFraction(hitFraction) {}
 
 		const btCollisionObject*		m_hitCollisionObject;
 		LocalShapeInfo*			m_localShapeInfo;
@@ -337,8 +326,7 @@ public:
 	};
 
 	///RayResultCallback is used to report new raycast results
-	struct	ConvexResultCallback
-	{
+	struct	ConvexResultCallback {
 		btScalar	m_closestHitFraction;
 		short int	m_collisionFilterGroup;
 		short int	m_collisionFilterMask;
@@ -346,23 +334,15 @@ public:
 		ConvexResultCallback()
 			:m_closestHitFraction(btScalar(1.)),
 			m_collisionFilterGroup(btBroadphaseProxy::DefaultFilter),
-			m_collisionFilterMask(btBroadphaseProxy::AllFilter)
-		{
-		}
+			m_collisionFilterMask(btBroadphaseProxy::AllFilter) {}
 
-		virtual ~ConvexResultCallback()
-		{
-		}
+		virtual ~ConvexResultCallback() {}
 		
-		bool	hasHit() const
-		{
+		bool	hasHit() const {
 			return (m_closestHitFraction < btScalar(1.));
 		}
 
-		
-
-		virtual bool needsCollision(btBroadphaseProxy* proxy0) const
-		{
+		virtual bool needsCollision(btBroadphaseProxy* proxy0) const {
 			bool collides = (proxy0->m_collisionFilterGroup & m_collisionFilterMask) != 0;
 			collides = collides && (m_collisionFilterGroup & proxy0->m_collisionFilterMask);
 			return collides;
@@ -371,34 +351,28 @@ public:
 		virtual	btScalar	addSingleResult(LocalConvexResult& convexResult,bool normalInWorldSpace) = 0;
 	};
 
-	struct	ClosestConvexResultCallback : public ConvexResultCallback
-	{
+	struct	ClosestConvexResultCallback : public ConvexResultCallback {
 		ClosestConvexResultCallback(const btVector3&	convexFromWorld,const btVector3&	convexToWorld)
 		:m_convexFromWorld(convexFromWorld),
 		m_convexToWorld(convexToWorld),
-		m_hitCollisionObject(0)
-		{
-		}
+		m_hitCollisionObject(0) {}
 
-		btVector3	m_convexFromWorld;//used to calculate hitPointWorld from hitFraction
+		btVector3	m_convexFromWorld; // used to calculate hitPointWorld from hitFraction
 		btVector3	m_convexToWorld;
 
 		btVector3	m_hitNormalWorld;
 		btVector3	m_hitPointWorld;
 		const btCollisionObject*	m_hitCollisionObject;
 		
-		virtual	btScalar	addSingleResult(LocalConvexResult& convexResult,bool normalInWorldSpace)
-		{
-//caller already does the filter on the m_closestHitFraction
+		virtual	btScalar	addSingleResult(LocalConvexResult& convexResult, bool normalInWorldSpace) {
+			// caller already does the filter on the m_closestHitFraction
 			btAssert(convexResult.m_hitFraction <= m_closestHitFraction);
 						
 			m_closestHitFraction = convexResult.m_hitFraction;
 			m_hitCollisionObject = convexResult.m_hitCollisionObject;
-			if (normalInWorldSpace)
-			{
+			if (normalInWorldSpace) {
 				m_hitNormalWorld = convexResult.m_hitNormalLocal;
-			} else
-			{
+			} else {
 				///need to transform normal into worldspace
 				m_hitNormalWorld = m_hitCollisionObject->getWorldTransform().getBasis()*convexResult.m_hitNormalLocal;
 			}
@@ -408,23 +382,19 @@ public:
 	};
 
 	///ContactResultCallback is used to report contact points
-	struct	ContactResultCallback
-	{
+	struct ContactResultCallback {
 		short int	m_collisionFilterGroup;
 		short int	m_collisionFilterMask;
 		
 		ContactResultCallback()
 			:m_collisionFilterGroup(btBroadphaseProxy::DefaultFilter),
 			m_collisionFilterMask(btBroadphaseProxy::AllFilter)
-		{
-		}
+		{}
 
 		virtual ~ContactResultCallback()
-		{
-		}
+		{}
 		
-		virtual bool needsCollision(btBroadphaseProxy* proxy0) const
-		{
+		virtual bool needsCollision(btBroadphaseProxy* proxy0) const {
 			bool collides = (proxy0->m_collisionFilterGroup & m_collisionFilterMask) != 0;
 			collides = collides && (m_collisionFilterGroup & proxy0->m_collisionFilterMask);
 			return collides;
@@ -433,10 +403,7 @@ public:
 		virtual	btScalar	addSingleResult(btManifoldPoint& cp,	const btCollisionObjectWrapper* colObj0Wrap,int partId0,int index0,const btCollisionObjectWrapper* colObj1Wrap,int partId1,int index1) = 0;
 	};
 
-
-
-	int	getNumCollisionObjects() const
-	{
+	int	getNumCollisionObjects() const {
 		return int(m_collisionObjects.size());
 	}
 
@@ -483,13 +450,11 @@ public:
 
 	virtual void	addCollisionObject(btCollisionObject* collisionObject,short int collisionFilterGroup=btBroadphaseProxy::DefaultFilter,short int collisionFilterMask=btBroadphaseProxy::AllFilter);
 
-	btCollisionObjectArray& getCollisionObjectArray()
-	{
+	btCollisionObjectArray& getCollisionObjectArray() {
 		return m_collisionObjects;
 	}
 
-	const btCollisionObjectArray& getCollisionObjectArray() const
-	{
+	const btCollisionObjectArray& getCollisionObjectArray() const {
 		return m_collisionObjects;
 	}
 
@@ -498,28 +463,24 @@ public:
 
 	virtual void	performDiscreteCollisionDetection();
 
-	btDispatcherInfo& getDispatchInfo()
-	{
+	btDispatcherInfo& getDispatchInfo() {
 		return m_dispatchInfo;
 	}
 
-	const btDispatcherInfo& getDispatchInfo() const
-	{
+	const btDispatcherInfo& getDispatchInfo() const {
 		return m_dispatchInfo;
 	}
 	
-	bool	getForceUpdateAllAabbs() const
-	{
+	bool	getForceUpdateAllAabbs() const {
 		return m_forceUpdateAllAabbs;
 	}
-	void setForceUpdateAllAabbs( bool forceUpdateAllAabbs)
-	{
+
+	void setForceUpdateAllAabbs( bool forceUpdateAllAabbs) {
 		m_forceUpdateAllAabbs = forceUpdateAllAabbs;
 	}
 
-	///Preliminary serialization test for Bullet 2.76. Loading those files requires a separate parser (Bullet/Demos/SerializeDemo)
+	/// Preliminary serialization test for Bullet 2.76. Loading those files requires a separate parser (Bullet/Demos/SerializeDemo)
 	virtual	void	serialize(btSerializer* serializer);
-
 };
 
 

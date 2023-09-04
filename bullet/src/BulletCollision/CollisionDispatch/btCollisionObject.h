@@ -67,12 +67,12 @@ protected:
 
 	btBroadphaseProxy*		m_broadphaseHandle;
 	btCollisionShape*		m_collisionShape;
-	///m_extensionPointer is used by some internal low-level Bullet extensions.
+	/// m_extensionPointer is used by some internal low-level Bullet extensions.
 	void*					m_extensionPointer;
 	
-	///m_rootCollisionShape is temporarily used to store the original collision shape
-	///The m_collisionShape might be temporarily replaced by a child collision shape during collision detection purposes
-	///If it is NULL, the m_collisionShape is not temporarily replaced.
+	/// m_rootCollisionShape is temporarily used to store the original collision shape
+	/// The m_collisionShape might be temporarily replaced by a child collision shape during collision detection purposes
+	/// If it is NULL, the m_collisionShape is not temporarily replaced.
 	btCollisionShape*		m_rootCollisionShape;
 
 	int				m_collisionFlags;
@@ -87,21 +87,20 @@ protected:
 	btScalar		m_restitution;
 	btScalar		m_rollingFriction;
 
-	///m_internalType is reserved to distinguish Bullet's btCollisionObject, btRigidBody, btSoftBody, btGhostObject etc.
-	///do not assign your own m_internalType unless you write a new dynamics object class.
+	/// m_internalType is reserved to distinguish Bullet's btCollisionObject, btRigidBody, btSoftBody, btGhostObject etc.
+	/// do not assign your own m_internalType unless you write a new dynamics object class.
 	int				m_internalType;
 
-	///users can point to their objects, m_userPointer is not used by Bullet, see setUserPointer/getUserPointer
-	union
-	{
+	/// users can point to their objects, m_userPointer is not used by Bullet, see setUserPointer/getUserPointer
+	union {
 		void*			m_userObjectPointer;
 		int	m_userIndex;
 	};
 
-	///time of impact calculation
+	/// time of impact calculation
 	btScalar		m_hitFraction; 
 	
-	///Swept sphere radius (0.0 by default), see btConvexConvexAlgorithm::
+	/// Swept sphere radius (0.0 by default), see btConvexConvexAlgorithm::
 	btScalar		m_ccdSweptSphereRadius;
 
 	/// Don't do continuous collision detection if the motion (in one step) is less then m_ccdMotionThreshold
@@ -110,11 +109,10 @@ protected:
 	/// If some object should have elaborate collision filtering by sub-classes
 	int			m_checkCollideWith;
 
-	///internal update revision number. It will be increased when the object changes. This allows some subsystems to perform lazy evaluation.
+	/// internal update revision number. It will be increased when the object changes. This allows some subsystems to perform lazy evaluation.
 	int			m_updateRevision;
 
-	virtual bool	checkCollideWithOverride(const btCollisionObject* /* co */) const
-	{
+	virtual bool	checkCollideWithOverride(const btCollisionObject*) const {
 		return true;
 	}
 
@@ -200,50 +198,41 @@ public:
 	}
 
 	SIMD_FORCE_INLINE bool		hasContactResponse() const {
-		return (m_collisionFlags & CF_NO_CONTACT_RESPONSE)==0;
+		return (m_collisionFlags & CF_NO_CONTACT_RESPONSE) == 0;
 	}
 
-	
 	btCollisionObject();
 
 	virtual ~btCollisionObject();
 
-	virtual void	setCollisionShape(btCollisionShape* collisionShape)
-	{
+	virtual void	setCollisionShape(btCollisionShape* collisionShape) {
 		m_updateRevision++;
 		m_collisionShape = collisionShape;
 		m_rootCollisionShape = collisionShape;
 	}
 
-	SIMD_FORCE_INLINE const btCollisionShape*	getCollisionShape() const
-	{
+	SIMD_FORCE_INLINE const btCollisionShape*	getCollisionShape() const {
 		return m_collisionShape;
 	}
 
-	SIMD_FORCE_INLINE btCollisionShape*	getCollisionShape()
-	{
+	SIMD_FORCE_INLINE btCollisionShape*	getCollisionShape() {
 		return m_collisionShape;
 	}
 
-	
-
-	
-
-	///Avoid using this internal API call, the extension pointer is used by some Bullet extensions. 
-	///If you need to store your own user pointer, use 'setUserPointer/getUserPointer' instead.
-	void*		internalGetExtensionPointer() const
-	{
+	/// Avoid using this internal API call, the extension pointer is used by some Bullet extensions. 
+	/// If you need to store your own user pointer, use 'setUserPointer/getUserPointer' instead.
+	void* internalGetExtensionPointer() const {
 		return m_extensionPointer;
 	}
-	///Avoid using this internal API call, the extension pointer is used by some Bullet extensions
-	///If you need to store your own user pointer, use 'setUserPointer/getUserPointer' instead.
-	void	internalSetExtensionPointer(void* pointer)
-	{
+
+	/// Avoid using this internal API call, the extension pointer is used by some Bullet extensions
+	/// If you need to store your own user pointer, use 'setUserPointer/getUserPointer' instead.
+	void	internalSetExtensionPointer(void* pointer) {
 		m_extensionPointer = pointer;
 	}
 
 	SIMD_FORCE_INLINE	int	getActivationState() const { return m_activationState1;}
-	
+
 	void setActivationState(int newState) const;
 
 	void	setDeactivationTime(btScalar time)
@@ -412,79 +401,66 @@ public:
 		m_collisionFlags = flags;
 	}
 	
-	///Swept sphere radius (0.0 by default), see btConvexConvexAlgorithm::
-	btScalar			getCcdSweptSphereRadius() const
-	{
+	/// Swept sphere radius (0.0 by default), see btConvexConvexAlgorithm::
+	btScalar getCcdSweptSphereRadius() const {
 		return m_ccdSweptSphereRadius;
 	}
 
-	///Swept sphere radius (0.0 by default), see btConvexConvexAlgorithm::
-	void	setCcdSweptSphereRadius(btScalar radius)
-	{
+	/// Swept sphere radius (0.0 by default), see btConvexConvexAlgorithm::
+	void setCcdSweptSphereRadius(btScalar radius) {
 		m_ccdSweptSphereRadius = radius;
 	}
 
-	btScalar 	getCcdMotionThreshold() const
-	{
+	btScalar getCcdMotionThreshold() const {
 		return m_ccdMotionThreshold;
 	}
 
-	btScalar 	getCcdSquareMotionThreshold() const
-	{
+	btScalar getCcdSquareMotionThreshold() const {
 		return m_ccdMotionThreshold*m_ccdMotionThreshold;
 	}
 
-
-
 	/// Don't do continuous collision detection if the motion (in one step) is less then m_ccdMotionThreshold
-	void	setCcdMotionThreshold(btScalar ccdMotionThreshold)
-	{
+	void setCcdMotionThreshold(btScalar ccdMotionThreshold) {
 		m_ccdMotionThreshold = ccdMotionThreshold;
 	}
 
-	///users can point to their objects, userPointer is not used by Bullet
-	void*	getUserPointer() const
-	{
+	/// users can point to their objects, userPointer is not used by Bullet
+	void*	getUserPointer() const {
 		return m_userObjectPointer;
 	}
 
-	int	getUserIndex() const
-	{
+	int	getUserIndex() const {
 		return m_userIndex;
 	}
-	///users can point to their objects, userPointer is not used by Bullet
-	void	setUserPointer(void* userPointer)
-	{
+
+	/// users can point to their objects, userPointer is not used by Bullet
+	void setUserPointer(void* userPointer) {
 		m_userObjectPointer = userPointer;
 	}
 
-	///users can point to their objects, userPointer is not used by Bullet
-	void	setUserIndex(int index)
-	{
+	/// users can point to their objects, userPointer is not used by Bullet
+	void setUserIndex(int index) {
 		m_userIndex = index;
 	}
 
-	int	getUpdateRevisionInternal() const
-	{
+	int	getUpdateRevisionInternal() const {
 		return m_updateRevision;
 	}
 
-
-	inline bool checkCollideWith(const btCollisionObject* co) const
-	{
-		if (m_checkCollideWith)
+	inline bool checkCollideWith(const btCollisionObject* co) const {
+		if (m_checkCollideWith) {
 			return checkCollideWithOverride(co);
+		}
 
 		return true;
 	}
 
 	virtual	int	calculateSerializeBufferSize()	const;
 
-	///fills the dataBuffer and returns the struct name (and 0 on failure)
+	// fills the dataBuffer and returns the struct name (and 0 on failure)
 	virtual	const char*	serialize(void* dataBuffer, class btSerializer* serializer) const;
 
 	virtual void serializeSingleObject(class btSerializer* serializer) const;
-
 };
 
 ///do not change those serialization structures, it requires an updated sBulletDNAstr/sBulletDNAstr64

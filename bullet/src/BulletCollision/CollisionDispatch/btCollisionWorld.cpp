@@ -1503,6 +1503,7 @@ void	btCollisionWorld::debugDrawWorld()
 
 void	btCollisionWorld::serializeCollisionObjects(btSerializer* serializer)
 {
+	return;
 	int i;
 	//serialize all collision objects
 	for (i=0;i<m_collisionObjects.size();i++)
@@ -1532,8 +1533,7 @@ void	btCollisionWorld::serializeCollisionObjects(btSerializer* serializer)
 }
 
 
-void	btCollisionWorld::serialize(btSerializer* serializer)
-{
+void	btCollisionWorld::serialize(btSerializer* serializer) {
 	return;
 
 	serializer->startSerialization();
