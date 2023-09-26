@@ -263,7 +263,7 @@ interface btCollisionObject {
 // ClosestConvexResultCallback implements ConvexResultCallback;
 
 interface btCollisionShape {
-  // void setLocalScaling([Const, Ref] btVector3 scaling);
+  void setLocalScaling([Const, Ref] btVector3 scaling);
   // [Const, Ref] btVector3 getLocalScaling();
   // void calculateLocalInertia(float mass, [Ref] btVector3 inertia);
   // void setMargin(float margin);
@@ -439,18 +439,18 @@ interface btTriangleMesh {
 };
 btTriangleMesh implements btStridingMeshInterface;
 
-// enum PHY_ScalarType {
-//     "PHY_FLOAT",
-//     "PHY_DOUBLE",
-//     "PHY_INTEGER",
-//     "PHY_SHORT",
-//     "PHY_FIXEDPOINT88",
-//     "PHY_UCHAR"
-// };
+enum PHY_ScalarType {
+    "PHY_FLOAT",
+    "PHY_DOUBLE",
+    "PHY_INTEGER",
+    "PHY_SHORT",
+    "PHY_FIXEDPOINT88",
+    "PHY_UCHAR"
+};
 
-// interface btConcaveShape {
-// };
-// btConcaveShape implements btCollisionShape;
+interface btConcaveShape {
+};
+btConcaveShape implements btCollisionShape;
 
 // interface btEmptyShape {
 //   void btEmptyShape();
@@ -471,12 +471,12 @@ interface btBvhTriangleMeshShape {
 };
 // btBvhTriangleMeshShape implements btTriangleMeshShape;
 
-// interface btHeightfieldTerrainShape {
-//     void btHeightfieldTerrainShape(long heightStickWidth, long heightStickLength, VoidPtr heightfieldData, float heightScale, float minHeight, float maxHeight, long upAxis, PHY_ScalarType hdt, boolean flipQuadEdges);
-//     void setMargin(float margin);
-//     float getMargin();
-// };
-// btHeightfieldTerrainShape implements btConcaveShape;
+interface btHeightfieldTerrainShape {
+    void btHeightfieldTerrainShape(long heightStickWidth, long heightStickLength, VoidPtr heightfieldData, float heightScale, float minHeight, float maxHeight, long upAxis, PHY_ScalarType hdt, boolean flipQuadEdges);
+    void setMargin(float margin);
+    float getMargin();
+};
+btHeightfieldTerrainShape implements btConcaveShape;
 
 // GImpact
 

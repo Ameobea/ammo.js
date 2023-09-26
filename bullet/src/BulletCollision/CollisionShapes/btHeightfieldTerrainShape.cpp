@@ -19,13 +19,10 @@ subject to the following restrictions:
 
 
 
-btHeightfieldTerrainShape::btHeightfieldTerrainShape
-(
+btHeightfieldTerrainShape::btHeightfieldTerrainShape(
 int heightStickWidth, int heightStickLength, const void* heightfieldData,
-btScalar heightScale, btScalar minHeight, btScalar maxHeight,int upAxis,
-PHY_ScalarType hdt, bool flipQuadEdges
-)
-{
+btScalar heightScale, btScalar minHeight, btScalar maxHeight, int upAxis,
+PHY_ScalarType hdt, bool flipQuadEdges){
 	initialize(heightStickWidth, heightStickLength, heightfieldData,
 	           heightScale, minHeight, maxHeight, upAxis, hdt,
 	           flipQuadEdges);
@@ -388,9 +385,6 @@ void	btHeightfieldTerrainShape::processAllTriangles(btTriangleCallback* callback
 			}
 		}
 	}
-
-	
-
 }
 
 void	btHeightfieldTerrainShape::calculateLocalInertia(btScalar ,btVector3& inertia) const
