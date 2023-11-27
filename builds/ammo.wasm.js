@@ -38,7 +38,7 @@ function locateFile(path) {
  return scriptDirectory + path;
 }
 
-var read_, readAsync, readBinary, setWindowTitle;
+var read_, readAsync, readBinary;
 
 if (ENVIRONMENT_IS_WEB || ENVIRONMENT_IS_WORKER) {
  if (ENVIRONMENT_IS_WORKER) {
@@ -67,7 +67,7 @@ if (ENVIRONMENT_IS_WEB || ENVIRONMENT_IS_WORKER) {
     xhr.open("GET", url, false);
     xhr.responseType = "arraybuffer";
     xhr.send(null);
-    return new Uint8Array(xhr.response);
+    return new Uint8Array(/** @type{!ArrayBuffer} */ (xhr.response));
    };
   }
   readAsync = (url, onload, onerror) => {
@@ -75,7 +75,7 @@ if (ENVIRONMENT_IS_WEB || ENVIRONMENT_IS_WORKER) {
    xhr.open("GET", url, true);
    xhr.responseType = "arraybuffer";
    xhr.onload = () => {
-    if (xhr.status == 200 || xhr.status == 0 && xhr.response) {
+    if (xhr.status == 200 || (xhr.status == 0 && xhr.response)) {
      onload(xhr.response);
      return;
     }
@@ -85,7 +85,6 @@ if (ENVIRONMENT_IS_WEB || ENVIRONMENT_IS_WORKER) {
    xhr.send(null);
   };
  }
- setWindowTitle = title => document.title = title;
 } else {}
 
 var out = Module["print"] || console.log.bind(console);
@@ -106,8 +105,6 @@ var wasmBinary;
 
 if (Module["wasmBinary"]) wasmBinary = Module["wasmBinary"];
 
-var noExitRuntime = Module["noExitRuntime"] || true;
-
 if (typeof WebAssembly != "object") {
  abort("no native wasm support detected");
 }
@@ -118,13 +115,13 @@ var ABORT = false;
 
 var EXITSTATUS;
 
-function assert(condition, text) {
+/** @type {function(*, string=)} */ function assert(condition, text) {
  if (!condition) {
   abort(text);
  }
 }
 
-var HEAP8, HEAPU8, HEAP16, HEAPU16, HEAP32, HEAPU32, HEAPF32, HEAPF64;
+var /** @type {!Int8Array} */ HEAP8, /** @type {!Uint8Array} */ HEAPU8, /** @type {!Int16Array} */ HEAP16, /** @type {!Uint16Array} */ HEAPU16, /** @type {!Int32Array} */ HEAP32, /** @type {!Uint32Array} */ HEAPU32, /** @type {!Float32Array} */ HEAPF32, /** @type {!Float64Array} */ HEAPF64;
 
 function updateMemoryViews() {
  var b = wasmMemory.buffer;
@@ -137,8 +134,6 @@ function updateMemoryViews() {
  Module["HEAPF32"] = HEAPF32 = new Float32Array(b);
  Module["HEAPF64"] = HEAPF64 = new Float64Array(b);
 }
-
-var wasmTable;
 
 var __ATPRERUN__ = [];
 
@@ -216,7 +211,7 @@ function removeRunDependency(id) {
  }
 }
 
-function abort(what) {
+/** @param {string|number=} what */ function abort(what) {
  if (Module["onAbort"]) {
   Module["onAbort"](what);
  }
@@ -225,16 +220,17 @@ function abort(what) {
  ABORT = true;
  EXITSTATUS = 1;
  what += ". Build with -sASSERTIONS for more info.";
- var e = new WebAssembly.RuntimeError(what);
+ /** @suppress {checkTypes} */ var e = new WebAssembly.RuntimeError(what);
  readyPromiseReject(e);
  throw e;
 }
 
 var dataURIPrefix = "data:application/octet-stream;base64,";
 
-function isDataURI(filename) {
- return filename.startsWith(dataURIPrefix);
-}
+/**
+ * Indicates whether filename is a base64 data URI.
+ * @noinline
+ */ var isDataURI = filename => filename.startsWith(dataURIPrefix);
 
 var wasmBinaryFile;
 
@@ -282,7 +278,7 @@ function instantiateAsync(binary, binaryFile, imports, callback) {
   return fetch(binaryFile, {
    credentials: "same-origin"
   }).then(response => {
-   var result = WebAssembly.instantiateStreaming(response, imports);
+   /** @suppress {checkTypes} */ var result = WebAssembly.instantiateStreaming(response, imports);
    return result.then(callback, function(reason) {
     err(`wasm streaming compile failed: ${reason}`);
     err("falling back to ArrayBuffer instantiation");
@@ -297,15 +293,14 @@ function createWasm() {
  var info = {
   "a": wasmImports
  };
- function receiveInstance(instance, module) {
-  var exports = instance.exports;
-  wasmExports = exports;
+ /** @param {WebAssembly.Module=} module*/ function receiveInstance(instance, module) {
+  wasmExports = instance.exports;
   wasmMemory = wasmExports["e"];
   updateMemoryViews();
-  wasmTable = wasmExports["Gc"];
+  wasmTable = wasmExports["Fc"];
   addOnInit(wasmExports["f"]);
   removeRunDependency("wasm-instantiate");
-  return exports;
+  return wasmExports;
  }
  addRunDependency("wasm-instantiate");
  function receiveInstantiationResult(result) {
@@ -329,11 +324,13 @@ var callRuntimeCallbacks = callbacks => {
  }
 };
 
+var noExitRuntime = Module["noExitRuntime"] || true;
+
 var _abort = () => {
  abort("");
 };
 
-var _emscripten_memcpy_big = (dest, src, num) => HEAPU8.copyWithin(dest, src, src + num);
+var _emscripten_memcpy_js = (dest, src, num) => HEAPU8.copyWithin(dest, src, src + num);
 
 var getHeapMax = () => 2147483648;
 
@@ -344,7 +341,7 @@ var growMemory = size => {
   wasmMemory.grow(pages);
   updateMemoryViews();
   return 1;
- } catch (e) {}
+ } /*success*/ catch (e) {}
 };
 
 var _emscripten_resize_heap = requestedSize => {
@@ -371,7 +368,15 @@ var printCharBuffers = [ null, [], [] ];
 
 var UTF8Decoder = typeof TextDecoder != "undefined" ? new TextDecoder("utf8") : undefined;
 
-var UTF8ArrayToString = (heapOrArray, idx, maxBytesToRead) => {
+/**
+     * Given a pointer 'idx' to a null-terminated UTF8-encoded string in the given
+     * array that contains uint8 values, returns a copy of that string as a
+     * Javascript String object.
+     * heapOrArray is either a regular array, or a JavaScript typed array view.
+     * @param {number} idx
+     * @param {number=} maxBytesToRead
+     * @return {string}
+     */ var UTF8ArrayToString = (heapOrArray, idx, maxBytesToRead) => {
  var endIdx = idx + maxBytesToRead;
  var endPtr = idx;
  while (heapOrArray[endPtr] && !(endPtr >= endIdx)) ++endPtr;
@@ -387,20 +392,20 @@ var UTF8ArrayToString = (heapOrArray, idx, maxBytesToRead) => {
   }
   var u1 = heapOrArray[idx++] & 63;
   if ((u0 & 224) == 192) {
-   str += String.fromCharCode((u0 & 31) << 6 | u1);
+   str += String.fromCharCode(((u0 & 31) << 6) | u1);
    continue;
   }
   var u2 = heapOrArray[idx++] & 63;
   if ((u0 & 240) == 224) {
-   u0 = (u0 & 15) << 12 | u1 << 6 | u2;
+   u0 = ((u0 & 15) << 12) | (u1 << 6) | u2;
   } else {
-   u0 = (u0 & 7) << 18 | u1 << 12 | u2 << 6 | heapOrArray[idx++] & 63;
+   u0 = ((u0 & 7) << 18) | (u1 << 12) | (u2 << 6) | (heapOrArray[idx++] & 63);
   }
   if (u0 < 65536) {
    str += String.fromCharCode(u0);
   } else {
    var ch = u0 - 65536;
-   str += String.fromCharCode(55296 | ch >> 10, 56320 | ch & 1023);
+   str += String.fromCharCode(55296 | (ch >> 10), 56320 | (ch & 1023));
   }
  }
  return str;
@@ -416,12 +421,26 @@ var printChar = (stream, curr) => {
  }
 };
 
-var UTF8ToString = (ptr, maxBytesToRead) => ptr ? UTF8ArrayToString(HEAPU8, ptr, maxBytesToRead) : "";
+/**
+     * Given a pointer 'ptr' to a null-terminated UTF8-encoded string in the
+     * emscripten HEAP, returns a copy of that string as a Javascript String object.
+     *
+     * @param {number} ptr
+     * @param {number=} maxBytesToRead - An optional length that specifies the
+     *   maximum number of bytes to read. You can omit this parameter to scan the
+     *   string until the first 0 byte. If maxBytesToRead is passed, and the string
+     *   at [ptr, ptr+maxBytesToReadr[ contains a null byte in the middle, then the
+     *   string will cut short at that byte index (i.e. maxBytesToRead will not
+     *   produce a string of exact length [ptr, ptr+maxBytesToRead[) N.B. mixing
+     *   frequent uses of UTF8ToString() with and without maxBytesToRead may throw
+     *   JS JIT optimizations off, so it is worth to consider consistently using one
+     * @return {string}
+     */ var UTF8ToString = (ptr, maxBytesToRead) => ptr ? UTF8ArrayToString(HEAPU8, ptr, maxBytesToRead) : "";
 
 var SYSCALLS = {
  varargs: undefined,
  get() {
-  var ret = HEAP32[SYSCALLS.varargs >> 2];
+  var ret = HEAP32[((+SYSCALLS.varargs) >> 2)];
   SYSCALLS.varargs += 4;
   return ret;
  },
@@ -437,15 +456,15 @@ var SYSCALLS = {
 var _fd_write = (fd, iov, iovcnt, pnum) => {
  var num = 0;
  for (var i = 0; i < iovcnt; i++) {
-  var ptr = HEAPU32[iov >> 2];
-  var len = HEAPU32[iov + 4 >> 2];
+  var ptr = HEAPU32[((iov) >> 2)];
+  var len = HEAPU32[(((iov) + (4)) >> 2)];
   iov += 8;
   for (var j = 0; j < len; j++) {
    printChar(fd, HEAPU8[ptr + j]);
   }
   num += len;
  }
- HEAPU32[pnum >> 2] = num;
+ HEAPU32[((pnum) >> 2)] = num;
  return 0;
 };
 
@@ -453,7 +472,7 @@ var uleb128Encode = (n, target) => {
  if (n < 128) {
   target.push(n);
  } else {
-  target.push(n % 128 | 128, n >> 7);
+  target.push((n % 128) | 128, n >> 7);
  }
 };
 
@@ -463,6 +482,7 @@ var sigToWasmTypes = sig => {
   "j": "i64",
   "f": "f32",
   "d": "f64",
+  "e": "externref",
   "p": "i32"
  };
  var type = {
@@ -483,10 +503,11 @@ var generateFuncType = (sig, target) => {
   "p": 127,
   "j": 126,
   "f": 125,
-  "d": 124
+  "d": 124,
+  "e": 111
  };
  target.push(96);
- uleb128Encode(sigParam.length, target);
+ /* form: func */ uleb128Encode(sigParam.length, target);
  for (var i = 0; i < sigParam.length; ++i) {
   target.push(typeCodes[sigParam[i]]);
  }
@@ -519,6 +540,8 @@ var convertJsFunctionToWasm = (func, sig) => {
 
 var wasmTableMirror = [];
 
+var wasmTable;
+
 var getWasmTableEntry = funcPtr => {
  var func = wasmTableMirror[funcPtr];
  if (!func) {
@@ -539,7 +562,7 @@ var updateTableMap = (offset, count) => {
  }
 };
 
-var functionsInTableMap = undefined;
+var functionsInTableMap;
 
 var getFunctionAddress = func => {
  if (!functionsInTableMap) {
@@ -571,7 +594,7 @@ var setWasmTableEntry = (idx, func) => {
  wasmTableMirror[idx] = wasmTable.get(idx);
 };
 
-var addFunction = (func, sig) => {
+/** @param {string=} sig */ var addFunction = (func, sig) => {
  var rtn = getFunctionAddress(func);
  if (rtn) {
   return rtn;
@@ -591,10 +614,10 @@ var addFunction = (func, sig) => {
 };
 
 var wasmImports = {
- a: _abort,
- c: _emscripten_memcpy_big,
- b: _emscripten_resize_heap,
- d: _fd_write
+ /** @export */ a: _abort,
+ /** @export */ c: _emscripten_memcpy_js,
+ /** @export */ b: _emscripten_resize_heap,
+ /** @export */ d: _fd_write
 };
 
 var wasmExports = createWasm();
@@ -925,63 +948,57 @@ var _emscripten_bind_btKinematicCharacterController_jump_1 = Module["_emscripten
 
 var _emscripten_bind_btKinematicCharacterController_setGravity_1 = Module["_emscripten_bind_btKinematicCharacterController_setGravity_1"] = (a0, a1) => (_emscripten_bind_btKinematicCharacterController_setGravity_1 = Module["_emscripten_bind_btKinematicCharacterController_setGravity_1"] = wasmExports["fc"])(a0, a1);
 
-var _emscripten_bind_btKinematicCharacterController_getGravity_0 = Module["_emscripten_bind_btKinematicCharacterController_getGravity_0"] = a0 => (_emscripten_bind_btKinematicCharacterController_getGravity_0 = Module["_emscripten_bind_btKinematicCharacterController_getGravity_0"] = wasmExports["gc"])(a0);
+var _emscripten_bind_btKinematicCharacterController_setMaxSlope_1 = Module["_emscripten_bind_btKinematicCharacterController_setMaxSlope_1"] = (a0, a1) => (_emscripten_bind_btKinematicCharacterController_setMaxSlope_1 = Module["_emscripten_bind_btKinematicCharacterController_setMaxSlope_1"] = wasmExports["gc"])(a0, a1);
 
-var _emscripten_bind_btKinematicCharacterController_setMaxSlope_1 = Module["_emscripten_bind_btKinematicCharacterController_setMaxSlope_1"] = (a0, a1) => (_emscripten_bind_btKinematicCharacterController_setMaxSlope_1 = Module["_emscripten_bind_btKinematicCharacterController_setMaxSlope_1"] = wasmExports["hc"])(a0, a1);
+var _emscripten_bind_btKinematicCharacterController_onGround_0 = Module["_emscripten_bind_btKinematicCharacterController_onGround_0"] = a0 => (_emscripten_bind_btKinematicCharacterController_onGround_0 = Module["_emscripten_bind_btKinematicCharacterController_onGround_0"] = wasmExports["hc"])(a0);
 
-var _emscripten_bind_btKinematicCharacterController_onGround_0 = Module["_emscripten_bind_btKinematicCharacterController_onGround_0"] = a0 => (_emscripten_bind_btKinematicCharacterController_onGround_0 = Module["_emscripten_bind_btKinematicCharacterController_onGround_0"] = wasmExports["ic"])(a0);
+var _emscripten_bind_btKinematicCharacterController_setMaxPenetrationDepth_1 = Module["_emscripten_bind_btKinematicCharacterController_setMaxPenetrationDepth_1"] = (a0, a1) => (_emscripten_bind_btKinematicCharacterController_setMaxPenetrationDepth_1 = Module["_emscripten_bind_btKinematicCharacterController_setMaxPenetrationDepth_1"] = wasmExports["ic"])(a0, a1);
 
-var _emscripten_bind_btKinematicCharacterController_setMaxPenetrationDepth_1 = Module["_emscripten_bind_btKinematicCharacterController_setMaxPenetrationDepth_1"] = (a0, a1) => (_emscripten_bind_btKinematicCharacterController_setMaxPenetrationDepth_1 = Module["_emscripten_bind_btKinematicCharacterController_setMaxPenetrationDepth_1"] = wasmExports["jc"])(a0, a1);
+var _emscripten_bind_btKinematicCharacterController_setStepHeight_1 = Module["_emscripten_bind_btKinematicCharacterController_setStepHeight_1"] = (a0, a1) => (_emscripten_bind_btKinematicCharacterController_setStepHeight_1 = Module["_emscripten_bind_btKinematicCharacterController_setStepHeight_1"] = wasmExports["jc"])(a0, a1);
 
-var _emscripten_bind_btKinematicCharacterController_setStepHeight_1 = Module["_emscripten_bind_btKinematicCharacterController_setStepHeight_1"] = (a0, a1) => (_emscripten_bind_btKinematicCharacterController_setStepHeight_1 = Module["_emscripten_bind_btKinematicCharacterController_setStepHeight_1"] = wasmExports["kc"])(a0, a1);
+var _emscripten_bind_btKinematicCharacterController_getVerticalVelocity_0 = Module["_emscripten_bind_btKinematicCharacterController_getVerticalVelocity_0"] = a0 => (_emscripten_bind_btKinematicCharacterController_getVerticalVelocity_0 = Module["_emscripten_bind_btKinematicCharacterController_getVerticalVelocity_0"] = wasmExports["kc"])(a0);
 
-var _emscripten_bind_btKinematicCharacterController_getVerticalVelocity_0 = Module["_emscripten_bind_btKinematicCharacterController_getVerticalVelocity_0"] = a0 => (_emscripten_bind_btKinematicCharacterController_getVerticalVelocity_0 = Module["_emscripten_bind_btKinematicCharacterController_getVerticalVelocity_0"] = wasmExports["lc"])(a0);
+var _emscripten_bind_btKinematicCharacterController_isJumping_0 = Module["_emscripten_bind_btKinematicCharacterController_isJumping_0"] = a0 => (_emscripten_bind_btKinematicCharacterController_isJumping_0 = Module["_emscripten_bind_btKinematicCharacterController_isJumping_0"] = wasmExports["lc"])(a0);
 
-var _emscripten_bind_btKinematicCharacterController_isJumping_0 = Module["_emscripten_bind_btKinematicCharacterController_isJumping_0"] = a0 => (_emscripten_bind_btKinematicCharacterController_isJumping_0 = Module["_emscripten_bind_btKinematicCharacterController_isJumping_0"] = wasmExports["mc"])(a0);
+var _emscripten_bind_btKinematicCharacterController_getFloorUserIndex_0 = Module["_emscripten_bind_btKinematicCharacterController_getFloorUserIndex_0"] = a0 => (_emscripten_bind_btKinematicCharacterController_getFloorUserIndex_0 = Module["_emscripten_bind_btKinematicCharacterController_getFloorUserIndex_0"] = wasmExports["mc"])(a0);
 
-var _emscripten_bind_btKinematicCharacterController_getFloorUserIndex_0 = Module["_emscripten_bind_btKinematicCharacterController_getFloorUserIndex_0"] = a0 => (_emscripten_bind_btKinematicCharacterController_getFloorUserIndex_0 = Module["_emscripten_bind_btKinematicCharacterController_getFloorUserIndex_0"] = wasmExports["nc"])(a0);
+var _emscripten_bind_btKinematicCharacterController___destroy___0 = Module["_emscripten_bind_btKinematicCharacterController___destroy___0"] = a0 => (_emscripten_bind_btKinematicCharacterController___destroy___0 = Module["_emscripten_bind_btKinematicCharacterController___destroy___0"] = wasmExports["nc"])(a0);
 
-var _emscripten_bind_btKinematicCharacterController___destroy___0 = Module["_emscripten_bind_btKinematicCharacterController___destroy___0"] = a0 => (_emscripten_bind_btKinematicCharacterController___destroy___0 = Module["_emscripten_bind_btKinematicCharacterController___destroy___0"] = wasmExports["oc"])(a0);
+var _emscripten_bind_btPairCachingGhostObject_btPairCachingGhostObject_0 = Module["_emscripten_bind_btPairCachingGhostObject_btPairCachingGhostObject_0"] = () => (_emscripten_bind_btPairCachingGhostObject_btPairCachingGhostObject_0 = Module["_emscripten_bind_btPairCachingGhostObject_btPairCachingGhostObject_0"] = wasmExports["oc"])();
 
-var _emscripten_bind_btPairCachingGhostObject_btPairCachingGhostObject_0 = Module["_emscripten_bind_btPairCachingGhostObject_btPairCachingGhostObject_0"] = () => (_emscripten_bind_btPairCachingGhostObject_btPairCachingGhostObject_0 = Module["_emscripten_bind_btPairCachingGhostObject_btPairCachingGhostObject_0"] = wasmExports["pc"])();
+var _emscripten_bind_btPairCachingGhostObject_isStaticObject_0 = Module["_emscripten_bind_btPairCachingGhostObject_isStaticObject_0"] = a0 => (_emscripten_bind_btPairCachingGhostObject_isStaticObject_0 = Module["_emscripten_bind_btPairCachingGhostObject_isStaticObject_0"] = wasmExports["pc"])(a0);
 
-var _emscripten_bind_btPairCachingGhostObject_isStaticObject_0 = Module["_emscripten_bind_btPairCachingGhostObject_isStaticObject_0"] = a0 => (_emscripten_bind_btPairCachingGhostObject_isStaticObject_0 = Module["_emscripten_bind_btPairCachingGhostObject_isStaticObject_0"] = wasmExports["qc"])(a0);
+var _emscripten_bind_btPairCachingGhostObject_getWorldTransform_0 = Module["_emscripten_bind_btPairCachingGhostObject_getWorldTransform_0"] = a0 => (_emscripten_bind_btPairCachingGhostObject_getWorldTransform_0 = Module["_emscripten_bind_btPairCachingGhostObject_getWorldTransform_0"] = wasmExports["qc"])(a0);
 
-var _emscripten_bind_btPairCachingGhostObject_getWorldTransform_0 = Module["_emscripten_bind_btPairCachingGhostObject_getWorldTransform_0"] = a0 => (_emscripten_bind_btPairCachingGhostObject_getWorldTransform_0 = Module["_emscripten_bind_btPairCachingGhostObject_getWorldTransform_0"] = wasmExports["rc"])(a0);
+var _emscripten_bind_btPairCachingGhostObject_setCollisionFlags_1 = Module["_emscripten_bind_btPairCachingGhostObject_setCollisionFlags_1"] = (a0, a1) => (_emscripten_bind_btPairCachingGhostObject_setCollisionFlags_1 = Module["_emscripten_bind_btPairCachingGhostObject_setCollisionFlags_1"] = wasmExports["rc"])(a0, a1);
 
-var _emscripten_bind_btPairCachingGhostObject_setCollisionFlags_1 = Module["_emscripten_bind_btPairCachingGhostObject_setCollisionFlags_1"] = (a0, a1) => (_emscripten_bind_btPairCachingGhostObject_setCollisionFlags_1 = Module["_emscripten_bind_btPairCachingGhostObject_setCollisionFlags_1"] = wasmExports["sc"])(a0, a1);
+var _emscripten_bind_btPairCachingGhostObject_setWorldTransform_1 = Module["_emscripten_bind_btPairCachingGhostObject_setWorldTransform_1"] = (a0, a1) => (_emscripten_bind_btPairCachingGhostObject_setWorldTransform_1 = Module["_emscripten_bind_btPairCachingGhostObject_setWorldTransform_1"] = wasmExports["sc"])(a0, a1);
 
-var _emscripten_bind_btPairCachingGhostObject_setWorldTransform_1 = Module["_emscripten_bind_btPairCachingGhostObject_setWorldTransform_1"] = (a0, a1) => (_emscripten_bind_btPairCachingGhostObject_setWorldTransform_1 = Module["_emscripten_bind_btPairCachingGhostObject_setWorldTransform_1"] = wasmExports["tc"])(a0, a1);
+var _emscripten_bind_btPairCachingGhostObject_setCollisionShape_1 = Module["_emscripten_bind_btPairCachingGhostObject_setCollisionShape_1"] = (a0, a1) => (_emscripten_bind_btPairCachingGhostObject_setCollisionShape_1 = Module["_emscripten_bind_btPairCachingGhostObject_setCollisionShape_1"] = wasmExports["tc"])(a0, a1);
 
-var _emscripten_bind_btPairCachingGhostObject_setCollisionShape_1 = Module["_emscripten_bind_btPairCachingGhostObject_setCollisionShape_1"] = (a0, a1) => (_emscripten_bind_btPairCachingGhostObject_setCollisionShape_1 = Module["_emscripten_bind_btPairCachingGhostObject_setCollisionShape_1"] = wasmExports["uc"])(a0, a1);
+var _emscripten_bind_btPairCachingGhostObject_setUserIndex_1 = Module["_emscripten_bind_btPairCachingGhostObject_setUserIndex_1"] = (a0, a1) => (_emscripten_bind_btPairCachingGhostObject_setUserIndex_1 = Module["_emscripten_bind_btPairCachingGhostObject_setUserIndex_1"] = wasmExports["uc"])(a0, a1);
 
-var _emscripten_bind_btPairCachingGhostObject_setUserIndex_1 = Module["_emscripten_bind_btPairCachingGhostObject_setUserIndex_1"] = (a0, a1) => (_emscripten_bind_btPairCachingGhostObject_setUserIndex_1 = Module["_emscripten_bind_btPairCachingGhostObject_setUserIndex_1"] = wasmExports["vc"])(a0, a1);
+var _emscripten_bind_btPairCachingGhostObject_getNumOverlappingObjects_0 = Module["_emscripten_bind_btPairCachingGhostObject_getNumOverlappingObjects_0"] = a0 => (_emscripten_bind_btPairCachingGhostObject_getNumOverlappingObjects_0 = Module["_emscripten_bind_btPairCachingGhostObject_getNumOverlappingObjects_0"] = wasmExports["vc"])(a0);
 
-var _emscripten_bind_btPairCachingGhostObject_getNumOverlappingObjects_0 = Module["_emscripten_bind_btPairCachingGhostObject_getNumOverlappingObjects_0"] = a0 => (_emscripten_bind_btPairCachingGhostObject_getNumOverlappingObjects_0 = Module["_emscripten_bind_btPairCachingGhostObject_getNumOverlappingObjects_0"] = wasmExports["wc"])(a0);
+var _emscripten_bind_btPairCachingGhostObject___destroy___0 = Module["_emscripten_bind_btPairCachingGhostObject___destroy___0"] = a0 => (_emscripten_bind_btPairCachingGhostObject___destroy___0 = Module["_emscripten_bind_btPairCachingGhostObject___destroy___0"] = wasmExports["wc"])(a0);
 
-var _emscripten_bind_btPairCachingGhostObject___destroy___0 = Module["_emscripten_bind_btPairCachingGhostObject___destroy___0"] = a0 => (_emscripten_bind_btPairCachingGhostObject___destroy___0 = Module["_emscripten_bind_btPairCachingGhostObject___destroy___0"] = wasmExports["xc"])(a0);
+var _emscripten_bind_btGhostPairCallback_btGhostPairCallback_0 = Module["_emscripten_bind_btGhostPairCallback_btGhostPairCallback_0"] = () => (_emscripten_bind_btGhostPairCallback_btGhostPairCallback_0 = Module["_emscripten_bind_btGhostPairCallback_btGhostPairCallback_0"] = wasmExports["xc"])();
 
-var _emscripten_bind_btGhostPairCallback_btGhostPairCallback_0 = Module["_emscripten_bind_btGhostPairCallback_btGhostPairCallback_0"] = () => (_emscripten_bind_btGhostPairCallback_btGhostPairCallback_0 = Module["_emscripten_bind_btGhostPairCallback_btGhostPairCallback_0"] = wasmExports["yc"])();
+var _emscripten_bind_btGhostPairCallback___destroy___0 = Module["_emscripten_bind_btGhostPairCallback___destroy___0"] = a0 => (_emscripten_bind_btGhostPairCallback___destroy___0 = Module["_emscripten_bind_btGhostPairCallback___destroy___0"] = wasmExports["yc"])(a0);
 
-var _emscripten_bind_btGhostPairCallback___destroy___0 = Module["_emscripten_bind_btGhostPairCallback___destroy___0"] = a0 => (_emscripten_bind_btGhostPairCallback___destroy___0 = Module["_emscripten_bind_btGhostPairCallback___destroy___0"] = wasmExports["zc"])(a0);
+var _emscripten_enum_PHY_ScalarType_PHY_FLOAT = Module["_emscripten_enum_PHY_ScalarType_PHY_FLOAT"] = () => (_emscripten_enum_PHY_ScalarType_PHY_FLOAT = Module["_emscripten_enum_PHY_ScalarType_PHY_FLOAT"] = wasmExports["zc"])();
 
-var _emscripten_enum_PHY_ScalarType_PHY_FLOAT = Module["_emscripten_enum_PHY_ScalarType_PHY_FLOAT"] = () => (_emscripten_enum_PHY_ScalarType_PHY_FLOAT = Module["_emscripten_enum_PHY_ScalarType_PHY_FLOAT"] = wasmExports["Ac"])();
+var _emscripten_enum_PHY_ScalarType_PHY_DOUBLE = Module["_emscripten_enum_PHY_ScalarType_PHY_DOUBLE"] = () => (_emscripten_enum_PHY_ScalarType_PHY_DOUBLE = Module["_emscripten_enum_PHY_ScalarType_PHY_DOUBLE"] = wasmExports["Ac"])();
 
-var _emscripten_enum_PHY_ScalarType_PHY_DOUBLE = Module["_emscripten_enum_PHY_ScalarType_PHY_DOUBLE"] = () => (_emscripten_enum_PHY_ScalarType_PHY_DOUBLE = Module["_emscripten_enum_PHY_ScalarType_PHY_DOUBLE"] = wasmExports["Bc"])();
+var _emscripten_enum_PHY_ScalarType_PHY_INTEGER = Module["_emscripten_enum_PHY_ScalarType_PHY_INTEGER"] = () => (_emscripten_enum_PHY_ScalarType_PHY_INTEGER = Module["_emscripten_enum_PHY_ScalarType_PHY_INTEGER"] = wasmExports["Bc"])();
 
-var _emscripten_enum_PHY_ScalarType_PHY_INTEGER = Module["_emscripten_enum_PHY_ScalarType_PHY_INTEGER"] = () => (_emscripten_enum_PHY_ScalarType_PHY_INTEGER = Module["_emscripten_enum_PHY_ScalarType_PHY_INTEGER"] = wasmExports["Cc"])();
+var _emscripten_enum_PHY_ScalarType_PHY_SHORT = Module["_emscripten_enum_PHY_ScalarType_PHY_SHORT"] = () => (_emscripten_enum_PHY_ScalarType_PHY_SHORT = Module["_emscripten_enum_PHY_ScalarType_PHY_SHORT"] = wasmExports["Cc"])();
 
-var _emscripten_enum_PHY_ScalarType_PHY_SHORT = Module["_emscripten_enum_PHY_ScalarType_PHY_SHORT"] = () => (_emscripten_enum_PHY_ScalarType_PHY_SHORT = Module["_emscripten_enum_PHY_ScalarType_PHY_SHORT"] = wasmExports["Dc"])();
+var _emscripten_enum_PHY_ScalarType_PHY_FIXEDPOINT88 = Module["_emscripten_enum_PHY_ScalarType_PHY_FIXEDPOINT88"] = () => (_emscripten_enum_PHY_ScalarType_PHY_FIXEDPOINT88 = Module["_emscripten_enum_PHY_ScalarType_PHY_FIXEDPOINT88"] = wasmExports["Dc"])();
 
-var _emscripten_enum_PHY_ScalarType_PHY_FIXEDPOINT88 = Module["_emscripten_enum_PHY_ScalarType_PHY_FIXEDPOINT88"] = () => (_emscripten_enum_PHY_ScalarType_PHY_FIXEDPOINT88 = Module["_emscripten_enum_PHY_ScalarType_PHY_FIXEDPOINT88"] = wasmExports["Ec"])();
-
-var _emscripten_enum_PHY_ScalarType_PHY_UCHAR = Module["_emscripten_enum_PHY_ScalarType_PHY_UCHAR"] = () => (_emscripten_enum_PHY_ScalarType_PHY_UCHAR = Module["_emscripten_enum_PHY_ScalarType_PHY_UCHAR"] = wasmExports["Fc"])();
+var _emscripten_enum_PHY_ScalarType_PHY_UCHAR = Module["_emscripten_enum_PHY_ScalarType_PHY_UCHAR"] = () => (_emscripten_enum_PHY_ScalarType_PHY_UCHAR = Module["_emscripten_enum_PHY_ScalarType_PHY_UCHAR"] = wasmExports["Ec"])();
 
 var ___errno_location = () => (___errno_location = wasmExports["__errno_location"])();
-
-var ___start_em_js = Module["___start_em_js"] = 18402;
-
-var ___stop_em_js = Module["___stop_em_js"] = 18500;
 
 Module["addFunction"] = addFunction;
 
@@ -1034,7 +1051,7 @@ if (Module["preInit"]) {
 
 run();
 
-function WrapperObject() {}
+/** @suppress {duplicate} (TODO: avoid emitting this multiple times, it is redundant) */ function WrapperObject() {}
 
 WrapperObject.prototype = Object.create(WrapperObject.prototype);
 
@@ -1046,13 +1063,15 @@ WrapperObject.__cache__ = {};
 
 Module["WrapperObject"] = WrapperObject;
 
-function getCache(__class__) {
+/** @suppress {duplicate} (TODO: avoid emitting this multiple times, it is redundant)
+    @param {*=} __class__ */ function getCache(__class__) {
  return (__class__ || WrapperObject).__cache__;
 }
 
 Module["getCache"] = getCache;
 
-function wrapPointer(ptr, __class__) {
+/** @suppress {duplicate} (TODO: avoid emitting this multiple times, it is redundant)
+    @param {*=} __class__ */ function wrapPointer(ptr, __class__) {
  var cache = getCache(__class__);
  var ret = cache[ptr];
  if (ret) return ret;
@@ -1063,7 +1082,7 @@ function wrapPointer(ptr, __class__) {
 
 Module["wrapPointer"] = wrapPointer;
 
-function castObject(obj, __class__) {
+/** @suppress {duplicate} (TODO: avoid emitting this multiple times, it is redundant) */ function castObject(obj, __class__) {
  return wrapPointer(obj.ptr, __class__);
 }
 
@@ -1071,7 +1090,7 @@ Module["castObject"] = castObject;
 
 Module["NULL"] = wrapPointer(0);
 
-function destroy(obj) {
+/** @suppress {duplicate} (TODO: avoid emitting this multiple times, it is redundant) */ function destroy(obj) {
  if (!obj["__destroy__"]) throw "Error: Cannot destroy object. (Did you create it yourself?)";
  obj["__destroy__"]();
  delete getCache(obj.__class__)[obj.ptr];
@@ -1079,25 +1098,25 @@ function destroy(obj) {
 
 Module["destroy"] = destroy;
 
-function compare(obj1, obj2) {
+/** @suppress {duplicate} (TODO: avoid emitting this multiple times, it is redundant) */ function compare(obj1, obj2) {
  return obj1.ptr === obj2.ptr;
 }
 
 Module["compare"] = compare;
 
-function getPointer(obj) {
+/** @suppress {duplicate} (TODO: avoid emitting this multiple times, it is redundant) */ function getPointer(obj) {
  return obj.ptr;
 }
 
 Module["getPointer"] = getPointer;
 
-function getClass(obj) {
+/** @suppress {duplicate} (TODO: avoid emitting this multiple times, it is redundant) */ function getClass(obj) {
  return obj.__class__;
 }
 
 Module["getClass"] = getClass;
 
-var ensureCache = {
+/** @suppress {duplicate} (TODO: avoid emitting this multiple times, it is redundant) */ var ensureCache = {
  buffer: 0,
  size: 0,
  pos: 0,
@@ -1125,7 +1144,7 @@ var ensureCache = {
   assert(ensureCache.buffer);
   var bytes = view.BYTES_PER_ELEMENT;
   var len = array.length * bytes;
-  len = len + 7 & -8;
+  len = (len + 7) & -8;
   var ret;
   if (ensureCache.pos + len >= ensureCache.size) {
    assert(len > 0);
@@ -1160,7 +1179,7 @@ var ensureCache = {
  }
 };
 
-function ensureFloat32(value) {
+/** @suppress {duplicate} (TODO: avoid emitting this multiple times, it is redundant) */ function ensureFloat32(value) {
  if (typeof value === "object") {
   var offset = ensureCache.alloc(value, HEAPF32);
   ensureCache.copy(value, HEAPF32, offset);
@@ -1169,7 +1188,7 @@ function ensureFloat32(value) {
  return value;
 }
 
-function btCollisionObject() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ function btCollisionObject() {
  throw "cannot construct a btCollisionObject, no constructor in IDL";
 }
 
@@ -1183,46 +1202,46 @@ btCollisionObject.__cache__ = {};
 
 Module["btCollisionObject"] = btCollisionObject;
 
-btCollisionObject.prototype["isStaticObject"] = btCollisionObject.prototype.isStaticObject = function() {
+btCollisionObject.prototype["isStaticObject"] = btCollisionObject.prototype.isStaticObject = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
- return !!_emscripten_bind_btCollisionObject_isStaticObject_0(self);
+ return !!(_emscripten_bind_btCollisionObject_isStaticObject_0(self));
 };
 
-btCollisionObject.prototype["getWorldTransform"] = btCollisionObject.prototype.getWorldTransform = function() {
+btCollisionObject.prototype["getWorldTransform"] = btCollisionObject.prototype.getWorldTransform = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
  return wrapPointer(_emscripten_bind_btCollisionObject_getWorldTransform_0(self), btTransform);
 };
 
-btCollisionObject.prototype["setCollisionFlags"] = btCollisionObject.prototype.setCollisionFlags = function(flags) {
+btCollisionObject.prototype["setCollisionFlags"] = btCollisionObject.prototype.setCollisionFlags = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(flags) {
  var self = this.ptr;
  if (flags && typeof flags === "object") flags = flags.ptr;
  _emscripten_bind_btCollisionObject_setCollisionFlags_1(self, flags);
 };
 
-btCollisionObject.prototype["setWorldTransform"] = btCollisionObject.prototype.setWorldTransform = function(worldTrans) {
+btCollisionObject.prototype["setWorldTransform"] = btCollisionObject.prototype.setWorldTransform = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(worldTrans) {
  var self = this.ptr;
  if (worldTrans && typeof worldTrans === "object") worldTrans = worldTrans.ptr;
  _emscripten_bind_btCollisionObject_setWorldTransform_1(self, worldTrans);
 };
 
-btCollisionObject.prototype["setCollisionShape"] = btCollisionObject.prototype.setCollisionShape = function(collisionShape) {
+btCollisionObject.prototype["setCollisionShape"] = btCollisionObject.prototype.setCollisionShape = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(collisionShape) {
  var self = this.ptr;
  if (collisionShape && typeof collisionShape === "object") collisionShape = collisionShape.ptr;
  _emscripten_bind_btCollisionObject_setCollisionShape_1(self, collisionShape);
 };
 
-btCollisionObject.prototype["setUserIndex"] = btCollisionObject.prototype.setUserIndex = function(index) {
+btCollisionObject.prototype["setUserIndex"] = btCollisionObject.prototype.setUserIndex = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(index) {
  var self = this.ptr;
  if (index && typeof index === "object") index = index.ptr;
  _emscripten_bind_btCollisionObject_setUserIndex_1(self, index);
 };
 
-btCollisionObject.prototype["__destroy__"] = btCollisionObject.prototype.__destroy__ = function() {
+btCollisionObject.prototype["__destroy__"] = btCollisionObject.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
  _emscripten_bind_btCollisionObject___destroy___0(self);
 };
 
-function btCollisionShape() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ function btCollisionShape() {
  throw "cannot construct a btCollisionShape, no constructor in IDL";
 }
 
@@ -1236,18 +1255,18 @@ btCollisionShape.__cache__ = {};
 
 Module["btCollisionShape"] = btCollisionShape;
 
-btCollisionShape.prototype["setLocalScaling"] = btCollisionShape.prototype.setLocalScaling = function(scaling) {
+btCollisionShape.prototype["setLocalScaling"] = btCollisionShape.prototype.setLocalScaling = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(scaling) {
  var self = this.ptr;
  if (scaling && typeof scaling === "object") scaling = scaling.ptr;
  _emscripten_bind_btCollisionShape_setLocalScaling_1(self, scaling);
 };
 
-btCollisionShape.prototype["__destroy__"] = btCollisionShape.prototype.__destroy__ = function() {
+btCollisionShape.prototype["__destroy__"] = btCollisionShape.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
  _emscripten_bind_btCollisionShape___destroy___0(self);
 };
 
-function btCollisionWorld() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ function btCollisionWorld() {
  throw "cannot construct a btCollisionWorld, no constructor in IDL";
 }
 
@@ -1261,12 +1280,12 @@ btCollisionWorld.__cache__ = {};
 
 Module["btCollisionWorld"] = btCollisionWorld;
 
-btCollisionWorld.prototype["getDispatcher"] = btCollisionWorld.prototype.getDispatcher = function() {
+btCollisionWorld.prototype["getDispatcher"] = btCollisionWorld.prototype.getDispatcher = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
  return wrapPointer(_emscripten_bind_btCollisionWorld_getDispatcher_0(self), btDispatcher);
 };
 
-btCollisionWorld.prototype["addCollisionObject"] = btCollisionWorld.prototype.addCollisionObject = function(collisionObject, collisionFilterGroup, collisionFilterMask) {
+btCollisionWorld.prototype["addCollisionObject"] = btCollisionWorld.prototype.addCollisionObject = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(collisionObject, collisionFilterGroup, collisionFilterMask) {
  var self = this.ptr;
  if (collisionObject && typeof collisionObject === "object") collisionObject = collisionObject.ptr;
  if (collisionFilterGroup && typeof collisionFilterGroup === "object") collisionFilterGroup = collisionFilterGroup.ptr;
@@ -1282,23 +1301,23 @@ btCollisionWorld.prototype["addCollisionObject"] = btCollisionWorld.prototype.ad
  _emscripten_bind_btCollisionWorld_addCollisionObject_3(self, collisionObject, collisionFilterGroup, collisionFilterMask);
 };
 
-btCollisionWorld.prototype["removeCollisionObject"] = btCollisionWorld.prototype.removeCollisionObject = function(collisionObject) {
+btCollisionWorld.prototype["removeCollisionObject"] = btCollisionWorld.prototype.removeCollisionObject = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(collisionObject) {
  var self = this.ptr;
  if (collisionObject && typeof collisionObject === "object") collisionObject = collisionObject.ptr;
  _emscripten_bind_btCollisionWorld_removeCollisionObject_1(self, collisionObject);
 };
 
-btCollisionWorld.prototype["getBroadphase"] = btCollisionWorld.prototype.getBroadphase = function() {
+btCollisionWorld.prototype["getBroadphase"] = btCollisionWorld.prototype.getBroadphase = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
  return wrapPointer(_emscripten_bind_btCollisionWorld_getBroadphase_0(self), btBroadphaseInterface);
 };
 
-btCollisionWorld.prototype["__destroy__"] = btCollisionWorld.prototype.__destroy__ = function() {
+btCollisionWorld.prototype["__destroy__"] = btCollisionWorld.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
  _emscripten_bind_btCollisionWorld___destroy___0(self);
 };
 
-function btMotionState() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ function btMotionState() {
  throw "cannot construct a btMotionState, no constructor in IDL";
 }
 
@@ -1312,24 +1331,24 @@ btMotionState.__cache__ = {};
 
 Module["btMotionState"] = btMotionState;
 
-btMotionState.prototype["getWorldTransform"] = btMotionState.prototype.getWorldTransform = function(worldTrans) {
+btMotionState.prototype["getWorldTransform"] = btMotionState.prototype.getWorldTransform = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(worldTrans) {
  var self = this.ptr;
  if (worldTrans && typeof worldTrans === "object") worldTrans = worldTrans.ptr;
  _emscripten_bind_btMotionState_getWorldTransform_1(self, worldTrans);
 };
 
-btMotionState.prototype["setWorldTransform"] = btMotionState.prototype.setWorldTransform = function(worldTrans) {
+btMotionState.prototype["setWorldTransform"] = btMotionState.prototype.setWorldTransform = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(worldTrans) {
  var self = this.ptr;
  if (worldTrans && typeof worldTrans === "object") worldTrans = worldTrans.ptr;
  _emscripten_bind_btMotionState_setWorldTransform_1(self, worldTrans);
 };
 
-btMotionState.prototype["__destroy__"] = btMotionState.prototype.__destroy__ = function() {
+btMotionState.prototype["__destroy__"] = btMotionState.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
  _emscripten_bind_btMotionState___destroy___0(self);
 };
 
-function btStridingMeshInterface() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ function btStridingMeshInterface() {
  throw "cannot construct a btStridingMeshInterface, no constructor in IDL";
 }
 
@@ -1343,12 +1362,12 @@ btStridingMeshInterface.__cache__ = {};
 
 Module["btStridingMeshInterface"] = btStridingMeshInterface;
 
-btStridingMeshInterface.prototype["__destroy__"] = btStridingMeshInterface.prototype.__destroy__ = function() {
+btStridingMeshInterface.prototype["__destroy__"] = btStridingMeshInterface.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
  _emscripten_bind_btStridingMeshInterface___destroy___0(self);
 };
 
-function btConcaveShape() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ function btConcaveShape() {
  throw "cannot construct a btConcaveShape, no constructor in IDL";
 }
 
@@ -1362,18 +1381,18 @@ btConcaveShape.__cache__ = {};
 
 Module["btConcaveShape"] = btConcaveShape;
 
-btConcaveShape.prototype["setLocalScaling"] = btConcaveShape.prototype.setLocalScaling = function(scaling) {
+btConcaveShape.prototype["setLocalScaling"] = btConcaveShape.prototype.setLocalScaling = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(scaling) {
  var self = this.ptr;
  if (scaling && typeof scaling === "object") scaling = scaling.ptr;
  _emscripten_bind_btConcaveShape_setLocalScaling_1(self, scaling);
 };
 
-btConcaveShape.prototype["__destroy__"] = btConcaveShape.prototype.__destroy__ = function() {
+btConcaveShape.prototype["__destroy__"] = btConcaveShape.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
  _emscripten_bind_btConcaveShape___destroy___0(self);
 };
 
-function btConstraintSolver() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ function btConstraintSolver() {
  throw "cannot construct a btConstraintSolver, no constructor in IDL";
 }
 
@@ -1387,12 +1406,12 @@ btConstraintSolver.__cache__ = {};
 
 Module["btConstraintSolver"] = btConstraintSolver;
 
-btConstraintSolver.prototype["__destroy__"] = btConstraintSolver.prototype.__destroy__ = function() {
+btConstraintSolver.prototype["__destroy__"] = btConstraintSolver.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
  _emscripten_bind_btConstraintSolver___destroy___0(self);
 };
 
-function btDynamicsWorld() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ function btDynamicsWorld() {
  throw "cannot construct a btDynamicsWorld, no constructor in IDL";
 }
 
@@ -1406,18 +1425,18 @@ btDynamicsWorld.__cache__ = {};
 
 Module["btDynamicsWorld"] = btDynamicsWorld;
 
-btDynamicsWorld.prototype["addAction"] = btDynamicsWorld.prototype.addAction = function(action) {
+btDynamicsWorld.prototype["addAction"] = btDynamicsWorld.prototype.addAction = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(action) {
  var self = this.ptr;
  if (action && typeof action === "object") action = action.ptr;
  _emscripten_bind_btDynamicsWorld_addAction_1(self, action);
 };
 
-btDynamicsWorld.prototype["getDispatcher"] = btDynamicsWorld.prototype.getDispatcher = function() {
+btDynamicsWorld.prototype["getDispatcher"] = btDynamicsWorld.prototype.getDispatcher = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
  return wrapPointer(_emscripten_bind_btDynamicsWorld_getDispatcher_0(self), btDispatcher);
 };
 
-btDynamicsWorld.prototype["addCollisionObject"] = btDynamicsWorld.prototype.addCollisionObject = function(collisionObject, collisionFilterGroup, collisionFilterMask) {
+btDynamicsWorld.prototype["addCollisionObject"] = btDynamicsWorld.prototype.addCollisionObject = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(collisionObject, collisionFilterGroup, collisionFilterMask) {
  var self = this.ptr;
  if (collisionObject && typeof collisionObject === "object") collisionObject = collisionObject.ptr;
  if (collisionFilterGroup && typeof collisionFilterGroup === "object") collisionFilterGroup = collisionFilterGroup.ptr;
@@ -1433,23 +1452,23 @@ btDynamicsWorld.prototype["addCollisionObject"] = btDynamicsWorld.prototype.addC
  _emscripten_bind_btDynamicsWorld_addCollisionObject_3(self, collisionObject, collisionFilterGroup, collisionFilterMask);
 };
 
-btDynamicsWorld.prototype["removeCollisionObject"] = btDynamicsWorld.prototype.removeCollisionObject = function(collisionObject) {
+btDynamicsWorld.prototype["removeCollisionObject"] = btDynamicsWorld.prototype.removeCollisionObject = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(collisionObject) {
  var self = this.ptr;
  if (collisionObject && typeof collisionObject === "object") collisionObject = collisionObject.ptr;
  _emscripten_bind_btDynamicsWorld_removeCollisionObject_1(self, collisionObject);
 };
 
-btDynamicsWorld.prototype["getBroadphase"] = btDynamicsWorld.prototype.getBroadphase = function() {
+btDynamicsWorld.prototype["getBroadphase"] = btDynamicsWorld.prototype.getBroadphase = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
  return wrapPointer(_emscripten_bind_btDynamicsWorld_getBroadphase_0(self), btBroadphaseInterface);
 };
 
-btDynamicsWorld.prototype["__destroy__"] = btDynamicsWorld.prototype.__destroy__ = function() {
+btDynamicsWorld.prototype["__destroy__"] = btDynamicsWorld.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
  _emscripten_bind_btDynamicsWorld___destroy___0(self);
 };
 
-function btActionInterface() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ function btActionInterface() {
  throw "cannot construct a btActionInterface, no constructor in IDL";
 }
 
@@ -1463,12 +1482,12 @@ btActionInterface.__cache__ = {};
 
 Module["btActionInterface"] = btActionInterface;
 
-btActionInterface.prototype["__destroy__"] = btActionInterface.prototype.__destroy__ = function() {
+btActionInterface.prototype["__destroy__"] = btActionInterface.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
  _emscripten_bind_btActionInterface___destroy___0(self);
 };
 
-function btGhostObject() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ function btGhostObject() {
  this.ptr = _emscripten_bind_btGhostObject_btGhostObject_0();
  getCache(btGhostObject)[this.ptr] = this;
 }
@@ -1483,51 +1502,51 @@ btGhostObject.__cache__ = {};
 
 Module["btGhostObject"] = btGhostObject;
 
-btGhostObject.prototype["getNumOverlappingObjects"] = btGhostObject.prototype.getNumOverlappingObjects = function() {
+btGhostObject.prototype["getNumOverlappingObjects"] = btGhostObject.prototype.getNumOverlappingObjects = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
  return _emscripten_bind_btGhostObject_getNumOverlappingObjects_0(self);
 };
 
-btGhostObject.prototype["isStaticObject"] = btGhostObject.prototype.isStaticObject = function() {
+btGhostObject.prototype["isStaticObject"] = btGhostObject.prototype.isStaticObject = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
- return !!_emscripten_bind_btGhostObject_isStaticObject_0(self);
+ return !!(_emscripten_bind_btGhostObject_isStaticObject_0(self));
 };
 
-btGhostObject.prototype["getWorldTransform"] = btGhostObject.prototype.getWorldTransform = function() {
+btGhostObject.prototype["getWorldTransform"] = btGhostObject.prototype.getWorldTransform = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
  return wrapPointer(_emscripten_bind_btGhostObject_getWorldTransform_0(self), btTransform);
 };
 
-btGhostObject.prototype["setCollisionFlags"] = btGhostObject.prototype.setCollisionFlags = function(flags) {
+btGhostObject.prototype["setCollisionFlags"] = btGhostObject.prototype.setCollisionFlags = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(flags) {
  var self = this.ptr;
  if (flags && typeof flags === "object") flags = flags.ptr;
  _emscripten_bind_btGhostObject_setCollisionFlags_1(self, flags);
 };
 
-btGhostObject.prototype["setWorldTransform"] = btGhostObject.prototype.setWorldTransform = function(worldTrans) {
+btGhostObject.prototype["setWorldTransform"] = btGhostObject.prototype.setWorldTransform = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(worldTrans) {
  var self = this.ptr;
  if (worldTrans && typeof worldTrans === "object") worldTrans = worldTrans.ptr;
  _emscripten_bind_btGhostObject_setWorldTransform_1(self, worldTrans);
 };
 
-btGhostObject.prototype["setCollisionShape"] = btGhostObject.prototype.setCollisionShape = function(collisionShape) {
+btGhostObject.prototype["setCollisionShape"] = btGhostObject.prototype.setCollisionShape = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(collisionShape) {
  var self = this.ptr;
  if (collisionShape && typeof collisionShape === "object") collisionShape = collisionShape.ptr;
  _emscripten_bind_btGhostObject_setCollisionShape_1(self, collisionShape);
 };
 
-btGhostObject.prototype["setUserIndex"] = btGhostObject.prototype.setUserIndex = function(index) {
+btGhostObject.prototype["setUserIndex"] = btGhostObject.prototype.setUserIndex = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(index) {
  var self = this.ptr;
  if (index && typeof index === "object") index = index.ptr;
  _emscripten_bind_btGhostObject_setUserIndex_1(self, index);
 };
 
-btGhostObject.prototype["__destroy__"] = btGhostObject.prototype.__destroy__ = function() {
+btGhostObject.prototype["__destroy__"] = btGhostObject.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
  _emscripten_bind_btGhostObject___destroy___0(self);
 };
 
-function VoidPtr() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ function VoidPtr() {
  throw "cannot construct a VoidPtr, no constructor in IDL";
 }
 
@@ -1541,12 +1560,12 @@ VoidPtr.__cache__ = {};
 
 Module["VoidPtr"] = VoidPtr;
 
-VoidPtr.prototype["__destroy__"] = VoidPtr.prototype.__destroy__ = function() {
+VoidPtr.prototype["__destroy__"] = VoidPtr.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
  _emscripten_bind_VoidPtr___destroy___0(self);
 };
 
-function btVector3(x, y, z) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ function btVector3(x, y, z) {
  if (x && typeof x === "object") x = x.ptr;
  if (y && typeof y === "object") y = y.ptr;
  if (z && typeof z === "object") z = z.ptr;
@@ -1579,27 +1598,27 @@ btVector3.__cache__ = {};
 
 Module["btVector3"] = btVector3;
 
-btVector3.prototype["length"] = btVector3.prototype.length = function() {
+btVector3.prototype["length"] = btVector3.prototype.length = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
  return _emscripten_bind_btVector3_length_0(self);
 };
 
-btVector3.prototype["x"] = btVector3.prototype.x = function() {
+btVector3.prototype["x"] = btVector3.prototype.x = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
  return _emscripten_bind_btVector3_x_0(self);
 };
 
-btVector3.prototype["y"] = btVector3.prototype.y = function() {
+btVector3.prototype["y"] = btVector3.prototype.y = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
  return _emscripten_bind_btVector3_y_0(self);
 };
 
-btVector3.prototype["z"] = btVector3.prototype.z = function() {
+btVector3.prototype["z"] = btVector3.prototype.z = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
  return _emscripten_bind_btVector3_z_0(self);
 };
 
-btVector3.prototype["setValue"] = btVector3.prototype.setValue = function(x, y, z) {
+btVector3.prototype["setValue"] = btVector3.prototype.setValue = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(x, y, z) {
  var self = this.ptr;
  if (x && typeof x === "object") x = x.ptr;
  if (y && typeof y === "object") y = y.ptr;
@@ -1607,12 +1626,12 @@ btVector3.prototype["setValue"] = btVector3.prototype.setValue = function(x, y, 
  _emscripten_bind_btVector3_setValue_3(self, x, y, z);
 };
 
-btVector3.prototype["__destroy__"] = btVector3.prototype.__destroy__ = function() {
+btVector3.prototype["__destroy__"] = btVector3.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
  _emscripten_bind_btVector3___destroy___0(self);
 };
 
-function btQuaternion(x, y, z, w) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ function btQuaternion(x, y, z, w) {
  if (x && typeof x === "object") x = x.ptr;
  if (y && typeof y === "object") y = y.ptr;
  if (z && typeof z === "object") z = z.ptr;
@@ -1631,12 +1650,12 @@ btQuaternion.__cache__ = {};
 
 Module["btQuaternion"] = btQuaternion;
 
-btQuaternion.prototype["__destroy__"] = btQuaternion.prototype.__destroy__ = function() {
+btQuaternion.prototype["__destroy__"] = btQuaternion.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
  _emscripten_bind_btQuaternion___destroy___0(self);
 };
 
-function btTransform(q, v) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ function btTransform(q, v) {
  if (q && typeof q === "object") q = q.ptr;
  if (v && typeof v === "object") v = v.ptr;
  if (q === undefined) {
@@ -1663,34 +1682,34 @@ btTransform.__cache__ = {};
 
 Module["btTransform"] = btTransform;
 
-btTransform.prototype["setIdentity"] = btTransform.prototype.setIdentity = function() {
+btTransform.prototype["setIdentity"] = btTransform.prototype.setIdentity = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
  _emscripten_bind_btTransform_setIdentity_0(self);
 };
 
-btTransform.prototype["setOrigin"] = btTransform.prototype.setOrigin = function(origin) {
+btTransform.prototype["setOrigin"] = btTransform.prototype.setOrigin = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(origin) {
  var self = this.ptr;
  if (origin && typeof origin === "object") origin = origin.ptr;
  _emscripten_bind_btTransform_setOrigin_1(self, origin);
 };
 
-btTransform.prototype["setRotation"] = btTransform.prototype.setRotation = function(rotation) {
+btTransform.prototype["setRotation"] = btTransform.prototype.setRotation = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(rotation) {
  var self = this.ptr;
  if (rotation && typeof rotation === "object") rotation = rotation.ptr;
  _emscripten_bind_btTransform_setRotation_1(self, rotation);
 };
 
-btTransform.prototype["getOrigin"] = btTransform.prototype.getOrigin = function() {
+btTransform.prototype["getOrigin"] = btTransform.prototype.getOrigin = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
  return wrapPointer(_emscripten_bind_btTransform_getOrigin_0(self), btVector3);
 };
 
-btTransform.prototype["__destroy__"] = btTransform.prototype.__destroy__ = function() {
+btTransform.prototype["__destroy__"] = btTransform.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
  _emscripten_bind_btTransform___destroy___0(self);
 };
 
-function btDefaultMotionState(startTrans, centerOfMassOffset) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ function btDefaultMotionState(startTrans, centerOfMassOffset) {
  if (startTrans && typeof startTrans === "object") startTrans = startTrans.ptr;
  if (centerOfMassOffset && typeof centerOfMassOffset === "object") centerOfMassOffset = centerOfMassOffset.ptr;
  if (startTrans === undefined) {
@@ -1717,24 +1736,24 @@ btDefaultMotionState.__cache__ = {};
 
 Module["btDefaultMotionState"] = btDefaultMotionState;
 
-btDefaultMotionState.prototype["getWorldTransform"] = btDefaultMotionState.prototype.getWorldTransform = function(worldTrans) {
+btDefaultMotionState.prototype["getWorldTransform"] = btDefaultMotionState.prototype.getWorldTransform = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(worldTrans) {
  var self = this.ptr;
  if (worldTrans && typeof worldTrans === "object") worldTrans = worldTrans.ptr;
  _emscripten_bind_btDefaultMotionState_getWorldTransform_1(self, worldTrans);
 };
 
-btDefaultMotionState.prototype["setWorldTransform"] = btDefaultMotionState.prototype.setWorldTransform = function(worldTrans) {
+btDefaultMotionState.prototype["setWorldTransform"] = btDefaultMotionState.prototype.setWorldTransform = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(worldTrans) {
  var self = this.ptr;
  if (worldTrans && typeof worldTrans === "object") worldTrans = worldTrans.ptr;
  _emscripten_bind_btDefaultMotionState_setWorldTransform_1(self, worldTrans);
 };
 
-btDefaultMotionState.prototype["__destroy__"] = btDefaultMotionState.prototype.__destroy__ = function() {
+btDefaultMotionState.prototype["__destroy__"] = btDefaultMotionState.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
  _emscripten_bind_btDefaultMotionState___destroy___0(self);
 };
 
-function btConvexShape() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ function btConvexShape() {
  throw "cannot construct a btConvexShape, no constructor in IDL";
 }
 
@@ -1748,18 +1767,18 @@ btConvexShape.__cache__ = {};
 
 Module["btConvexShape"] = btConvexShape;
 
-btConvexShape.prototype["setLocalScaling"] = btConvexShape.prototype.setLocalScaling = function(scaling) {
+btConvexShape.prototype["setLocalScaling"] = btConvexShape.prototype.setLocalScaling = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(scaling) {
  var self = this.ptr;
  if (scaling && typeof scaling === "object") scaling = scaling.ptr;
  _emscripten_bind_btConvexShape_setLocalScaling_1(self, scaling);
 };
 
-btConvexShape.prototype["__destroy__"] = btConvexShape.prototype.__destroy__ = function() {
+btConvexShape.prototype["__destroy__"] = btConvexShape.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
  _emscripten_bind_btConvexShape___destroy___0(self);
 };
 
-function btBoxShape(boxHalfExtents) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ function btBoxShape(boxHalfExtents) {
  if (boxHalfExtents && typeof boxHalfExtents === "object") boxHalfExtents = boxHalfExtents.ptr;
  this.ptr = _emscripten_bind_btBoxShape_btBoxShape_1(boxHalfExtents);
  getCache(btBoxShape)[this.ptr] = this;
@@ -1775,18 +1794,18 @@ btBoxShape.__cache__ = {};
 
 Module["btBoxShape"] = btBoxShape;
 
-btBoxShape.prototype["setLocalScaling"] = btBoxShape.prototype.setLocalScaling = function(scaling) {
+btBoxShape.prototype["setLocalScaling"] = btBoxShape.prototype.setLocalScaling = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(scaling) {
  var self = this.ptr;
  if (scaling && typeof scaling === "object") scaling = scaling.ptr;
  _emscripten_bind_btBoxShape_setLocalScaling_1(self, scaling);
 };
 
-btBoxShape.prototype["__destroy__"] = btBoxShape.prototype.__destroy__ = function() {
+btBoxShape.prototype["__destroy__"] = btBoxShape.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
  _emscripten_bind_btBoxShape___destroy___0(self);
 };
 
-function btCapsuleShape(radius, height) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ function btCapsuleShape(radius, height) {
  if (radius && typeof radius === "object") radius = radius.ptr;
  if (height && typeof height === "object") height = height.ptr;
  this.ptr = _emscripten_bind_btCapsuleShape_btCapsuleShape_2(radius, height);
@@ -1803,18 +1822,18 @@ btCapsuleShape.__cache__ = {};
 
 Module["btCapsuleShape"] = btCapsuleShape;
 
-btCapsuleShape.prototype["setLocalScaling"] = btCapsuleShape.prototype.setLocalScaling = function(scaling) {
+btCapsuleShape.prototype["setLocalScaling"] = btCapsuleShape.prototype.setLocalScaling = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(scaling) {
  var self = this.ptr;
  if (scaling && typeof scaling === "object") scaling = scaling.ptr;
  _emscripten_bind_btCapsuleShape_setLocalScaling_1(self, scaling);
 };
 
-btCapsuleShape.prototype["__destroy__"] = btCapsuleShape.prototype.__destroy__ = function() {
+btCapsuleShape.prototype["__destroy__"] = btCapsuleShape.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
  _emscripten_bind_btCapsuleShape___destroy___0(self);
 };
 
-function btConeShape(radius, height) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ function btConeShape(radius, height) {
  if (radius && typeof radius === "object") radius = radius.ptr;
  if (height && typeof height === "object") height = height.ptr;
  this.ptr = _emscripten_bind_btConeShape_btConeShape_2(radius, height);
@@ -1831,18 +1850,18 @@ btConeShape.__cache__ = {};
 
 Module["btConeShape"] = btConeShape;
 
-btConeShape.prototype["setLocalScaling"] = btConeShape.prototype.setLocalScaling = function(scaling) {
+btConeShape.prototype["setLocalScaling"] = btConeShape.prototype.setLocalScaling = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(scaling) {
  var self = this.ptr;
  if (scaling && typeof scaling === "object") scaling = scaling.ptr;
  _emscripten_bind_btConeShape_setLocalScaling_1(self, scaling);
 };
 
-btConeShape.prototype["__destroy__"] = btConeShape.prototype.__destroy__ = function() {
+btConeShape.prototype["__destroy__"] = btConeShape.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
  _emscripten_bind_btConeShape___destroy___0(self);
 };
 
-function btConvexHullShape(points, numPoints) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ function btConvexHullShape(points, numPoints) {
  ensureCache.prepare();
  if (typeof points == "object") {
   points = ensureFloat32(points);
@@ -1872,7 +1891,7 @@ btConvexHullShape.__cache__ = {};
 
 Module["btConvexHullShape"] = btConvexHullShape;
 
-btConvexHullShape.prototype["addPoint"] = btConvexHullShape.prototype.addPoint = function(point, recalculateLocalAABB) {
+btConvexHullShape.prototype["addPoint"] = btConvexHullShape.prototype.addPoint = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(point, recalculateLocalAABB) {
  var self = this.ptr;
  if (point && typeof point === "object") point = point.ptr;
  if (recalculateLocalAABB && typeof recalculateLocalAABB === "object") recalculateLocalAABB = recalculateLocalAABB.ptr;
@@ -1883,18 +1902,18 @@ btConvexHullShape.prototype["addPoint"] = btConvexHullShape.prototype.addPoint =
  _emscripten_bind_btConvexHullShape_addPoint_2(self, point, recalculateLocalAABB);
 };
 
-btConvexHullShape.prototype["setLocalScaling"] = btConvexHullShape.prototype.setLocalScaling = function(scaling) {
+btConvexHullShape.prototype["setLocalScaling"] = btConvexHullShape.prototype.setLocalScaling = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(scaling) {
  var self = this.ptr;
  if (scaling && typeof scaling === "object") scaling = scaling.ptr;
  _emscripten_bind_btConvexHullShape_setLocalScaling_1(self, scaling);
 };
 
-btConvexHullShape.prototype["__destroy__"] = btConvexHullShape.prototype.__destroy__ = function() {
+btConvexHullShape.prototype["__destroy__"] = btConvexHullShape.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
  _emscripten_bind_btConvexHullShape___destroy___0(self);
 };
 
-function btCompoundShape(enableDynamicAabbTree) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ function btCompoundShape(enableDynamicAabbTree) {
  if (enableDynamicAabbTree && typeof enableDynamicAabbTree === "object") enableDynamicAabbTree = enableDynamicAabbTree.ptr;
  if (enableDynamicAabbTree === undefined) {
   this.ptr = _emscripten_bind_btCompoundShape_btCompoundShape_0();
@@ -1915,25 +1934,25 @@ btCompoundShape.__cache__ = {};
 
 Module["btCompoundShape"] = btCompoundShape;
 
-btCompoundShape.prototype["addChildShape"] = btCompoundShape.prototype.addChildShape = function(localTransform, shape) {
+btCompoundShape.prototype["addChildShape"] = btCompoundShape.prototype.addChildShape = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(localTransform, shape) {
  var self = this.ptr;
  if (localTransform && typeof localTransform === "object") localTransform = localTransform.ptr;
  if (shape && typeof shape === "object") shape = shape.ptr;
  _emscripten_bind_btCompoundShape_addChildShape_2(self, localTransform, shape);
 };
 
-btCompoundShape.prototype["setLocalScaling"] = btCompoundShape.prototype.setLocalScaling = function(scaling) {
+btCompoundShape.prototype["setLocalScaling"] = btCompoundShape.prototype.setLocalScaling = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(scaling) {
  var self = this.ptr;
  if (scaling && typeof scaling === "object") scaling = scaling.ptr;
  _emscripten_bind_btCompoundShape_setLocalScaling_1(self, scaling);
 };
 
-btCompoundShape.prototype["__destroy__"] = btCompoundShape.prototype.__destroy__ = function() {
+btCompoundShape.prototype["__destroy__"] = btCompoundShape.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
  _emscripten_bind_btCompoundShape___destroy___0(self);
 };
 
-function btTriangleMesh(use32bitIndices, use4componentVertices) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ function btTriangleMesh(use32bitIndices, use4componentVertices) {
  if (use32bitIndices && typeof use32bitIndices === "object") use32bitIndices = use32bitIndices.ptr;
  if (use4componentVertices && typeof use4componentVertices === "object") use4componentVertices = use4componentVertices.ptr;
  if (use32bitIndices === undefined) {
@@ -1960,7 +1979,7 @@ btTriangleMesh.__cache__ = {};
 
 Module["btTriangleMesh"] = btTriangleMesh;
 
-btTriangleMesh.prototype["addTriangle"] = btTriangleMesh.prototype.addTriangle = function(vertex0, vertex1, vertex2, removeDuplicateVertices) {
+btTriangleMesh.prototype["addTriangle"] = btTriangleMesh.prototype.addTriangle = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(vertex0, vertex1, vertex2, removeDuplicateVertices) {
  var self = this.ptr;
  if (vertex0 && typeof vertex0 === "object") vertex0 = vertex0.ptr;
  if (vertex1 && typeof vertex1 === "object") vertex1 = vertex1.ptr;
@@ -1973,24 +1992,24 @@ btTriangleMesh.prototype["addTriangle"] = btTriangleMesh.prototype.addTriangle =
  _emscripten_bind_btTriangleMesh_addTriangle_4(self, vertex0, vertex1, vertex2, removeDuplicateVertices);
 };
 
-btTriangleMesh.prototype["preallocateIndices"] = btTriangleMesh.prototype.preallocateIndices = function(numindices) {
+btTriangleMesh.prototype["preallocateIndices"] = btTriangleMesh.prototype.preallocateIndices = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(numindices) {
  var self = this.ptr;
  if (numindices && typeof numindices === "object") numindices = numindices.ptr;
  _emscripten_bind_btTriangleMesh_preallocateIndices_1(self, numindices);
 };
 
-btTriangleMesh.prototype["preallocateVertices"] = btTriangleMesh.prototype.preallocateVertices = function(numverts) {
+btTriangleMesh.prototype["preallocateVertices"] = btTriangleMesh.prototype.preallocateVertices = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(numverts) {
  var self = this.ptr;
  if (numverts && typeof numverts === "object") numverts = numverts.ptr;
  _emscripten_bind_btTriangleMesh_preallocateVertices_1(self, numverts);
 };
 
-btTriangleMesh.prototype["__destroy__"] = btTriangleMesh.prototype.__destroy__ = function() {
+btTriangleMesh.prototype["__destroy__"] = btTriangleMesh.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
  _emscripten_bind_btTriangleMesh___destroy___0(self);
 };
 
-function btBvhTriangleMeshShape(meshInterface, useQuantizedAabbCompression, buildBvh) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ function btBvhTriangleMeshShape(meshInterface, useQuantizedAabbCompression, buildBvh) {
  if (meshInterface && typeof meshInterface === "object") meshInterface = meshInterface.ptr;
  if (useQuantizedAabbCompression && typeof useQuantizedAabbCompression === "object") useQuantizedAabbCompression = useQuantizedAabbCompression.ptr;
  if (buildBvh && typeof buildBvh === "object") buildBvh = buildBvh.ptr;
@@ -2013,12 +2032,12 @@ btBvhTriangleMeshShape.__cache__ = {};
 
 Module["btBvhTriangleMeshShape"] = btBvhTriangleMeshShape;
 
-btBvhTriangleMeshShape.prototype["__destroy__"] = btBvhTriangleMeshShape.prototype.__destroy__ = function() {
+btBvhTriangleMeshShape.prototype["__destroy__"] = btBvhTriangleMeshShape.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
  _emscripten_bind_btBvhTriangleMeshShape___destroy___0(self);
 };
 
-function btHeightfieldTerrainShape(heightStickWidth, heightStickLength, heightfieldData, heightScale, minHeight, maxHeight, upAxis, hdt, flipQuadEdges) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ function btHeightfieldTerrainShape(heightStickWidth, heightStickLength, heightfieldData, heightScale, minHeight, maxHeight, upAxis, hdt, flipQuadEdges) {
  if (heightStickWidth && typeof heightStickWidth === "object") heightStickWidth = heightStickWidth.ptr;
  if (heightStickLength && typeof heightStickLength === "object") heightStickLength = heightStickLength.ptr;
  if (heightfieldData && typeof heightfieldData === "object") heightfieldData = heightfieldData.ptr;
@@ -2042,29 +2061,29 @@ btHeightfieldTerrainShape.__cache__ = {};
 
 Module["btHeightfieldTerrainShape"] = btHeightfieldTerrainShape;
 
-btHeightfieldTerrainShape.prototype["setMargin"] = btHeightfieldTerrainShape.prototype.setMargin = function(margin) {
+btHeightfieldTerrainShape.prototype["setMargin"] = btHeightfieldTerrainShape.prototype.setMargin = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(margin) {
  var self = this.ptr;
  if (margin && typeof margin === "object") margin = margin.ptr;
  _emscripten_bind_btHeightfieldTerrainShape_setMargin_1(self, margin);
 };
 
-btHeightfieldTerrainShape.prototype["getMargin"] = btHeightfieldTerrainShape.prototype.getMargin = function() {
+btHeightfieldTerrainShape.prototype["getMargin"] = btHeightfieldTerrainShape.prototype.getMargin = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
  return _emscripten_bind_btHeightfieldTerrainShape_getMargin_0(self);
 };
 
-btHeightfieldTerrainShape.prototype["setLocalScaling"] = btHeightfieldTerrainShape.prototype.setLocalScaling = function(scaling) {
+btHeightfieldTerrainShape.prototype["setLocalScaling"] = btHeightfieldTerrainShape.prototype.setLocalScaling = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(scaling) {
  var self = this.ptr;
  if (scaling && typeof scaling === "object") scaling = scaling.ptr;
  _emscripten_bind_btHeightfieldTerrainShape_setLocalScaling_1(self, scaling);
 };
 
-btHeightfieldTerrainShape.prototype["__destroy__"] = btHeightfieldTerrainShape.prototype.__destroy__ = function() {
+btHeightfieldTerrainShape.prototype["__destroy__"] = btHeightfieldTerrainShape.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
  _emscripten_bind_btHeightfieldTerrainShape___destroy___0(self);
 };
 
-function btDefaultCollisionConstructionInfo() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ function btDefaultCollisionConstructionInfo() {
  this.ptr = _emscripten_bind_btDefaultCollisionConstructionInfo_btDefaultCollisionConstructionInfo_0();
  getCache(btDefaultCollisionConstructionInfo)[this.ptr] = this;
 }
@@ -2079,12 +2098,12 @@ btDefaultCollisionConstructionInfo.__cache__ = {};
 
 Module["btDefaultCollisionConstructionInfo"] = btDefaultCollisionConstructionInfo;
 
-btDefaultCollisionConstructionInfo.prototype["__destroy__"] = btDefaultCollisionConstructionInfo.prototype.__destroy__ = function() {
+btDefaultCollisionConstructionInfo.prototype["__destroy__"] = btDefaultCollisionConstructionInfo.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
  _emscripten_bind_btDefaultCollisionConstructionInfo___destroy___0(self);
 };
 
-function btDefaultCollisionConfiguration(info) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ function btDefaultCollisionConfiguration(info) {
  if (info && typeof info === "object") info = info.ptr;
  if (info === undefined) {
   this.ptr = _emscripten_bind_btDefaultCollisionConfiguration_btDefaultCollisionConfiguration_0();
@@ -2105,12 +2124,12 @@ btDefaultCollisionConfiguration.__cache__ = {};
 
 Module["btDefaultCollisionConfiguration"] = btDefaultCollisionConfiguration;
 
-btDefaultCollisionConfiguration.prototype["__destroy__"] = btDefaultCollisionConfiguration.prototype.__destroy__ = function() {
+btDefaultCollisionConfiguration.prototype["__destroy__"] = btDefaultCollisionConfiguration.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
  _emscripten_bind_btDefaultCollisionConfiguration___destroy___0(self);
 };
 
-function btDispatcher() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ function btDispatcher() {
  throw "cannot construct a btDispatcher, no constructor in IDL";
 }
 
@@ -2124,12 +2143,12 @@ btDispatcher.__cache__ = {};
 
 Module["btDispatcher"] = btDispatcher;
 
-btDispatcher.prototype["__destroy__"] = btDispatcher.prototype.__destroy__ = function() {
+btDispatcher.prototype["__destroy__"] = btDispatcher.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
  _emscripten_bind_btDispatcher___destroy___0(self);
 };
 
-function btCollisionDispatcher(conf) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ function btCollisionDispatcher(conf) {
  if (conf && typeof conf === "object") conf = conf.ptr;
  this.ptr = _emscripten_bind_btCollisionDispatcher_btCollisionDispatcher_1(conf);
  getCache(btCollisionDispatcher)[this.ptr] = this;
@@ -2145,12 +2164,12 @@ btCollisionDispatcher.__cache__ = {};
 
 Module["btCollisionDispatcher"] = btCollisionDispatcher;
 
-btCollisionDispatcher.prototype["__destroy__"] = btCollisionDispatcher.prototype.__destroy__ = function() {
+btCollisionDispatcher.prototype["__destroy__"] = btCollisionDispatcher.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
  _emscripten_bind_btCollisionDispatcher___destroy___0(self);
 };
 
-function btOverlappingPairCallback() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ function btOverlappingPairCallback() {
  throw "cannot construct a btOverlappingPairCallback, no constructor in IDL";
 }
 
@@ -2164,12 +2183,12 @@ btOverlappingPairCallback.__cache__ = {};
 
 Module["btOverlappingPairCallback"] = btOverlappingPairCallback;
 
-btOverlappingPairCallback.prototype["__destroy__"] = btOverlappingPairCallback.prototype.__destroy__ = function() {
+btOverlappingPairCallback.prototype["__destroy__"] = btOverlappingPairCallback.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
  _emscripten_bind_btOverlappingPairCallback___destroy___0(self);
 };
 
-function btOverlappingPairCache() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ function btOverlappingPairCache() {
  throw "cannot construct a btOverlappingPairCache, no constructor in IDL";
 }
 
@@ -2183,18 +2202,18 @@ btOverlappingPairCache.__cache__ = {};
 
 Module["btOverlappingPairCache"] = btOverlappingPairCache;
 
-btOverlappingPairCache.prototype["setInternalGhostPairCallback"] = btOverlappingPairCache.prototype.setInternalGhostPairCallback = function(ghostPairCallback) {
+btOverlappingPairCache.prototype["setInternalGhostPairCallback"] = btOverlappingPairCache.prototype.setInternalGhostPairCallback = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(ghostPairCallback) {
  var self = this.ptr;
  if (ghostPairCallback && typeof ghostPairCallback === "object") ghostPairCallback = ghostPairCallback.ptr;
  _emscripten_bind_btOverlappingPairCache_setInternalGhostPairCallback_1(self, ghostPairCallback);
 };
 
-btOverlappingPairCache.prototype["__destroy__"] = btOverlappingPairCache.prototype.__destroy__ = function() {
+btOverlappingPairCache.prototype["__destroy__"] = btOverlappingPairCache.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
  _emscripten_bind_btOverlappingPairCache___destroy___0(self);
 };
 
-function btBroadphaseInterface() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ function btBroadphaseInterface() {
  throw "cannot construct a btBroadphaseInterface, no constructor in IDL";
 }
 
@@ -2208,17 +2227,17 @@ btBroadphaseInterface.__cache__ = {};
 
 Module["btBroadphaseInterface"] = btBroadphaseInterface;
 
-btBroadphaseInterface.prototype["getOverlappingPairCache"] = btBroadphaseInterface.prototype.getOverlappingPairCache = function() {
+btBroadphaseInterface.prototype["getOverlappingPairCache"] = btBroadphaseInterface.prototype.getOverlappingPairCache = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
  return wrapPointer(_emscripten_bind_btBroadphaseInterface_getOverlappingPairCache_0(self), btOverlappingPairCache);
 };
 
-btBroadphaseInterface.prototype["__destroy__"] = btBroadphaseInterface.prototype.__destroy__ = function() {
+btBroadphaseInterface.prototype["__destroy__"] = btBroadphaseInterface.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
  _emscripten_bind_btBroadphaseInterface___destroy___0(self);
 };
 
-function btCollisionConfiguration() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ function btCollisionConfiguration() {
  throw "cannot construct a btCollisionConfiguration, no constructor in IDL";
 }
 
@@ -2232,12 +2251,12 @@ btCollisionConfiguration.__cache__ = {};
 
 Module["btCollisionConfiguration"] = btCollisionConfiguration;
 
-btCollisionConfiguration.prototype["__destroy__"] = btCollisionConfiguration.prototype.__destroy__ = function() {
+btCollisionConfiguration.prototype["__destroy__"] = btCollisionConfiguration.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
  _emscripten_bind_btCollisionConfiguration___destroy___0(self);
 };
 
-function btDbvtBroadphase() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ function btDbvtBroadphase() {
  this.ptr = _emscripten_bind_btDbvtBroadphase_btDbvtBroadphase_0();
  getCache(btDbvtBroadphase)[this.ptr] = this;
 }
@@ -2252,17 +2271,17 @@ btDbvtBroadphase.__cache__ = {};
 
 Module["btDbvtBroadphase"] = btDbvtBroadphase;
 
-btDbvtBroadphase.prototype["optimize"] = btDbvtBroadphase.prototype.optimize = function() {
+btDbvtBroadphase.prototype["optimize"] = btDbvtBroadphase.prototype.optimize = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
  _emscripten_bind_btDbvtBroadphase_optimize_0(self);
 };
 
-btDbvtBroadphase.prototype["__destroy__"] = btDbvtBroadphase.prototype.__destroy__ = function() {
+btDbvtBroadphase.prototype["__destroy__"] = btDbvtBroadphase.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
  _emscripten_bind_btDbvtBroadphase___destroy___0(self);
 };
 
-function btRigidBodyConstructionInfo(mass, motionState, collisionShape, localInertia) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ function btRigidBodyConstructionInfo(mass, motionState, collisionShape, localInertia) {
  if (mass && typeof mass === "object") mass = mass.ptr;
  if (motionState && typeof motionState === "object") motionState = motionState.ptr;
  if (collisionShape && typeof collisionShape === "object") collisionShape = collisionShape.ptr;
@@ -2286,12 +2305,12 @@ btRigidBodyConstructionInfo.__cache__ = {};
 
 Module["btRigidBodyConstructionInfo"] = btRigidBodyConstructionInfo;
 
-btRigidBodyConstructionInfo.prototype["__destroy__"] = btRigidBodyConstructionInfo.prototype.__destroy__ = function() {
+btRigidBodyConstructionInfo.prototype["__destroy__"] = btRigidBodyConstructionInfo.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
  _emscripten_bind_btRigidBodyConstructionInfo___destroy___0(self);
 };
 
-function btRigidBody(constructionInfo) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ function btRigidBody(constructionInfo) {
  if (constructionInfo && typeof constructionInfo === "object") constructionInfo = constructionInfo.ptr;
  this.ptr = _emscripten_bind_btRigidBody_btRigidBody_1(constructionInfo);
  getCache(btRigidBody)[this.ptr] = this;
@@ -2307,46 +2326,46 @@ btRigidBody.__cache__ = {};
 
 Module["btRigidBody"] = btRigidBody;
 
-btRigidBody.prototype["isStaticObject"] = btRigidBody.prototype.isStaticObject = function() {
+btRigidBody.prototype["isStaticObject"] = btRigidBody.prototype.isStaticObject = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
- return !!_emscripten_bind_btRigidBody_isStaticObject_0(self);
+ return !!(_emscripten_bind_btRigidBody_isStaticObject_0(self));
 };
 
-btRigidBody.prototype["getWorldTransform"] = btRigidBody.prototype.getWorldTransform = function() {
+btRigidBody.prototype["getWorldTransform"] = btRigidBody.prototype.getWorldTransform = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
  return wrapPointer(_emscripten_bind_btRigidBody_getWorldTransform_0(self), btTransform);
 };
 
-btRigidBody.prototype["setCollisionFlags"] = btRigidBody.prototype.setCollisionFlags = function(flags) {
+btRigidBody.prototype["setCollisionFlags"] = btRigidBody.prototype.setCollisionFlags = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(flags) {
  var self = this.ptr;
  if (flags && typeof flags === "object") flags = flags.ptr;
  _emscripten_bind_btRigidBody_setCollisionFlags_1(self, flags);
 };
 
-btRigidBody.prototype["setWorldTransform"] = btRigidBody.prototype.setWorldTransform = function(worldTrans) {
+btRigidBody.prototype["setWorldTransform"] = btRigidBody.prototype.setWorldTransform = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(worldTrans) {
  var self = this.ptr;
  if (worldTrans && typeof worldTrans === "object") worldTrans = worldTrans.ptr;
  _emscripten_bind_btRigidBody_setWorldTransform_1(self, worldTrans);
 };
 
-btRigidBody.prototype["setCollisionShape"] = btRigidBody.prototype.setCollisionShape = function(collisionShape) {
+btRigidBody.prototype["setCollisionShape"] = btRigidBody.prototype.setCollisionShape = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(collisionShape) {
  var self = this.ptr;
  if (collisionShape && typeof collisionShape === "object") collisionShape = collisionShape.ptr;
  _emscripten_bind_btRigidBody_setCollisionShape_1(self, collisionShape);
 };
 
-btRigidBody.prototype["setUserIndex"] = btRigidBody.prototype.setUserIndex = function(index) {
+btRigidBody.prototype["setUserIndex"] = btRigidBody.prototype.setUserIndex = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(index) {
  var self = this.ptr;
  if (index && typeof index === "object") index = index.ptr;
  _emscripten_bind_btRigidBody_setUserIndex_1(self, index);
 };
 
-btRigidBody.prototype["__destroy__"] = btRigidBody.prototype.__destroy__ = function() {
+btRigidBody.prototype["__destroy__"] = btRigidBody.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
  _emscripten_bind_btRigidBody___destroy___0(self);
 };
 
-function btSequentialImpulseConstraintSolver() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ function btSequentialImpulseConstraintSolver() {
  this.ptr = _emscripten_bind_btSequentialImpulseConstraintSolver_btSequentialImpulseConstraintSolver_0();
  getCache(btSequentialImpulseConstraintSolver)[this.ptr] = this;
 }
@@ -2361,12 +2380,12 @@ btSequentialImpulseConstraintSolver.__cache__ = {};
 
 Module["btSequentialImpulseConstraintSolver"] = btSequentialImpulseConstraintSolver;
 
-btSequentialImpulseConstraintSolver.prototype["__destroy__"] = btSequentialImpulseConstraintSolver.prototype.__destroy__ = function() {
+btSequentialImpulseConstraintSolver.prototype["__destroy__"] = btSequentialImpulseConstraintSolver.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
  _emscripten_bind_btSequentialImpulseConstraintSolver___destroy___0(self);
 };
 
-function btDiscreteDynamicsWorld(dispatcher, pairCache, constraintSolver, collisionConfiguration) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ function btDiscreteDynamicsWorld(dispatcher, pairCache, constraintSolver, collisionConfiguration) {
  if (dispatcher && typeof dispatcher === "object") dispatcher = dispatcher.ptr;
  if (pairCache && typeof pairCache === "object") pairCache = pairCache.ptr;
  if (constraintSolver && typeof constraintSolver === "object") constraintSolver = constraintSolver.ptr;
@@ -2385,13 +2404,13 @@ btDiscreteDynamicsWorld.__cache__ = {};
 
 Module["btDiscreteDynamicsWorld"] = btDiscreteDynamicsWorld;
 
-btDiscreteDynamicsWorld.prototype["setGravity"] = btDiscreteDynamicsWorld.prototype.setGravity = function(gravity) {
+btDiscreteDynamicsWorld.prototype["setGravity"] = btDiscreteDynamicsWorld.prototype.setGravity = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(gravity) {
  var self = this.ptr;
  if (gravity && typeof gravity === "object") gravity = gravity.ptr;
  _emscripten_bind_btDiscreteDynamicsWorld_setGravity_1(self, gravity);
 };
 
-btDiscreteDynamicsWorld.prototype["addRigidBody"] = btDiscreteDynamicsWorld.prototype.addRigidBody = function(body, group, mask) {
+btDiscreteDynamicsWorld.prototype["addRigidBody"] = btDiscreteDynamicsWorld.prototype.addRigidBody = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(body, group, mask) {
  var self = this.ptr;
  if (body && typeof body === "object") body = body.ptr;
  if (group && typeof group === "object") group = group.ptr;
@@ -2407,13 +2426,13 @@ btDiscreteDynamicsWorld.prototype["addRigidBody"] = btDiscreteDynamicsWorld.prot
  _emscripten_bind_btDiscreteDynamicsWorld_addRigidBody_3(self, body, group, mask);
 };
 
-btDiscreteDynamicsWorld.prototype["removeRigidBody"] = btDiscreteDynamicsWorld.prototype.removeRigidBody = function(body) {
+btDiscreteDynamicsWorld.prototype["removeRigidBody"] = btDiscreteDynamicsWorld.prototype.removeRigidBody = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(body) {
  var self = this.ptr;
  if (body && typeof body === "object") body = body.ptr;
  _emscripten_bind_btDiscreteDynamicsWorld_removeRigidBody_1(self, body);
 };
 
-btDiscreteDynamicsWorld.prototype["stepSimulation"] = btDiscreteDynamicsWorld.prototype.stepSimulation = function(timeStep, maxSubSteps, fixedTimeStep) {
+btDiscreteDynamicsWorld.prototype["stepSimulation"] = btDiscreteDynamicsWorld.prototype.stepSimulation = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(timeStep, maxSubSteps, fixedTimeStep) {
  var self = this.ptr;
  if (timeStep && typeof timeStep === "object") timeStep = timeStep.ptr;
  if (maxSubSteps && typeof maxSubSteps === "object") maxSubSteps = maxSubSteps.ptr;
@@ -2427,12 +2446,12 @@ btDiscreteDynamicsWorld.prototype["stepSimulation"] = btDiscreteDynamicsWorld.pr
  return _emscripten_bind_btDiscreteDynamicsWorld_stepSimulation_3(self, timeStep, maxSubSteps, fixedTimeStep);
 };
 
-btDiscreteDynamicsWorld.prototype["getDispatcher"] = btDiscreteDynamicsWorld.prototype.getDispatcher = function() {
+btDiscreteDynamicsWorld.prototype["getDispatcher"] = btDiscreteDynamicsWorld.prototype.getDispatcher = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
  return wrapPointer(_emscripten_bind_btDiscreteDynamicsWorld_getDispatcher_0(self), btDispatcher);
 };
 
-btDiscreteDynamicsWorld.prototype["addCollisionObject"] = btDiscreteDynamicsWorld.prototype.addCollisionObject = function(collisionObject, collisionFilterGroup, collisionFilterMask) {
+btDiscreteDynamicsWorld.prototype["addCollisionObject"] = btDiscreteDynamicsWorld.prototype.addCollisionObject = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(collisionObject, collisionFilterGroup, collisionFilterMask) {
  var self = this.ptr;
  if (collisionObject && typeof collisionObject === "object") collisionObject = collisionObject.ptr;
  if (collisionFilterGroup && typeof collisionFilterGroup === "object") collisionFilterGroup = collisionFilterGroup.ptr;
@@ -2448,29 +2467,29 @@ btDiscreteDynamicsWorld.prototype["addCollisionObject"] = btDiscreteDynamicsWorl
  _emscripten_bind_btDiscreteDynamicsWorld_addCollisionObject_3(self, collisionObject, collisionFilterGroup, collisionFilterMask);
 };
 
-btDiscreteDynamicsWorld.prototype["removeCollisionObject"] = btDiscreteDynamicsWorld.prototype.removeCollisionObject = function(collisionObject) {
+btDiscreteDynamicsWorld.prototype["removeCollisionObject"] = btDiscreteDynamicsWorld.prototype.removeCollisionObject = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(collisionObject) {
  var self = this.ptr;
  if (collisionObject && typeof collisionObject === "object") collisionObject = collisionObject.ptr;
  _emscripten_bind_btDiscreteDynamicsWorld_removeCollisionObject_1(self, collisionObject);
 };
 
-btDiscreteDynamicsWorld.prototype["getBroadphase"] = btDiscreteDynamicsWorld.prototype.getBroadphase = function() {
+btDiscreteDynamicsWorld.prototype["getBroadphase"] = btDiscreteDynamicsWorld.prototype.getBroadphase = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
  return wrapPointer(_emscripten_bind_btDiscreteDynamicsWorld_getBroadphase_0(self), btBroadphaseInterface);
 };
 
-btDiscreteDynamicsWorld.prototype["addAction"] = btDiscreteDynamicsWorld.prototype.addAction = function(action) {
+btDiscreteDynamicsWorld.prototype["addAction"] = btDiscreteDynamicsWorld.prototype.addAction = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(action) {
  var self = this.ptr;
  if (action && typeof action === "object") action = action.ptr;
  _emscripten_bind_btDiscreteDynamicsWorld_addAction_1(self, action);
 };
 
-btDiscreteDynamicsWorld.prototype["__destroy__"] = btDiscreteDynamicsWorld.prototype.__destroy__ = function() {
+btDiscreteDynamicsWorld.prototype["__destroy__"] = btDiscreteDynamicsWorld.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
  _emscripten_bind_btDiscreteDynamicsWorld___destroy___0(self);
 };
 
-function btKinematicCharacterController(ghostObject, convexShape, stepHeight, up) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ function btKinematicCharacterController(ghostObject, convexShape, stepHeight, up) {
  if (ghostObject && typeof ghostObject === "object") ghostObject = ghostObject.ptr;
  if (convexShape && typeof convexShape === "object") convexShape = convexShape.ptr;
  if (stepHeight && typeof stepHeight === "object") stepHeight = stepHeight.ptr;
@@ -2494,25 +2513,25 @@ btKinematicCharacterController.__cache__ = {};
 
 Module["btKinematicCharacterController"] = btKinematicCharacterController;
 
-btKinematicCharacterController.prototype["setWalkDirection"] = btKinematicCharacterController.prototype.setWalkDirection = function(walkDirection) {
+btKinematicCharacterController.prototype["setWalkDirection"] = btKinematicCharacterController.prototype.setWalkDirection = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(walkDirection) {
  var self = this.ptr;
  if (walkDirection && typeof walkDirection === "object") walkDirection = walkDirection.ptr;
  _emscripten_bind_btKinematicCharacterController_setWalkDirection_1(self, walkDirection);
 };
 
-btKinematicCharacterController.prototype["warp"] = btKinematicCharacterController.prototype.warp = function(origin) {
+btKinematicCharacterController.prototype["warp"] = btKinematicCharacterController.prototype.warp = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(origin) {
  var self = this.ptr;
  if (origin && typeof origin === "object") origin = origin.ptr;
  _emscripten_bind_btKinematicCharacterController_warp_1(self, origin);
 };
 
-btKinematicCharacterController.prototype["setJumpSpeed"] = btKinematicCharacterController.prototype.setJumpSpeed = function(jumpSpeed) {
+btKinematicCharacterController.prototype["setJumpSpeed"] = btKinematicCharacterController.prototype.setJumpSpeed = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(jumpSpeed) {
  var self = this.ptr;
  if (jumpSpeed && typeof jumpSpeed === "object") jumpSpeed = jumpSpeed.ptr;
  _emscripten_bind_btKinematicCharacterController_setJumpSpeed_1(self, jumpSpeed);
 };
 
-btKinematicCharacterController.prototype["jump"] = btKinematicCharacterController.prototype.jump = function(up) {
+btKinematicCharacterController.prototype["jump"] = btKinematicCharacterController.prototype.jump = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(up) {
  var self = this.ptr;
  if (up && typeof up === "object") up = up.ptr;
  if (up === undefined) {
@@ -2522,61 +2541,56 @@ btKinematicCharacterController.prototype["jump"] = btKinematicCharacterControlle
  _emscripten_bind_btKinematicCharacterController_jump_1(self, up);
 };
 
-btKinematicCharacterController.prototype["setGravity"] = btKinematicCharacterController.prototype.setGravity = function(gravity) {
+btKinematicCharacterController.prototype["setGravity"] = btKinematicCharacterController.prototype.setGravity = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(gravity) {
  var self = this.ptr;
  if (gravity && typeof gravity === "object") gravity = gravity.ptr;
  _emscripten_bind_btKinematicCharacterController_setGravity_1(self, gravity);
 };
 
-btKinematicCharacterController.prototype["getGravity"] = btKinematicCharacterController.prototype.getGravity = function() {
- var self = this.ptr;
- return wrapPointer(_emscripten_bind_btKinematicCharacterController_getGravity_0(self), btVector3);
-};
-
-btKinematicCharacterController.prototype["setMaxSlope"] = btKinematicCharacterController.prototype.setMaxSlope = function(slopeRadians) {
+btKinematicCharacterController.prototype["setMaxSlope"] = btKinematicCharacterController.prototype.setMaxSlope = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(slopeRadians) {
  var self = this.ptr;
  if (slopeRadians && typeof slopeRadians === "object") slopeRadians = slopeRadians.ptr;
  _emscripten_bind_btKinematicCharacterController_setMaxSlope_1(self, slopeRadians);
 };
 
-btKinematicCharacterController.prototype["onGround"] = btKinematicCharacterController.prototype.onGround = function() {
+btKinematicCharacterController.prototype["onGround"] = btKinematicCharacterController.prototype.onGround = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
- return !!_emscripten_bind_btKinematicCharacterController_onGround_0(self);
+ return !!(_emscripten_bind_btKinematicCharacterController_onGround_0(self));
 };
 
-btKinematicCharacterController.prototype["setMaxPenetrationDepth"] = btKinematicCharacterController.prototype.setMaxPenetrationDepth = function(d) {
+btKinematicCharacterController.prototype["setMaxPenetrationDepth"] = btKinematicCharacterController.prototype.setMaxPenetrationDepth = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(d) {
  var self = this.ptr;
  if (d && typeof d === "object") d = d.ptr;
  _emscripten_bind_btKinematicCharacterController_setMaxPenetrationDepth_1(self, d);
 };
 
-btKinematicCharacterController.prototype["setStepHeight"] = btKinematicCharacterController.prototype.setStepHeight = function(h) {
+btKinematicCharacterController.prototype["setStepHeight"] = btKinematicCharacterController.prototype.setStepHeight = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(h) {
  var self = this.ptr;
  if (h && typeof h === "object") h = h.ptr;
  _emscripten_bind_btKinematicCharacterController_setStepHeight_1(self, h);
 };
 
-btKinematicCharacterController.prototype["getVerticalVelocity"] = btKinematicCharacterController.prototype.getVerticalVelocity = function() {
+btKinematicCharacterController.prototype["getVerticalVelocity"] = btKinematicCharacterController.prototype.getVerticalVelocity = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
  return _emscripten_bind_btKinematicCharacterController_getVerticalVelocity_0(self);
 };
 
-btKinematicCharacterController.prototype["isJumping"] = btKinematicCharacterController.prototype.isJumping = function() {
+btKinematicCharacterController.prototype["isJumping"] = btKinematicCharacterController.prototype.isJumping = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
- return !!_emscripten_bind_btKinematicCharacterController_isJumping_0(self);
+ return !!(_emscripten_bind_btKinematicCharacterController_isJumping_0(self));
 };
 
-btKinematicCharacterController.prototype["getFloorUserIndex"] = btKinematicCharacterController.prototype.getFloorUserIndex = function() {
+btKinematicCharacterController.prototype["getFloorUserIndex"] = btKinematicCharacterController.prototype.getFloorUserIndex = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
  return _emscripten_bind_btKinematicCharacterController_getFloorUserIndex_0(self);
 };
 
-btKinematicCharacterController.prototype["__destroy__"] = btKinematicCharacterController.prototype.__destroy__ = function() {
+btKinematicCharacterController.prototype["__destroy__"] = btKinematicCharacterController.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
  _emscripten_bind_btKinematicCharacterController___destroy___0(self);
 };
 
-function btPairCachingGhostObject() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ function btPairCachingGhostObject() {
  this.ptr = _emscripten_bind_btPairCachingGhostObject_btPairCachingGhostObject_0();
  getCache(btPairCachingGhostObject)[this.ptr] = this;
 }
@@ -2591,51 +2605,51 @@ btPairCachingGhostObject.__cache__ = {};
 
 Module["btPairCachingGhostObject"] = btPairCachingGhostObject;
 
-btPairCachingGhostObject.prototype["isStaticObject"] = btPairCachingGhostObject.prototype.isStaticObject = function() {
+btPairCachingGhostObject.prototype["isStaticObject"] = btPairCachingGhostObject.prototype.isStaticObject = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
- return !!_emscripten_bind_btPairCachingGhostObject_isStaticObject_0(self);
+ return !!(_emscripten_bind_btPairCachingGhostObject_isStaticObject_0(self));
 };
 
-btPairCachingGhostObject.prototype["getWorldTransform"] = btPairCachingGhostObject.prototype.getWorldTransform = function() {
+btPairCachingGhostObject.prototype["getWorldTransform"] = btPairCachingGhostObject.prototype.getWorldTransform = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
  return wrapPointer(_emscripten_bind_btPairCachingGhostObject_getWorldTransform_0(self), btTransform);
 };
 
-btPairCachingGhostObject.prototype["setCollisionFlags"] = btPairCachingGhostObject.prototype.setCollisionFlags = function(flags) {
+btPairCachingGhostObject.prototype["setCollisionFlags"] = btPairCachingGhostObject.prototype.setCollisionFlags = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(flags) {
  var self = this.ptr;
  if (flags && typeof flags === "object") flags = flags.ptr;
  _emscripten_bind_btPairCachingGhostObject_setCollisionFlags_1(self, flags);
 };
 
-btPairCachingGhostObject.prototype["setWorldTransform"] = btPairCachingGhostObject.prototype.setWorldTransform = function(worldTrans) {
+btPairCachingGhostObject.prototype["setWorldTransform"] = btPairCachingGhostObject.prototype.setWorldTransform = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(worldTrans) {
  var self = this.ptr;
  if (worldTrans && typeof worldTrans === "object") worldTrans = worldTrans.ptr;
  _emscripten_bind_btPairCachingGhostObject_setWorldTransform_1(self, worldTrans);
 };
 
-btPairCachingGhostObject.prototype["setCollisionShape"] = btPairCachingGhostObject.prototype.setCollisionShape = function(collisionShape) {
+btPairCachingGhostObject.prototype["setCollisionShape"] = btPairCachingGhostObject.prototype.setCollisionShape = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(collisionShape) {
  var self = this.ptr;
  if (collisionShape && typeof collisionShape === "object") collisionShape = collisionShape.ptr;
  _emscripten_bind_btPairCachingGhostObject_setCollisionShape_1(self, collisionShape);
 };
 
-btPairCachingGhostObject.prototype["setUserIndex"] = btPairCachingGhostObject.prototype.setUserIndex = function(index) {
+btPairCachingGhostObject.prototype["setUserIndex"] = btPairCachingGhostObject.prototype.setUserIndex = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(index) {
  var self = this.ptr;
  if (index && typeof index === "object") index = index.ptr;
  _emscripten_bind_btPairCachingGhostObject_setUserIndex_1(self, index);
 };
 
-btPairCachingGhostObject.prototype["getNumOverlappingObjects"] = btPairCachingGhostObject.prototype.getNumOverlappingObjects = function() {
+btPairCachingGhostObject.prototype["getNumOverlappingObjects"] = btPairCachingGhostObject.prototype.getNumOverlappingObjects = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
  return _emscripten_bind_btPairCachingGhostObject_getNumOverlappingObjects_0(self);
 };
 
-btPairCachingGhostObject.prototype["__destroy__"] = btPairCachingGhostObject.prototype.__destroy__ = function() {
+btPairCachingGhostObject.prototype["__destroy__"] = btPairCachingGhostObject.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
  _emscripten_bind_btPairCachingGhostObject___destroy___0(self);
 };
 
-function btGhostPairCallback() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ function btGhostPairCallback() {
  this.ptr = _emscripten_bind_btGhostPairCallback_btGhostPairCallback_0();
  getCache(btGhostPairCallback)[this.ptr] = this;
 }
@@ -2650,7 +2664,7 @@ btGhostPairCallback.__cache__ = {};
 
 Module["btGhostPairCallback"] = btGhostPairCallback;
 
-btGhostPairCallback.prototype["__destroy__"] = btGhostPairCallback.prototype.__destroy__ = function() {
+btGhostPairCallback.prototype["__destroy__"] = btGhostPairCallback.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
  var self = this.ptr;
  _emscripten_bind_btGhostPairCallback___destroy___0(self);
 };

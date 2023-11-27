@@ -167,7 +167,6 @@ public:
 		m_basis.setRotation(q);
 	}
 
-
   /**@brief Set this transformation to the identity */
 	void setIdentity()
 	{
