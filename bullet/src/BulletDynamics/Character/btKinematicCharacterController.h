@@ -45,19 +45,22 @@ protected:
 
   btScalar m_maxPenetrationDepth;
   btScalar m_verticalVelocity;
+  // distance along the `m_up` axis that the player wants to move during this step
   btScalar m_verticalOffset;
+  // max fall speed
   btScalar m_terminalVelocity;
-  btScalar m_jumpSpeed;
   btScalar m_defaultJumpSpeed;
-  btScalar m_maxSlopeRadians; // Slope angle that is set (used for returning the exact value)
-  btScalar m_maxSlopeCosine;  // Cosine equivalent of m_maxSlopeRadians (calculated once when set, for optimization)
+  // Slope angle that is set (used for returning the exact value)
+  btScalar m_maxSlopeRadians;
+  // Cosine equivalent of m_maxSlopeRadians (calculated once when set, for optimization)
+  btScalar m_maxSlopeCosine;
   btScalar m_gravity;
 
   btScalar m_stepHeight;
 
   btScalar m_addedMargin; //@todo: remove this and fix the code
 
-  /// this is the desired walk direction, set by the user
+  /// this is the desired walk direction for the current step, set by the user
   btVector3 m_walkDirection;
   btVector3 m_normalizedDirection;
 
@@ -69,9 +72,9 @@ protected:
   /// keep track of the contact manifolds
   btManifoldArray m_manifoldArray;
 
+  // if the player was on the ground at the start of the current step
   bool m_wasOnGround;
-  bool m_wasJumping;
-  btScalar m_velocityTimeInterval;
+  bool m_isJumping;
   btVector3 m_up;
   btVector3 m_jumpAxis;
 
@@ -80,7 +83,7 @@ protected:
   /// If `onGround()` is not true, then this is the index of the last object that the player was standing on.
   ///
   /// Defaults to -1 if the player has never been on the ground.
-  int floorUserIndex = -1;
+  int m_floorUserIndex = -1;
 
   btVector3 computeReflectionDirection(const btVector3& direction, const btVector3& normal);
   btVector3 parallelComponent(const btVector3& direction, const btVector3& normal);
@@ -167,11 +170,11 @@ public:
   }
 
   bool isJumping() const {
-    return m_wasJumping;
+    return m_isJumping;
   }
 
   int getFloorUserIndex() const {
-    return floorUserIndex;
+    return m_floorUserIndex;
   }
 };
 
