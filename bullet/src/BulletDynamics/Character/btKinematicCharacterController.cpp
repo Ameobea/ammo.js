@@ -136,6 +136,8 @@ btKinematicCharacterController::btKinematicCharacterController(
   m_isJumping = false;
   m_currentStepOffset = 0.0;
   m_maxPenetrationDepth = 0.2;
+  m_externalVelocityAirDampingFactor = btVector3(0.82, 0.75, 0.82);
+  m_externalVelocityGroundDampingFactor = btVector3(0.9992, 0.9992, 0.9992);
 
   setUp(up);
   setStepHeight(stepHeight);
@@ -232,7 +234,8 @@ btKinematicCharacterController::stepUp(btCollisionWorld* world) {
 
   m_ghostObject->convexSweepTest(m_convexShape, start, end, callback, world->getDispatchInfo().m_allowedCcdPenetration);
 
-  if (callback.hasHit() && m_ghostObject->hasContactResponse() && needsCollision(m_ghostObject, callback.m_hitCollisionObject)) {
+  if (callback.hasHit() && m_ghostObject->hasContactResponse() &&
+      needsCollision(m_ghostObject, callback.m_hitCollisionObject)) {
     // Only modify the position if the hit was a slope and not a wall or ceiling.
     if (callback.m_hitNormalWorld.dot(m_up) > 0.0) {
       // we moved up only a fraction of the step height
@@ -305,7 +308,11 @@ void
 btKinematicCharacterController::stepForwardAndStrafe(btCollisionWorld* collisionWorld, const btVector3& walkMove) {
   btTransform start, end;
 
-  m_targetPosition = m_currentPosition + walkMove;
+  m_targetPosition = m_currentPosition;
+  // if (m_wasOnGround) {
+  m_targetPosition += walkMove;
+  // }
+  m_targetPosition += m_externalVelocity;
 
   start.setIdentity();
   end.setIdentity();
@@ -336,7 +343,8 @@ btKinematicCharacterController::stepForwardAndStrafe(btCollisionWorld* collision
 
     fraction -= callback.m_closestHitFraction;
 
-    if (callback.hasHit() && m_ghostObject->hasContactResponse() && needsCollision(m_ghostObject, callback.m_hitCollisionObject)) {
+    if (callback.hasHit() && m_ghostObject->hasContactResponse() &&
+        needsCollision(m_ghostObject, callback.m_hitCollisionObject)) {
       // we moved only a fraction
       updateTargetPositionBasedOnCollision(callback.m_hitNormalWorld);
       btVector3 currentDir = m_targetPosition - m_currentPosition;
@@ -431,7 +439,9 @@ btKinematicCharacterController::stepDown(btCollisionWorld* collisionWorld, btSca
     break;
   }
 
-  if ((m_ghostObject->hasContactResponse() && callback.hasHit() && needsCollision(m_ghostObject, callback.m_hitCollisionObject)) || runOnce) {
+  if ((m_ghostObject->hasContactResponse() && callback.hasHit() &&
+       needsCollision(m_ghostObject, callback.m_hitCollisionObject)) ||
+      runOnce) {
     // we dropped a fraction of the height -> hit floor
     btScalar fraction = (m_currentPosition.getY() - callback.m_hitPointWorld.getY()) / 2.0;
 
@@ -441,6 +451,8 @@ btKinematicCharacterController::stepDown(btCollisionWorld* collisionWorld, btSca
 
     m_verticalVelocity = 0.0;
     m_verticalOffset = 0.0;
+    // Remove downward component of external velocity
+    m_externalVelocity -= parallelComponent(m_externalVelocity, m_up);
     m_isJumping = false;
 
     m_floorUserIndex = callback.m_hitCollisionObject->getUserIndex();
@@ -486,6 +498,38 @@ btKinematicCharacterController::playerStep(btCollisionWorld* collisionWorld, btS
     m_verticalVelocity = -btFabs(m_terminalVelocity);
   }
   m_verticalOffset = m_verticalVelocity * dt;
+
+  // apply damping to external velocity
+  btVector3 dampingFactor = m_wasOnGround ? m_externalVelocityGroundDampingFactor : m_externalVelocityAirDampingFactor;
+  btVector3 externalVelocityMultiplier = (btVector3(1., 1., 1.) - dampingFactor).pow(dt);
+  m_externalVelocity *= externalVelocityMultiplier;
+
+  // if in the air, use directional input to change the direction of external velocity while retaining its magnitude
+  //
+  // this allows for dashes, boosts, etc. to be controlled rather than just fighting against them with the static
+  // velocity normally applied by kinematic movement
+  if (!m_wasOnGround && m_normalizedDirection.length2() > 0.0) {
+    btVector3 verticalComponent = parallelComponent(m_externalVelocity, m_up);
+
+    btVector3 horizontalComponent = m_externalVelocity - verticalComponent;
+    btScalar horizontalMag = horizontalComponent.length();
+
+    if (horizontalMag > SIMD_EPSILON) {
+      btVector3 horizontalDir = horizontalComponent / horizontalMag;
+      btVector3 newHorizontalDir = m_normalizedDirection;
+      newHorizontalDir.normalize();
+      horizontalComponent = newHorizontalDir * horizontalMag;
+    } else {
+      horizontalComponent = m_normalizedDirection * horizontalMag;
+    }
+
+    m_externalVelocity = verticalComponent + horizontalComponent;
+  }
+
+  // clear external velocity if it's very low-magnitude to avoid sliding around on small inclines etc.
+  if (m_externalVelocity.length2() < 0.0003) {
+    m_externalVelocity.setValue(0.0, 0.0, 0.0);
+  }
 
   stepUp(collisionWorld);
 

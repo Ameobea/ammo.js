@@ -1036,6 +1036,15 @@ interface btKinematicCharacterController {
   void setMaxPenetrationDepth (float d);
   void setStepHeight (float h);
   float getVerticalVelocity();
+  void setVerticalVelocity (float vel);
+  void resetFall ();
+  float getVerticalOffset();
+  [Ref] btVector3 getJumpAxis();
+  void addExternalVelocity ([Const,Ref] btVector3 velocity);
+  void setExternalVelocity ([Const,Ref] btVector3 velocity);
+  void setExternalVelocityAirDampingFactor ([Const,Ref] btVector3 damping);
+  void setExternalVelocityGroundDampingFactor ([Const,Ref] btVector3 damping);
+  [Ref] btVector3 getExternalVelocity();
   boolean isJumping();
   long getFloorUserIndex();
 };

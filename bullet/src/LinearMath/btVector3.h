@@ -702,6 +702,11 @@ public:
 	SIMD_FORCE_INLINE	void	serializeDouble(struct	btVector3DoubleData& dataOut) const;
 
 	SIMD_FORCE_INLINE	void	deSerializeDouble(const struct	btVector3DoubleData& dataIn);
+
+	SIMD_FORCE_INLINE btVector3 pow(btScalar power) const
+	{
+		return btVector3(btPow(m_floats[0], power), btPow(m_floats[1], power), btPow(m_floats[2], power));
+	}
     
         /**@brief returns index of maximum dot product between this and vectors in array[]
          * @param array The other vectors 

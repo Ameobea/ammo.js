@@ -44,9 +44,27 @@ protected:
   btConvexShape* m_convexShape;
 
   btScalar m_maxPenetrationDepth;
+
+  // current velocity along the jump axis.  This is 0 when standing on the ground.
+  // I want to remove this in favor of external velocity.
   btScalar m_verticalVelocity;
-  // distance along the `m_up` axis that the player wants to move during this step
+  // distance along the jump axis that the player wants to move during this step
+  // I want to remove this in favor of external velocity.
   btScalar m_verticalOffset;
+
+  // velocity that is applied to the player from external sources like jumping, dashing, boosts, etc.
+  btVector3 m_externalVelocity;
+  // acts as friction for the external velocity when the player is in the air.  Every 1 second,
+  // the external velocity will be reduced by this factor.
+  //
+  // A value of 0.2 means that the external velocity will be reduced by 20% every second.
+  btVector3 m_externalVelocityAirDampingFactor;
+  // acts as friction for the external velocity when the player is on the ground.  Every 1 second,
+  // the external velocity will be reduced by this factor.
+  //
+  // A value of 0.2 means that the external velocity will be reduced by 20% every second.
+  btVector3 m_externalVelocityGroundDampingFactor;
+
   // max fall speed
   btScalar m_terminalVelocity;
   btScalar m_defaultJumpSpeed;
@@ -167,6 +185,44 @@ public:
 
   btScalar getVerticalVelocity() const {
     return m_verticalVelocity;
+  }
+
+  void setVerticalVelocity(btScalar v) {
+    m_verticalVelocity = v;
+  }
+
+  void resetFall() {
+    if (m_verticalVelocity < 0) {
+      m_verticalVelocity = 0;
+    }
+  }
+
+  btScalar getVerticalOffset() const {
+    return m_verticalOffset;
+  }
+
+  btVector3& getJumpAxis() {
+    return m_jumpAxis;
+  }
+
+  void addExternalVelocity(const btVector3& v) {
+    m_externalVelocity += v;
+  }
+
+  void setExternalVelocity(const btVector3& v) {
+    m_externalVelocity = v;
+  }
+
+  void setExternalVelocityAirDampingFactor(const btVector3& v) {
+    m_externalVelocityAirDampingFactor = v;
+  }
+
+  void setExternalVelocityGroundDampingFactor(const btVector3& v) {
+    m_externalVelocityGroundDampingFactor = v;
+  }
+
+  btVector3& getExternalVelocity() {
+    return m_externalVelocity;
   }
 
   bool isJumping() const {
