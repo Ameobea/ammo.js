@@ -442,11 +442,11 @@ int	btDiscreteDynamicsWorld::stepSimulation( btScalar timeStep,int maxSubSteps, 
 		//clamp the number of substeps, to prevent simulation grinding spiralling down to a halt
 		int clampedSimulationSteps = (numSimulationSubSteps > maxSubSteps)? maxSubSteps : numSimulationSubSteps;
 
-		saveKinematicState(fixedTimeStep*clampedSimulationSteps);
+		saveKinematicState(fixedTimeStep * clampedSimulationSteps);
+
+		performPreActions(fixedTimeStep * clampedSimulationSteps);
 
 		applyGravity();
-
-		
 
 		for (int i=0;i<clampedSimulationSteps;i++)
 		{
@@ -508,7 +508,7 @@ void	btDiscreteDynamicsWorld::internalSingleStepSimulation(btScalar timeStep)
 
 	integrateTransforms(timeStep);
 
-	///update vehicle simulation
+	///update character controllers + vehicle simulations
 	updateActions(timeStep);
 	
 	updateActivationState( timeStep );
@@ -603,6 +603,19 @@ void	btDiscreteDynamicsWorld::addRigidBody(btRigidBody* body, short group, short
 	}
 }
 
+// Pre-actions are handled once each full step of the simulation before any sub-steps.
+//
+// They are called after `saveKinematicState`, so the velocities of kinematic objects will have
+// already been computed.
+void	btDiscreteDynamicsWorld::performPreActions(btScalar timeStep)
+{
+	BT_PROFILE("preActions");
+	
+	for ( int i=0;i<m_actions.size();i++)
+	{
+		m_actions[i]->preAction( this, timeStep);
+	}
+}
 
 void	btDiscreteDynamicsWorld::updateActions(btScalar timeStep)
 {

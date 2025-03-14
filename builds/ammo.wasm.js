@@ -212,6 +212,7 @@ function preRun() {
 
 function initRuntime() {
   runtimeInitialized = true;
+  callRuntimeCallbacks(onInits);
   wasmExports["h"]();
 }
 
@@ -356,7 +357,7 @@ async function createWasm() {
     wasmExports = instance.exports;
     wasmMemory = wasmExports["g"];
     updateMemoryViews();
-    wasmTable = wasmExports["Qc"];
+    wasmTable = wasmExports["r"];
     removeRunDependency("wasm-instantiate");
     return wasmExports;
   }
@@ -674,6 +675,10 @@ var _fd_write = (fd, iov, iovcnt, pnum) => {
   return 0;
 };
 
+var onInits = [];
+
+var addOnInit = cb => onInits.unshift(cb);
+
 var uleb128Encode = (n, target) => {
   if (n < 128) {
     target.push(n);
@@ -877,7 +882,7 @@ var _webidl_malloc = Module["_webidl_malloc"] = wasmExports["k"];
 
 var _malloc = Module["_malloc"] = wasmExports["l"];
 
-var _emscripten_bind_btCollisionObject_isStaticObject_0 = Module["_emscripten_bind_btCollisionObject_isStaticObject_0"] = wasmExports["m"];
+var _emscripten_bind_btCollisionObject_setActivationState_1 = Module["_emscripten_bind_btCollisionObject_setActivationState_1"] = wasmExports["m"];
 
 var _emscripten_bind_btCollisionObject_getWorldTransform_0 = Module["_emscripten_bind_btCollisionObject_getWorldTransform_0"] = wasmExports["n"];
 
@@ -887,381 +892,385 @@ var _emscripten_bind_btCollisionObject_setWorldTransform_1 = Module["_emscripten
 
 var _emscripten_bind_btCollisionObject_setCollisionShape_1 = Module["_emscripten_bind_btCollisionObject_setCollisionShape_1"] = wasmExports["q"];
 
-var _emscripten_bind_btCollisionObject_setUserIndex_1 = Module["_emscripten_bind_btCollisionObject_setUserIndex_1"] = wasmExports["r"];
+var _emscripten_bind_btCollisionObject_setUserIndex_1 = Module["_emscripten_bind_btCollisionObject_setUserIndex_1"] = wasmExports["s"];
 
-var _emscripten_bind_btCollisionObject___destroy___0 = Module["_emscripten_bind_btCollisionObject___destroy___0"] = wasmExports["s"];
+var _emscripten_bind_btCollisionObject___destroy___0 = Module["_emscripten_bind_btCollisionObject___destroy___0"] = wasmExports["t"];
 
-var _emscripten_bind_btCollisionShape_setLocalScaling_1 = Module["_emscripten_bind_btCollisionShape_setLocalScaling_1"] = wasmExports["t"];
+var _emscripten_bind_btCollisionShape_setLocalScaling_1 = Module["_emscripten_bind_btCollisionShape_setLocalScaling_1"] = wasmExports["u"];
 
-var _emscripten_bind_btCollisionShape___destroy___0 = Module["_emscripten_bind_btCollisionShape___destroy___0"] = wasmExports["u"];
+var _emscripten_bind_btCollisionShape___destroy___0 = Module["_emscripten_bind_btCollisionShape___destroy___0"] = wasmExports["v"];
 
-var _emscripten_bind_btCollisionWorld_getDispatcher_0 = Module["_emscripten_bind_btCollisionWorld_getDispatcher_0"] = wasmExports["v"];
+var _emscripten_bind_btCollisionWorld_getDispatcher_0 = Module["_emscripten_bind_btCollisionWorld_getDispatcher_0"] = wasmExports["w"];
 
-var _emscripten_bind_btCollisionWorld_addCollisionObject_1 = Module["_emscripten_bind_btCollisionWorld_addCollisionObject_1"] = wasmExports["w"];
+var _emscripten_bind_btCollisionWorld_addCollisionObject_1 = Module["_emscripten_bind_btCollisionWorld_addCollisionObject_1"] = wasmExports["x"];
 
-var _emscripten_bind_btCollisionWorld_addCollisionObject_2 = Module["_emscripten_bind_btCollisionWorld_addCollisionObject_2"] = wasmExports["x"];
+var _emscripten_bind_btCollisionWorld_addCollisionObject_2 = Module["_emscripten_bind_btCollisionWorld_addCollisionObject_2"] = wasmExports["y"];
 
-var _emscripten_bind_btCollisionWorld_addCollisionObject_3 = Module["_emscripten_bind_btCollisionWorld_addCollisionObject_3"] = wasmExports["y"];
+var _emscripten_bind_btCollisionWorld_addCollisionObject_3 = Module["_emscripten_bind_btCollisionWorld_addCollisionObject_3"] = wasmExports["z"];
 
-var _emscripten_bind_btCollisionWorld_removeCollisionObject_1 = Module["_emscripten_bind_btCollisionWorld_removeCollisionObject_1"] = wasmExports["z"];
+var _emscripten_bind_btCollisionWorld_removeCollisionObject_1 = Module["_emscripten_bind_btCollisionWorld_removeCollisionObject_1"] = wasmExports["A"];
 
-var _emscripten_bind_btCollisionWorld_getBroadphase_0 = Module["_emscripten_bind_btCollisionWorld_getBroadphase_0"] = wasmExports["A"];
+var _emscripten_bind_btCollisionWorld_getBroadphase_0 = Module["_emscripten_bind_btCollisionWorld_getBroadphase_0"] = wasmExports["B"];
 
-var _emscripten_bind_btCollisionWorld___destroy___0 = Module["_emscripten_bind_btCollisionWorld___destroy___0"] = wasmExports["B"];
+var _emscripten_bind_btCollisionWorld___destroy___0 = Module["_emscripten_bind_btCollisionWorld___destroy___0"] = wasmExports["C"];
 
-var _emscripten_bind_btMotionState_getWorldTransform_1 = Module["_emscripten_bind_btMotionState_getWorldTransform_1"] = wasmExports["C"];
+var _emscripten_bind_btMotionState_getWorldTransform_1 = Module["_emscripten_bind_btMotionState_getWorldTransform_1"] = wasmExports["D"];
 
-var _emscripten_bind_btMotionState_setWorldTransform_1 = Module["_emscripten_bind_btMotionState_setWorldTransform_1"] = wasmExports["D"];
+var _emscripten_bind_btMotionState_setWorldTransform_1 = Module["_emscripten_bind_btMotionState_setWorldTransform_1"] = wasmExports["E"];
 
-var _emscripten_bind_btMotionState___destroy___0 = Module["_emscripten_bind_btMotionState___destroy___0"] = wasmExports["E"];
+var _emscripten_bind_btMotionState___destroy___0 = Module["_emscripten_bind_btMotionState___destroy___0"] = wasmExports["F"];
 
-var _emscripten_bind_btStridingMeshInterface___destroy___0 = Module["_emscripten_bind_btStridingMeshInterface___destroy___0"] = wasmExports["F"];
+var _emscripten_bind_btStridingMeshInterface___destroy___0 = Module["_emscripten_bind_btStridingMeshInterface___destroy___0"] = wasmExports["G"];
 
-var _emscripten_bind_btConcaveShape_setLocalScaling_1 = Module["_emscripten_bind_btConcaveShape_setLocalScaling_1"] = wasmExports["G"];
+var _emscripten_bind_btConcaveShape_setLocalScaling_1 = Module["_emscripten_bind_btConcaveShape_setLocalScaling_1"] = wasmExports["H"];
 
-var _emscripten_bind_btConcaveShape___destroy___0 = Module["_emscripten_bind_btConcaveShape___destroy___0"] = wasmExports["H"];
+var _emscripten_bind_btConcaveShape___destroy___0 = Module["_emscripten_bind_btConcaveShape___destroy___0"] = wasmExports["I"];
 
-var _emscripten_bind_btConstraintSolver___destroy___0 = Module["_emscripten_bind_btConstraintSolver___destroy___0"] = wasmExports["I"];
+var _emscripten_bind_btConstraintSolver___destroy___0 = Module["_emscripten_bind_btConstraintSolver___destroy___0"] = wasmExports["J"];
 
-var _emscripten_bind_btDynamicsWorld_addAction_1 = Module["_emscripten_bind_btDynamicsWorld_addAction_1"] = wasmExports["J"];
+var _emscripten_bind_btDynamicsWorld_addAction_1 = Module["_emscripten_bind_btDynamicsWorld_addAction_1"] = wasmExports["K"];
 
-var _emscripten_bind_btDynamicsWorld_getDispatcher_0 = Module["_emscripten_bind_btDynamicsWorld_getDispatcher_0"] = wasmExports["K"];
+var _emscripten_bind_btDynamicsWorld_getDispatcher_0 = Module["_emscripten_bind_btDynamicsWorld_getDispatcher_0"] = wasmExports["L"];
 
-var _emscripten_bind_btDynamicsWorld_addCollisionObject_1 = Module["_emscripten_bind_btDynamicsWorld_addCollisionObject_1"] = wasmExports["L"];
+var _emscripten_bind_btDynamicsWorld_addCollisionObject_1 = Module["_emscripten_bind_btDynamicsWorld_addCollisionObject_1"] = wasmExports["M"];
 
-var _emscripten_bind_btDynamicsWorld_addCollisionObject_2 = Module["_emscripten_bind_btDynamicsWorld_addCollisionObject_2"] = wasmExports["M"];
+var _emscripten_bind_btDynamicsWorld_addCollisionObject_2 = Module["_emscripten_bind_btDynamicsWorld_addCollisionObject_2"] = wasmExports["N"];
 
-var _emscripten_bind_btDynamicsWorld_addCollisionObject_3 = Module["_emscripten_bind_btDynamicsWorld_addCollisionObject_3"] = wasmExports["N"];
+var _emscripten_bind_btDynamicsWorld_addCollisionObject_3 = Module["_emscripten_bind_btDynamicsWorld_addCollisionObject_3"] = wasmExports["O"];
 
-var _emscripten_bind_btDynamicsWorld_removeCollisionObject_1 = Module["_emscripten_bind_btDynamicsWorld_removeCollisionObject_1"] = wasmExports["O"];
+var _emscripten_bind_btDynamicsWorld_removeCollisionObject_1 = Module["_emscripten_bind_btDynamicsWorld_removeCollisionObject_1"] = wasmExports["P"];
 
-var _emscripten_bind_btDynamicsWorld_getBroadphase_0 = Module["_emscripten_bind_btDynamicsWorld_getBroadphase_0"] = wasmExports["P"];
+var _emscripten_bind_btDynamicsWorld_getBroadphase_0 = Module["_emscripten_bind_btDynamicsWorld_getBroadphase_0"] = wasmExports["Q"];
 
-var _emscripten_bind_btDynamicsWorld___destroy___0 = Module["_emscripten_bind_btDynamicsWorld___destroy___0"] = wasmExports["Q"];
+var _emscripten_bind_btDynamicsWorld___destroy___0 = Module["_emscripten_bind_btDynamicsWorld___destroy___0"] = wasmExports["R"];
 
-var _emscripten_bind_btActionInterface___destroy___0 = Module["_emscripten_bind_btActionInterface___destroy___0"] = wasmExports["R"];
+var _emscripten_bind_btActionInterface___destroy___0 = Module["_emscripten_bind_btActionInterface___destroy___0"] = wasmExports["S"];
 
-var _emscripten_bind_btGhostObject_btGhostObject_0 = Module["_emscripten_bind_btGhostObject_btGhostObject_0"] = wasmExports["S"];
+var _emscripten_bind_btGhostObject_btGhostObject_0 = Module["_emscripten_bind_btGhostObject_btGhostObject_0"] = wasmExports["T"];
 
-var _emscripten_bind_btGhostObject_getNumOverlappingObjects_0 = Module["_emscripten_bind_btGhostObject_getNumOverlappingObjects_0"] = wasmExports["T"];
+var _emscripten_bind_btGhostObject_getNumOverlappingObjects_0 = Module["_emscripten_bind_btGhostObject_getNumOverlappingObjects_0"] = wasmExports["U"];
 
-var _emscripten_bind_btGhostObject_isStaticObject_0 = Module["_emscripten_bind_btGhostObject_isStaticObject_0"] = wasmExports["U"];
+var _emscripten_bind_btGhostObject_setActivationState_1 = Module["_emscripten_bind_btGhostObject_setActivationState_1"] = wasmExports["V"];
 
-var _emscripten_bind_btGhostObject_getWorldTransform_0 = Module["_emscripten_bind_btGhostObject_getWorldTransform_0"] = wasmExports["V"];
+var _emscripten_bind_btGhostObject_getWorldTransform_0 = Module["_emscripten_bind_btGhostObject_getWorldTransform_0"] = wasmExports["W"];
 
-var _emscripten_bind_btGhostObject_setCollisionFlags_1 = Module["_emscripten_bind_btGhostObject_setCollisionFlags_1"] = wasmExports["W"];
+var _emscripten_bind_btGhostObject_setCollisionFlags_1 = Module["_emscripten_bind_btGhostObject_setCollisionFlags_1"] = wasmExports["X"];
 
-var _emscripten_bind_btGhostObject_setWorldTransform_1 = Module["_emscripten_bind_btGhostObject_setWorldTransform_1"] = wasmExports["X"];
+var _emscripten_bind_btGhostObject_setWorldTransform_1 = Module["_emscripten_bind_btGhostObject_setWorldTransform_1"] = wasmExports["Y"];
 
-var _emscripten_bind_btGhostObject_setCollisionShape_1 = Module["_emscripten_bind_btGhostObject_setCollisionShape_1"] = wasmExports["Y"];
+var _emscripten_bind_btGhostObject_setCollisionShape_1 = Module["_emscripten_bind_btGhostObject_setCollisionShape_1"] = wasmExports["Z"];
 
-var _emscripten_bind_btGhostObject_setUserIndex_1 = Module["_emscripten_bind_btGhostObject_setUserIndex_1"] = wasmExports["Z"];
+var _emscripten_bind_btGhostObject_setUserIndex_1 = Module["_emscripten_bind_btGhostObject_setUserIndex_1"] = wasmExports["_"];
 
-var _emscripten_bind_btGhostObject___destroy___0 = Module["_emscripten_bind_btGhostObject___destroy___0"] = wasmExports["_"];
+var _emscripten_bind_btGhostObject___destroy___0 = Module["_emscripten_bind_btGhostObject___destroy___0"] = wasmExports["$"];
 
-var _emscripten_bind_VoidPtr___destroy___0 = Module["_emscripten_bind_VoidPtr___destroy___0"] = wasmExports["$"];
+var _emscripten_bind_VoidPtr___destroy___0 = Module["_emscripten_bind_VoidPtr___destroy___0"] = wasmExports["aa"];
 
-var _emscripten_bind_btVector3_btVector3_0 = Module["_emscripten_bind_btVector3_btVector3_0"] = wasmExports["aa"];
+var _emscripten_bind_btVector3_btVector3_0 = Module["_emscripten_bind_btVector3_btVector3_0"] = wasmExports["ba"];
 
-var _emscripten_bind_btVector3_btVector3_3 = Module["_emscripten_bind_btVector3_btVector3_3"] = wasmExports["ba"];
+var _emscripten_bind_btVector3_btVector3_3 = Module["_emscripten_bind_btVector3_btVector3_3"] = wasmExports["ca"];
 
-var _emscripten_bind_btVector3_length_0 = Module["_emscripten_bind_btVector3_length_0"] = wasmExports["ca"];
+var _emscripten_bind_btVector3_length_0 = Module["_emscripten_bind_btVector3_length_0"] = wasmExports["da"];
 
-var _emscripten_bind_btVector3_x_0 = Module["_emscripten_bind_btVector3_x_0"] = wasmExports["da"];
+var _emscripten_bind_btVector3_x_0 = Module["_emscripten_bind_btVector3_x_0"] = wasmExports["ea"];
 
-var _emscripten_bind_btVector3_y_0 = Module["_emscripten_bind_btVector3_y_0"] = wasmExports["ea"];
+var _emscripten_bind_btVector3_y_0 = Module["_emscripten_bind_btVector3_y_0"] = wasmExports["fa"];
 
-var _emscripten_bind_btVector3_z_0 = Module["_emscripten_bind_btVector3_z_0"] = wasmExports["fa"];
+var _emscripten_bind_btVector3_z_0 = Module["_emscripten_bind_btVector3_z_0"] = wasmExports["ga"];
 
-var _emscripten_bind_btVector3_setValue_3 = Module["_emscripten_bind_btVector3_setValue_3"] = wasmExports["ga"];
+var _emscripten_bind_btVector3_setValue_3 = Module["_emscripten_bind_btVector3_setValue_3"] = wasmExports["ha"];
 
-var _emscripten_bind_btVector3___destroy___0 = Module["_emscripten_bind_btVector3___destroy___0"] = wasmExports["ha"];
+var _emscripten_bind_btVector3___destroy___0 = Module["_emscripten_bind_btVector3___destroy___0"] = wasmExports["ia"];
 
-var _emscripten_bind_btQuaternion_btQuaternion_4 = Module["_emscripten_bind_btQuaternion_btQuaternion_4"] = wasmExports["ia"];
+var _emscripten_bind_btQuaternion_btQuaternion_4 = Module["_emscripten_bind_btQuaternion_btQuaternion_4"] = wasmExports["ja"];
 
-var _emscripten_bind_btQuaternion___destroy___0 = Module["_emscripten_bind_btQuaternion___destroy___0"] = wasmExports["ja"];
+var _emscripten_bind_btQuaternion_setValue_4 = Module["_emscripten_bind_btQuaternion_setValue_4"] = wasmExports["ka"];
 
-var _emscripten_bind_btTransform_btTransform_0 = Module["_emscripten_bind_btTransform_btTransform_0"] = wasmExports["ka"];
+var _emscripten_bind_btQuaternion___destroy___0 = Module["_emscripten_bind_btQuaternion___destroy___0"] = wasmExports["la"];
 
-var _emscripten_bind_btTransform_btTransform_2 = Module["_emscripten_bind_btTransform_btTransform_2"] = wasmExports["la"];
+var _emscripten_bind_btTransform_btTransform_0 = Module["_emscripten_bind_btTransform_btTransform_0"] = wasmExports["ma"];
 
-var _emscripten_bind_btTransform_setIdentity_0 = Module["_emscripten_bind_btTransform_setIdentity_0"] = wasmExports["ma"];
+var _emscripten_bind_btTransform_btTransform_2 = Module["_emscripten_bind_btTransform_btTransform_2"] = wasmExports["na"];
 
-var _emscripten_bind_btTransform_setOrigin_1 = Module["_emscripten_bind_btTransform_setOrigin_1"] = wasmExports["na"];
+var _emscripten_bind_btTransform_setIdentity_0 = Module["_emscripten_bind_btTransform_setIdentity_0"] = wasmExports["oa"];
 
-var _emscripten_bind_btTransform_setRotation_1 = Module["_emscripten_bind_btTransform_setRotation_1"] = wasmExports["oa"];
+var _emscripten_bind_btTransform_setOrigin_1 = Module["_emscripten_bind_btTransform_setOrigin_1"] = wasmExports["pa"];
 
-var _emscripten_bind_btTransform_getOrigin_0 = Module["_emscripten_bind_btTransform_getOrigin_0"] = wasmExports["pa"];
+var _emscripten_bind_btTransform_setRotation_1 = Module["_emscripten_bind_btTransform_setRotation_1"] = wasmExports["qa"];
 
-var _emscripten_bind_btTransform___destroy___0 = Module["_emscripten_bind_btTransform___destroy___0"] = wasmExports["qa"];
+var _emscripten_bind_btTransform_getOrigin_0 = Module["_emscripten_bind_btTransform_getOrigin_0"] = wasmExports["ra"];
 
-var _emscripten_bind_btDefaultMotionState_btDefaultMotionState_0 = Module["_emscripten_bind_btDefaultMotionState_btDefaultMotionState_0"] = wasmExports["ra"];
+var _emscripten_bind_btTransform___destroy___0 = Module["_emscripten_bind_btTransform___destroy___0"] = wasmExports["sa"];
 
-var _emscripten_bind_btDefaultMotionState_btDefaultMotionState_1 = Module["_emscripten_bind_btDefaultMotionState_btDefaultMotionState_1"] = wasmExports["sa"];
+var _emscripten_bind_btDefaultMotionState_btDefaultMotionState_0 = Module["_emscripten_bind_btDefaultMotionState_btDefaultMotionState_0"] = wasmExports["ta"];
 
-var _emscripten_bind_btDefaultMotionState_btDefaultMotionState_2 = Module["_emscripten_bind_btDefaultMotionState_btDefaultMotionState_2"] = wasmExports["ta"];
+var _emscripten_bind_btDefaultMotionState_btDefaultMotionState_1 = Module["_emscripten_bind_btDefaultMotionState_btDefaultMotionState_1"] = wasmExports["ua"];
 
-var _emscripten_bind_btDefaultMotionState_getWorldTransform_1 = Module["_emscripten_bind_btDefaultMotionState_getWorldTransform_1"] = wasmExports["ua"];
+var _emscripten_bind_btDefaultMotionState_btDefaultMotionState_2 = Module["_emscripten_bind_btDefaultMotionState_btDefaultMotionState_2"] = wasmExports["va"];
 
-var _emscripten_bind_btDefaultMotionState_setWorldTransform_1 = Module["_emscripten_bind_btDefaultMotionState_setWorldTransform_1"] = wasmExports["va"];
+var _emscripten_bind_btDefaultMotionState_getWorldTransform_1 = Module["_emscripten_bind_btDefaultMotionState_getWorldTransform_1"] = wasmExports["wa"];
 
-var _emscripten_bind_btDefaultMotionState___destroy___0 = Module["_emscripten_bind_btDefaultMotionState___destroy___0"] = wasmExports["wa"];
+var _emscripten_bind_btDefaultMotionState_setWorldTransform_1 = Module["_emscripten_bind_btDefaultMotionState_setWorldTransform_1"] = wasmExports["xa"];
 
-var _emscripten_bind_btConvexShape_setLocalScaling_1 = Module["_emscripten_bind_btConvexShape_setLocalScaling_1"] = wasmExports["xa"];
+var _emscripten_bind_btDefaultMotionState___destroy___0 = Module["_emscripten_bind_btDefaultMotionState___destroy___0"] = wasmExports["ya"];
 
-var _emscripten_bind_btConvexShape___destroy___0 = Module["_emscripten_bind_btConvexShape___destroy___0"] = wasmExports["ya"];
+var _emscripten_bind_btConvexShape_setLocalScaling_1 = Module["_emscripten_bind_btConvexShape_setLocalScaling_1"] = wasmExports["za"];
 
-var _emscripten_bind_btBoxShape_btBoxShape_1 = Module["_emscripten_bind_btBoxShape_btBoxShape_1"] = wasmExports["za"];
+var _emscripten_bind_btConvexShape___destroy___0 = Module["_emscripten_bind_btConvexShape___destroy___0"] = wasmExports["Aa"];
 
-var _emscripten_bind_btBoxShape_setLocalScaling_1 = Module["_emscripten_bind_btBoxShape_setLocalScaling_1"] = wasmExports["Aa"];
+var _emscripten_bind_btBoxShape_btBoxShape_1 = Module["_emscripten_bind_btBoxShape_btBoxShape_1"] = wasmExports["Ba"];
 
-var _emscripten_bind_btBoxShape___destroy___0 = Module["_emscripten_bind_btBoxShape___destroy___0"] = wasmExports["Ba"];
+var _emscripten_bind_btBoxShape_setLocalScaling_1 = Module["_emscripten_bind_btBoxShape_setLocalScaling_1"] = wasmExports["Ca"];
 
-var _emscripten_bind_btCapsuleShape_btCapsuleShape_2 = Module["_emscripten_bind_btCapsuleShape_btCapsuleShape_2"] = wasmExports["Ca"];
+var _emscripten_bind_btBoxShape___destroy___0 = Module["_emscripten_bind_btBoxShape___destroy___0"] = wasmExports["Da"];
 
-var _emscripten_bind_btCapsuleShape_setLocalScaling_1 = Module["_emscripten_bind_btCapsuleShape_setLocalScaling_1"] = wasmExports["Da"];
+var _emscripten_bind_btCapsuleShape_btCapsuleShape_2 = Module["_emscripten_bind_btCapsuleShape_btCapsuleShape_2"] = wasmExports["Ea"];
 
-var _emscripten_bind_btCapsuleShape___destroy___0 = Module["_emscripten_bind_btCapsuleShape___destroy___0"] = wasmExports["Ea"];
+var _emscripten_bind_btCapsuleShape_setLocalScaling_1 = Module["_emscripten_bind_btCapsuleShape_setLocalScaling_1"] = wasmExports["Fa"];
 
-var _emscripten_bind_btConeShape_btConeShape_2 = Module["_emscripten_bind_btConeShape_btConeShape_2"] = wasmExports["Fa"];
+var _emscripten_bind_btCapsuleShape___destroy___0 = Module["_emscripten_bind_btCapsuleShape___destroy___0"] = wasmExports["Ga"];
 
-var _emscripten_bind_btConeShape_setLocalScaling_1 = Module["_emscripten_bind_btConeShape_setLocalScaling_1"] = wasmExports["Ga"];
+var _emscripten_bind_btConeShape_btConeShape_2 = Module["_emscripten_bind_btConeShape_btConeShape_2"] = wasmExports["Ha"];
 
-var _emscripten_bind_btConeShape___destroy___0 = Module["_emscripten_bind_btConeShape___destroy___0"] = wasmExports["Ha"];
+var _emscripten_bind_btConeShape_setLocalScaling_1 = Module["_emscripten_bind_btConeShape_setLocalScaling_1"] = wasmExports["Ia"];
 
-var _emscripten_bind_btConvexHullShape_btConvexHullShape_0 = Module["_emscripten_bind_btConvexHullShape_btConvexHullShape_0"] = wasmExports["Ia"];
+var _emscripten_bind_btConeShape___destroy___0 = Module["_emscripten_bind_btConeShape___destroy___0"] = wasmExports["Ja"];
 
-var _emscripten_bind_btConvexHullShape_btConvexHullShape_1 = Module["_emscripten_bind_btConvexHullShape_btConvexHullShape_1"] = wasmExports["Ja"];
+var _emscripten_bind_btConvexHullShape_btConvexHullShape_0 = Module["_emscripten_bind_btConvexHullShape_btConvexHullShape_0"] = wasmExports["Ka"];
 
-var _emscripten_bind_btConvexHullShape_btConvexHullShape_2 = Module["_emscripten_bind_btConvexHullShape_btConvexHullShape_2"] = wasmExports["Ka"];
+var _emscripten_bind_btConvexHullShape_btConvexHullShape_1 = Module["_emscripten_bind_btConvexHullShape_btConvexHullShape_1"] = wasmExports["La"];
 
-var _emscripten_bind_btConvexHullShape_addPoint_1 = Module["_emscripten_bind_btConvexHullShape_addPoint_1"] = wasmExports["La"];
+var _emscripten_bind_btConvexHullShape_btConvexHullShape_2 = Module["_emscripten_bind_btConvexHullShape_btConvexHullShape_2"] = wasmExports["Ma"];
 
-var _emscripten_bind_btConvexHullShape_addPoint_2 = Module["_emscripten_bind_btConvexHullShape_addPoint_2"] = wasmExports["Ma"];
+var _emscripten_bind_btConvexHullShape_addPoint_1 = Module["_emscripten_bind_btConvexHullShape_addPoint_1"] = wasmExports["Na"];
 
-var _emscripten_bind_btConvexHullShape_setLocalScaling_1 = Module["_emscripten_bind_btConvexHullShape_setLocalScaling_1"] = wasmExports["Na"];
+var _emscripten_bind_btConvexHullShape_addPoint_2 = Module["_emscripten_bind_btConvexHullShape_addPoint_2"] = wasmExports["Oa"];
 
-var _emscripten_bind_btConvexHullShape___destroy___0 = Module["_emscripten_bind_btConvexHullShape___destroy___0"] = wasmExports["Oa"];
+var _emscripten_bind_btConvexHullShape_setLocalScaling_1 = Module["_emscripten_bind_btConvexHullShape_setLocalScaling_1"] = wasmExports["Pa"];
 
-var _emscripten_bind_btCompoundShape_btCompoundShape_0 = Module["_emscripten_bind_btCompoundShape_btCompoundShape_0"] = wasmExports["Pa"];
+var _emscripten_bind_btConvexHullShape___destroy___0 = Module["_emscripten_bind_btConvexHullShape___destroy___0"] = wasmExports["Qa"];
 
-var _emscripten_bind_btCompoundShape_btCompoundShape_1 = Module["_emscripten_bind_btCompoundShape_btCompoundShape_1"] = wasmExports["Qa"];
+var _emscripten_bind_btCompoundShape_btCompoundShape_0 = Module["_emscripten_bind_btCompoundShape_btCompoundShape_0"] = wasmExports["Ra"];
 
-var _emscripten_bind_btCompoundShape_addChildShape_2 = Module["_emscripten_bind_btCompoundShape_addChildShape_2"] = wasmExports["Ra"];
+var _emscripten_bind_btCompoundShape_btCompoundShape_1 = Module["_emscripten_bind_btCompoundShape_btCompoundShape_1"] = wasmExports["Sa"];
 
-var _emscripten_bind_btCompoundShape_setLocalScaling_1 = Module["_emscripten_bind_btCompoundShape_setLocalScaling_1"] = wasmExports["Sa"];
+var _emscripten_bind_btCompoundShape_addChildShape_2 = Module["_emscripten_bind_btCompoundShape_addChildShape_2"] = wasmExports["Ta"];
 
-var _emscripten_bind_btCompoundShape___destroy___0 = Module["_emscripten_bind_btCompoundShape___destroy___0"] = wasmExports["Ta"];
+var _emscripten_bind_btCompoundShape_setLocalScaling_1 = Module["_emscripten_bind_btCompoundShape_setLocalScaling_1"] = wasmExports["Ua"];
 
-var _emscripten_bind_btTriangleMesh_btTriangleMesh_0 = Module["_emscripten_bind_btTriangleMesh_btTriangleMesh_0"] = wasmExports["Ua"];
+var _emscripten_bind_btCompoundShape___destroy___0 = Module["_emscripten_bind_btCompoundShape___destroy___0"] = wasmExports["Va"];
 
-var _emscripten_bind_btTriangleMesh_btTriangleMesh_1 = Module["_emscripten_bind_btTriangleMesh_btTriangleMesh_1"] = wasmExports["Va"];
+var _emscripten_bind_btTriangleMesh_btTriangleMesh_0 = Module["_emscripten_bind_btTriangleMesh_btTriangleMesh_0"] = wasmExports["Wa"];
 
-var _emscripten_bind_btTriangleMesh_btTriangleMesh_2 = Module["_emscripten_bind_btTriangleMesh_btTriangleMesh_2"] = wasmExports["Wa"];
+var _emscripten_bind_btTriangleMesh_btTriangleMesh_1 = Module["_emscripten_bind_btTriangleMesh_btTriangleMesh_1"] = wasmExports["Xa"];
 
-var _emscripten_bind_btTriangleMesh_addTriangle_3 = Module["_emscripten_bind_btTriangleMesh_addTriangle_3"] = wasmExports["Xa"];
+var _emscripten_bind_btTriangleMesh_btTriangleMesh_2 = Module["_emscripten_bind_btTriangleMesh_btTriangleMesh_2"] = wasmExports["Ya"];
 
-var _emscripten_bind_btTriangleMesh_addTriangle_4 = Module["_emscripten_bind_btTriangleMesh_addTriangle_4"] = wasmExports["Ya"];
+var _emscripten_bind_btTriangleMesh_addTriangle_3 = Module["_emscripten_bind_btTriangleMesh_addTriangle_3"] = wasmExports["Za"];
 
-var _emscripten_bind_btTriangleMesh_preallocateIndices_1 = Module["_emscripten_bind_btTriangleMesh_preallocateIndices_1"] = wasmExports["Za"];
+var _emscripten_bind_btTriangleMesh_addTriangle_4 = Module["_emscripten_bind_btTriangleMesh_addTriangle_4"] = wasmExports["_a"];
 
-var _emscripten_bind_btTriangleMesh_preallocateVertices_1 = Module["_emscripten_bind_btTriangleMesh_preallocateVertices_1"] = wasmExports["_a"];
+var _emscripten_bind_btTriangleMesh_preallocateIndices_1 = Module["_emscripten_bind_btTriangleMesh_preallocateIndices_1"] = wasmExports["$a"];
 
-var _emscripten_bind_btTriangleMesh___destroy___0 = Module["_emscripten_bind_btTriangleMesh___destroy___0"] = wasmExports["$a"];
+var _emscripten_bind_btTriangleMesh_preallocateVertices_1 = Module["_emscripten_bind_btTriangleMesh_preallocateVertices_1"] = wasmExports["ab"];
 
-var _emscripten_bind_btBvhTriangleMeshShape_btBvhTriangleMeshShape_2 = Module["_emscripten_bind_btBvhTriangleMeshShape_btBvhTriangleMeshShape_2"] = wasmExports["ab"];
+var _emscripten_bind_btTriangleMesh___destroy___0 = Module["_emscripten_bind_btTriangleMesh___destroy___0"] = wasmExports["bb"];
 
-var _emscripten_bind_btBvhTriangleMeshShape_btBvhTriangleMeshShape_3 = Module["_emscripten_bind_btBvhTriangleMeshShape_btBvhTriangleMeshShape_3"] = wasmExports["bb"];
+var _emscripten_bind_btBvhTriangleMeshShape_btBvhTriangleMeshShape_2 = Module["_emscripten_bind_btBvhTriangleMeshShape_btBvhTriangleMeshShape_2"] = wasmExports["cb"];
 
-var _emscripten_bind_btBvhTriangleMeshShape___destroy___0 = Module["_emscripten_bind_btBvhTriangleMeshShape___destroy___0"] = wasmExports["cb"];
+var _emscripten_bind_btBvhTriangleMeshShape_btBvhTriangleMeshShape_3 = Module["_emscripten_bind_btBvhTriangleMeshShape_btBvhTriangleMeshShape_3"] = wasmExports["db"];
 
-var _emscripten_bind_btHeightfieldTerrainShape_btHeightfieldTerrainShape_9 = Module["_emscripten_bind_btHeightfieldTerrainShape_btHeightfieldTerrainShape_9"] = wasmExports["db"];
+var _emscripten_bind_btBvhTriangleMeshShape___destroy___0 = Module["_emscripten_bind_btBvhTriangleMeshShape___destroy___0"] = wasmExports["eb"];
 
-var _emscripten_bind_btHeightfieldTerrainShape_setMargin_1 = Module["_emscripten_bind_btHeightfieldTerrainShape_setMargin_1"] = wasmExports["eb"];
+var _emscripten_bind_btHeightfieldTerrainShape_btHeightfieldTerrainShape_9 = Module["_emscripten_bind_btHeightfieldTerrainShape_btHeightfieldTerrainShape_9"] = wasmExports["fb"];
 
-var _emscripten_bind_btHeightfieldTerrainShape_getMargin_0 = Module["_emscripten_bind_btHeightfieldTerrainShape_getMargin_0"] = wasmExports["fb"];
+var _emscripten_bind_btHeightfieldTerrainShape_setMargin_1 = Module["_emscripten_bind_btHeightfieldTerrainShape_setMargin_1"] = wasmExports["gb"];
 
-var _emscripten_bind_btHeightfieldTerrainShape_setLocalScaling_1 = Module["_emscripten_bind_btHeightfieldTerrainShape_setLocalScaling_1"] = wasmExports["gb"];
+var _emscripten_bind_btHeightfieldTerrainShape_getMargin_0 = Module["_emscripten_bind_btHeightfieldTerrainShape_getMargin_0"] = wasmExports["hb"];
 
-var _emscripten_bind_btHeightfieldTerrainShape___destroy___0 = Module["_emscripten_bind_btHeightfieldTerrainShape___destroy___0"] = wasmExports["hb"];
+var _emscripten_bind_btHeightfieldTerrainShape_setLocalScaling_1 = Module["_emscripten_bind_btHeightfieldTerrainShape_setLocalScaling_1"] = wasmExports["ib"];
 
-var _emscripten_bind_btDefaultCollisionConstructionInfo_btDefaultCollisionConstructionInfo_0 = Module["_emscripten_bind_btDefaultCollisionConstructionInfo_btDefaultCollisionConstructionInfo_0"] = wasmExports["ib"];
+var _emscripten_bind_btHeightfieldTerrainShape___destroy___0 = Module["_emscripten_bind_btHeightfieldTerrainShape___destroy___0"] = wasmExports["jb"];
 
-var _emscripten_bind_btDefaultCollisionConstructionInfo___destroy___0 = Module["_emscripten_bind_btDefaultCollisionConstructionInfo___destroy___0"] = wasmExports["jb"];
+var _emscripten_bind_btDefaultCollisionConstructionInfo_btDefaultCollisionConstructionInfo_0 = Module["_emscripten_bind_btDefaultCollisionConstructionInfo_btDefaultCollisionConstructionInfo_0"] = wasmExports["kb"];
 
-var _emscripten_bind_btDefaultCollisionConfiguration_btDefaultCollisionConfiguration_0 = Module["_emscripten_bind_btDefaultCollisionConfiguration_btDefaultCollisionConfiguration_0"] = wasmExports["kb"];
+var _emscripten_bind_btDefaultCollisionConstructionInfo___destroy___0 = Module["_emscripten_bind_btDefaultCollisionConstructionInfo___destroy___0"] = wasmExports["lb"];
 
-var _emscripten_bind_btDefaultCollisionConfiguration_btDefaultCollisionConfiguration_1 = Module["_emscripten_bind_btDefaultCollisionConfiguration_btDefaultCollisionConfiguration_1"] = wasmExports["lb"];
+var _emscripten_bind_btDefaultCollisionConfiguration_btDefaultCollisionConfiguration_0 = Module["_emscripten_bind_btDefaultCollisionConfiguration_btDefaultCollisionConfiguration_0"] = wasmExports["mb"];
 
-var _emscripten_bind_btDefaultCollisionConfiguration___destroy___0 = Module["_emscripten_bind_btDefaultCollisionConfiguration___destroy___0"] = wasmExports["mb"];
+var _emscripten_bind_btDefaultCollisionConfiguration_btDefaultCollisionConfiguration_1 = Module["_emscripten_bind_btDefaultCollisionConfiguration_btDefaultCollisionConfiguration_1"] = wasmExports["nb"];
 
-var _emscripten_bind_btDispatcher___destroy___0 = Module["_emscripten_bind_btDispatcher___destroy___0"] = wasmExports["nb"];
+var _emscripten_bind_btDefaultCollisionConfiguration___destroy___0 = Module["_emscripten_bind_btDefaultCollisionConfiguration___destroy___0"] = wasmExports["ob"];
 
-var _emscripten_bind_btCollisionDispatcher_btCollisionDispatcher_1 = Module["_emscripten_bind_btCollisionDispatcher_btCollisionDispatcher_1"] = wasmExports["ob"];
+var _emscripten_bind_btDispatcher___destroy___0 = Module["_emscripten_bind_btDispatcher___destroy___0"] = wasmExports["pb"];
 
-var _emscripten_bind_btCollisionDispatcher___destroy___0 = Module["_emscripten_bind_btCollisionDispatcher___destroy___0"] = wasmExports["pb"];
+var _emscripten_bind_btCollisionDispatcher_btCollisionDispatcher_1 = Module["_emscripten_bind_btCollisionDispatcher_btCollisionDispatcher_1"] = wasmExports["qb"];
 
-var _emscripten_bind_btOverlappingPairCallback___destroy___0 = Module["_emscripten_bind_btOverlappingPairCallback___destroy___0"] = wasmExports["qb"];
+var _emscripten_bind_btCollisionDispatcher___destroy___0 = Module["_emscripten_bind_btCollisionDispatcher___destroy___0"] = wasmExports["rb"];
 
-var _emscripten_bind_btOverlappingPairCache_setInternalGhostPairCallback_1 = Module["_emscripten_bind_btOverlappingPairCache_setInternalGhostPairCallback_1"] = wasmExports["rb"];
+var _emscripten_bind_btOverlappingPairCallback___destroy___0 = Module["_emscripten_bind_btOverlappingPairCallback___destroy___0"] = wasmExports["sb"];
 
-var _emscripten_bind_btOverlappingPairCache___destroy___0 = Module["_emscripten_bind_btOverlappingPairCache___destroy___0"] = wasmExports["sb"];
+var _emscripten_bind_btOverlappingPairCache_setInternalGhostPairCallback_1 = Module["_emscripten_bind_btOverlappingPairCache_setInternalGhostPairCallback_1"] = wasmExports["tb"];
 
-var _emscripten_bind_btBroadphaseInterface_getOverlappingPairCache_0 = Module["_emscripten_bind_btBroadphaseInterface_getOverlappingPairCache_0"] = wasmExports["tb"];
+var _emscripten_bind_btOverlappingPairCache___destroy___0 = Module["_emscripten_bind_btOverlappingPairCache___destroy___0"] = wasmExports["ub"];
 
-var _emscripten_bind_btBroadphaseInterface___destroy___0 = Module["_emscripten_bind_btBroadphaseInterface___destroy___0"] = wasmExports["ub"];
+var _emscripten_bind_btBroadphaseInterface_getOverlappingPairCache_0 = Module["_emscripten_bind_btBroadphaseInterface_getOverlappingPairCache_0"] = wasmExports["vb"];
 
-var _emscripten_bind_btCollisionConfiguration___destroy___0 = Module["_emscripten_bind_btCollisionConfiguration___destroy___0"] = wasmExports["vb"];
+var _emscripten_bind_btBroadphaseInterface___destroy___0 = Module["_emscripten_bind_btBroadphaseInterface___destroy___0"] = wasmExports["wb"];
 
-var _emscripten_bind_btDbvtBroadphase_btDbvtBroadphase_0 = Module["_emscripten_bind_btDbvtBroadphase_btDbvtBroadphase_0"] = wasmExports["wb"];
+var _emscripten_bind_btCollisionConfiguration___destroy___0 = Module["_emscripten_bind_btCollisionConfiguration___destroy___0"] = wasmExports["xb"];
 
-var _emscripten_bind_btDbvtBroadphase_optimize_0 = Module["_emscripten_bind_btDbvtBroadphase_optimize_0"] = wasmExports["xb"];
+var _emscripten_bind_btDbvtBroadphase_btDbvtBroadphase_0 = Module["_emscripten_bind_btDbvtBroadphase_btDbvtBroadphase_0"] = wasmExports["yb"];
 
-var _emscripten_bind_btDbvtBroadphase___destroy___0 = Module["_emscripten_bind_btDbvtBroadphase___destroy___0"] = wasmExports["yb"];
+var _emscripten_bind_btDbvtBroadphase_optimize_0 = Module["_emscripten_bind_btDbvtBroadphase_optimize_0"] = wasmExports["zb"];
 
-var _emscripten_bind_btRigidBodyConstructionInfo_btRigidBodyConstructionInfo_3 = Module["_emscripten_bind_btRigidBodyConstructionInfo_btRigidBodyConstructionInfo_3"] = wasmExports["zb"];
+var _emscripten_bind_btDbvtBroadphase___destroy___0 = Module["_emscripten_bind_btDbvtBroadphase___destroy___0"] = wasmExports["Ab"];
 
-var _emscripten_bind_btRigidBodyConstructionInfo_btRigidBodyConstructionInfo_4 = Module["_emscripten_bind_btRigidBodyConstructionInfo_btRigidBodyConstructionInfo_4"] = wasmExports["Ab"];
+var _emscripten_bind_btRigidBodyConstructionInfo_btRigidBodyConstructionInfo_3 = Module["_emscripten_bind_btRigidBodyConstructionInfo_btRigidBodyConstructionInfo_3"] = wasmExports["Bb"];
 
-var _emscripten_bind_btRigidBodyConstructionInfo___destroy___0 = Module["_emscripten_bind_btRigidBodyConstructionInfo___destroy___0"] = wasmExports["Bb"];
+var _emscripten_bind_btRigidBodyConstructionInfo_btRigidBodyConstructionInfo_4 = Module["_emscripten_bind_btRigidBodyConstructionInfo_btRigidBodyConstructionInfo_4"] = wasmExports["Cb"];
 
-var _emscripten_bind_btRigidBody_btRigidBody_1 = Module["_emscripten_bind_btRigidBody_btRigidBody_1"] = wasmExports["Cb"];
+var _emscripten_bind_btRigidBodyConstructionInfo___destroy___0 = Module["_emscripten_bind_btRigidBodyConstructionInfo___destroy___0"] = wasmExports["Db"];
 
-var _emscripten_bind_btRigidBody_isStaticObject_0 = Module["_emscripten_bind_btRigidBody_isStaticObject_0"] = wasmExports["Db"];
+var _emscripten_bind_btRigidBody_btRigidBody_1 = Module["_emscripten_bind_btRigidBody_btRigidBody_1"] = wasmExports["Eb"];
 
-var _emscripten_bind_btRigidBody_getWorldTransform_0 = Module["_emscripten_bind_btRigidBody_getWorldTransform_0"] = wasmExports["Eb"];
+var _emscripten_bind_btRigidBody_getMotionState_0 = Module["_emscripten_bind_btRigidBody_getMotionState_0"] = wasmExports["Fb"];
 
-var _emscripten_bind_btRigidBody_setCollisionFlags_1 = Module["_emscripten_bind_btRigidBody_setCollisionFlags_1"] = wasmExports["Fb"];
+var _emscripten_bind_btRigidBody_setActivationState_1 = Module["_emscripten_bind_btRigidBody_setActivationState_1"] = wasmExports["Gb"];
 
-var _emscripten_bind_btRigidBody_setWorldTransform_1 = Module["_emscripten_bind_btRigidBody_setWorldTransform_1"] = wasmExports["Gb"];
+var _emscripten_bind_btRigidBody_getWorldTransform_0 = Module["_emscripten_bind_btRigidBody_getWorldTransform_0"] = wasmExports["Hb"];
 
-var _emscripten_bind_btRigidBody_setCollisionShape_1 = Module["_emscripten_bind_btRigidBody_setCollisionShape_1"] = wasmExports["Hb"];
+var _emscripten_bind_btRigidBody_setCollisionFlags_1 = Module["_emscripten_bind_btRigidBody_setCollisionFlags_1"] = wasmExports["Ib"];
 
-var _emscripten_bind_btRigidBody_setUserIndex_1 = Module["_emscripten_bind_btRigidBody_setUserIndex_1"] = wasmExports["Ib"];
+var _emscripten_bind_btRigidBody_setWorldTransform_1 = Module["_emscripten_bind_btRigidBody_setWorldTransform_1"] = wasmExports["Jb"];
 
-var _emscripten_bind_btRigidBody___destroy___0 = Module["_emscripten_bind_btRigidBody___destroy___0"] = wasmExports["Jb"];
+var _emscripten_bind_btRigidBody_setCollisionShape_1 = Module["_emscripten_bind_btRigidBody_setCollisionShape_1"] = wasmExports["Kb"];
 
-var _emscripten_bind_btSequentialImpulseConstraintSolver_btSequentialImpulseConstraintSolver_0 = Module["_emscripten_bind_btSequentialImpulseConstraintSolver_btSequentialImpulseConstraintSolver_0"] = wasmExports["Kb"];
+var _emscripten_bind_btRigidBody_setUserIndex_1 = Module["_emscripten_bind_btRigidBody_setUserIndex_1"] = wasmExports["Lb"];
 
-var _emscripten_bind_btSequentialImpulseConstraintSolver___destroy___0 = Module["_emscripten_bind_btSequentialImpulseConstraintSolver___destroy___0"] = wasmExports["Lb"];
+var _emscripten_bind_btRigidBody___destroy___0 = Module["_emscripten_bind_btRigidBody___destroy___0"] = wasmExports["Mb"];
 
-var _emscripten_bind_btDiscreteDynamicsWorld_btDiscreteDynamicsWorld_4 = Module["_emscripten_bind_btDiscreteDynamicsWorld_btDiscreteDynamicsWorld_4"] = wasmExports["Mb"];
+var _emscripten_bind_btSequentialImpulseConstraintSolver_btSequentialImpulseConstraintSolver_0 = Module["_emscripten_bind_btSequentialImpulseConstraintSolver_btSequentialImpulseConstraintSolver_0"] = wasmExports["Nb"];
 
-var _emscripten_bind_btDiscreteDynamicsWorld_setGravity_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_setGravity_1"] = wasmExports["Nb"];
+var _emscripten_bind_btSequentialImpulseConstraintSolver___destroy___0 = Module["_emscripten_bind_btSequentialImpulseConstraintSolver___destroy___0"] = wasmExports["Ob"];
 
-var _emscripten_bind_btDiscreteDynamicsWorld_addRigidBody_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_addRigidBody_1"] = wasmExports["Ob"];
+var _emscripten_bind_btDiscreteDynamicsWorld_btDiscreteDynamicsWorld_4 = Module["_emscripten_bind_btDiscreteDynamicsWorld_btDiscreteDynamicsWorld_4"] = wasmExports["Pb"];
 
-var _emscripten_bind_btDiscreteDynamicsWorld_addRigidBody_3 = Module["_emscripten_bind_btDiscreteDynamicsWorld_addRigidBody_3"] = wasmExports["Pb"];
+var _emscripten_bind_btDiscreteDynamicsWorld_setGravity_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_setGravity_1"] = wasmExports["Qb"];
 
-var _emscripten_bind_btDiscreteDynamicsWorld_removeRigidBody_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_removeRigidBody_1"] = wasmExports["Qb"];
+var _emscripten_bind_btDiscreteDynamicsWorld_addRigidBody_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_addRigidBody_1"] = wasmExports["Rb"];
 
-var _emscripten_bind_btDiscreteDynamicsWorld_stepSimulation_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_stepSimulation_1"] = wasmExports["Rb"];
+var _emscripten_bind_btDiscreteDynamicsWorld_addRigidBody_3 = Module["_emscripten_bind_btDiscreteDynamicsWorld_addRigidBody_3"] = wasmExports["Sb"];
 
-var _emscripten_bind_btDiscreteDynamicsWorld_stepSimulation_2 = Module["_emscripten_bind_btDiscreteDynamicsWorld_stepSimulation_2"] = wasmExports["Sb"];
+var _emscripten_bind_btDiscreteDynamicsWorld_removeRigidBody_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_removeRigidBody_1"] = wasmExports["Tb"];
 
-var _emscripten_bind_btDiscreteDynamicsWorld_stepSimulation_3 = Module["_emscripten_bind_btDiscreteDynamicsWorld_stepSimulation_3"] = wasmExports["Tb"];
+var _emscripten_bind_btDiscreteDynamicsWorld_stepSimulation_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_stepSimulation_1"] = wasmExports["Ub"];
 
-var _emscripten_bind_btDiscreteDynamicsWorld_getDispatcher_0 = Module["_emscripten_bind_btDiscreteDynamicsWorld_getDispatcher_0"] = wasmExports["Ub"];
+var _emscripten_bind_btDiscreteDynamicsWorld_stepSimulation_2 = Module["_emscripten_bind_btDiscreteDynamicsWorld_stepSimulation_2"] = wasmExports["Vb"];
 
-var _emscripten_bind_btDiscreteDynamicsWorld_addCollisionObject_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_addCollisionObject_1"] = wasmExports["Vb"];
+var _emscripten_bind_btDiscreteDynamicsWorld_stepSimulation_3 = Module["_emscripten_bind_btDiscreteDynamicsWorld_stepSimulation_3"] = wasmExports["Wb"];
 
-var _emscripten_bind_btDiscreteDynamicsWorld_addCollisionObject_2 = Module["_emscripten_bind_btDiscreteDynamicsWorld_addCollisionObject_2"] = wasmExports["Wb"];
+var _emscripten_bind_btDiscreteDynamicsWorld_getDispatcher_0 = Module["_emscripten_bind_btDiscreteDynamicsWorld_getDispatcher_0"] = wasmExports["Xb"];
 
-var _emscripten_bind_btDiscreteDynamicsWorld_addCollisionObject_3 = Module["_emscripten_bind_btDiscreteDynamicsWorld_addCollisionObject_3"] = wasmExports["Xb"];
+var _emscripten_bind_btDiscreteDynamicsWorld_addCollisionObject_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_addCollisionObject_1"] = wasmExports["Yb"];
 
-var _emscripten_bind_btDiscreteDynamicsWorld_removeCollisionObject_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_removeCollisionObject_1"] = wasmExports["Yb"];
+var _emscripten_bind_btDiscreteDynamicsWorld_addCollisionObject_2 = Module["_emscripten_bind_btDiscreteDynamicsWorld_addCollisionObject_2"] = wasmExports["Zb"];
 
-var _emscripten_bind_btDiscreteDynamicsWorld_getBroadphase_0 = Module["_emscripten_bind_btDiscreteDynamicsWorld_getBroadphase_0"] = wasmExports["Zb"];
+var _emscripten_bind_btDiscreteDynamicsWorld_addCollisionObject_3 = Module["_emscripten_bind_btDiscreteDynamicsWorld_addCollisionObject_3"] = wasmExports["_b"];
 
-var _emscripten_bind_btDiscreteDynamicsWorld_addAction_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_addAction_1"] = wasmExports["_b"];
+var _emscripten_bind_btDiscreteDynamicsWorld_removeCollisionObject_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_removeCollisionObject_1"] = wasmExports["$b"];
 
-var _emscripten_bind_btDiscreteDynamicsWorld___destroy___0 = Module["_emscripten_bind_btDiscreteDynamicsWorld___destroy___0"] = wasmExports["$b"];
+var _emscripten_bind_btDiscreteDynamicsWorld_getBroadphase_0 = Module["_emscripten_bind_btDiscreteDynamicsWorld_getBroadphase_0"] = wasmExports["ac"];
 
-var _emscripten_bind_btKinematicCharacterController_btKinematicCharacterController_3 = Module["_emscripten_bind_btKinematicCharacterController_btKinematicCharacterController_3"] = wasmExports["ac"];
+var _emscripten_bind_btDiscreteDynamicsWorld_addAction_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_addAction_1"] = wasmExports["bc"];
 
-var _emscripten_bind_btKinematicCharacterController_btKinematicCharacterController_4 = Module["_emscripten_bind_btKinematicCharacterController_btKinematicCharacterController_4"] = wasmExports["bc"];
+var _emscripten_bind_btDiscreteDynamicsWorld___destroy___0 = Module["_emscripten_bind_btDiscreteDynamicsWorld___destroy___0"] = wasmExports["cc"];
 
-var _emscripten_bind_btKinematicCharacterController_setWalkDirection_1 = Module["_emscripten_bind_btKinematicCharacterController_setWalkDirection_1"] = wasmExports["cc"];
+var _emscripten_bind_btKinematicCharacterController_btKinematicCharacterController_3 = Module["_emscripten_bind_btKinematicCharacterController_btKinematicCharacterController_3"] = wasmExports["dc"];
 
-var _emscripten_bind_btKinematicCharacterController_warp_1 = Module["_emscripten_bind_btKinematicCharacterController_warp_1"] = wasmExports["dc"];
+var _emscripten_bind_btKinematicCharacterController_btKinematicCharacterController_4 = Module["_emscripten_bind_btKinematicCharacterController_btKinematicCharacterController_4"] = wasmExports["ec"];
 
-var _emscripten_bind_btKinematicCharacterController_setJumpSpeed_1 = Module["_emscripten_bind_btKinematicCharacterController_setJumpSpeed_1"] = wasmExports["ec"];
+var _emscripten_bind_btKinematicCharacterController_setWalkDirection_1 = Module["_emscripten_bind_btKinematicCharacterController_setWalkDirection_1"] = wasmExports["fc"];
 
-var _emscripten_bind_btKinematicCharacterController_jump_0 = Module["_emscripten_bind_btKinematicCharacterController_jump_0"] = wasmExports["fc"];
+var _emscripten_bind_btKinematicCharacterController_warp_1 = Module["_emscripten_bind_btKinematicCharacterController_warp_1"] = wasmExports["gc"];
 
-var _emscripten_bind_btKinematicCharacterController_jump_1 = Module["_emscripten_bind_btKinematicCharacterController_jump_1"] = wasmExports["gc"];
+var _emscripten_bind_btKinematicCharacterController_setJumpSpeed_1 = Module["_emscripten_bind_btKinematicCharacterController_setJumpSpeed_1"] = wasmExports["hc"];
 
-var _emscripten_bind_btKinematicCharacterController_setGravity_1 = Module["_emscripten_bind_btKinematicCharacterController_setGravity_1"] = wasmExports["hc"];
+var _emscripten_bind_btKinematicCharacterController_jump_0 = Module["_emscripten_bind_btKinematicCharacterController_jump_0"] = wasmExports["ic"];
 
-var _emscripten_bind_btKinematicCharacterController_setMaxSlope_1 = Module["_emscripten_bind_btKinematicCharacterController_setMaxSlope_1"] = wasmExports["ic"];
+var _emscripten_bind_btKinematicCharacterController_jump_1 = Module["_emscripten_bind_btKinematicCharacterController_jump_1"] = wasmExports["jc"];
 
-var _emscripten_bind_btKinematicCharacterController_onGround_0 = Module["_emscripten_bind_btKinematicCharacterController_onGround_0"] = wasmExports["jc"];
+var _emscripten_bind_btKinematicCharacterController_setGravity_1 = Module["_emscripten_bind_btKinematicCharacterController_setGravity_1"] = wasmExports["kc"];
 
-var _emscripten_bind_btKinematicCharacterController_setMaxPenetrationDepth_1 = Module["_emscripten_bind_btKinematicCharacterController_setMaxPenetrationDepth_1"] = wasmExports["kc"];
+var _emscripten_bind_btKinematicCharacterController_setMaxSlope_1 = Module["_emscripten_bind_btKinematicCharacterController_setMaxSlope_1"] = wasmExports["lc"];
 
-var _emscripten_bind_btKinematicCharacterController_setStepHeight_1 = Module["_emscripten_bind_btKinematicCharacterController_setStepHeight_1"] = wasmExports["lc"];
+var _emscripten_bind_btKinematicCharacterController_onGround_0 = Module["_emscripten_bind_btKinematicCharacterController_onGround_0"] = wasmExports["mc"];
 
-var _emscripten_bind_btKinematicCharacterController_getVerticalVelocity_0 = Module["_emscripten_bind_btKinematicCharacterController_getVerticalVelocity_0"] = wasmExports["mc"];
+var _emscripten_bind_btKinematicCharacterController_setMaxPenetrationDepth_1 = Module["_emscripten_bind_btKinematicCharacterController_setMaxPenetrationDepth_1"] = wasmExports["nc"];
 
-var _emscripten_bind_btKinematicCharacterController_setVerticalVelocity_1 = Module["_emscripten_bind_btKinematicCharacterController_setVerticalVelocity_1"] = wasmExports["nc"];
+var _emscripten_bind_btKinematicCharacterController_setStepHeight_1 = Module["_emscripten_bind_btKinematicCharacterController_setStepHeight_1"] = wasmExports["oc"];
 
-var _emscripten_bind_btKinematicCharacterController_resetFall_0 = Module["_emscripten_bind_btKinematicCharacterController_resetFall_0"] = wasmExports["oc"];
+var _emscripten_bind_btKinematicCharacterController_getVerticalVelocity_0 = Module["_emscripten_bind_btKinematicCharacterController_getVerticalVelocity_0"] = wasmExports["pc"];
 
-var _emscripten_bind_btKinematicCharacterController_getVerticalOffset_0 = Module["_emscripten_bind_btKinematicCharacterController_getVerticalOffset_0"] = wasmExports["pc"];
+var _emscripten_bind_btKinematicCharacterController_setVerticalVelocity_1 = Module["_emscripten_bind_btKinematicCharacterController_setVerticalVelocity_1"] = wasmExports["qc"];
 
-var _emscripten_bind_btKinematicCharacterController_getJumpAxis_0 = Module["_emscripten_bind_btKinematicCharacterController_getJumpAxis_0"] = wasmExports["qc"];
+var _emscripten_bind_btKinematicCharacterController_resetFall_0 = Module["_emscripten_bind_btKinematicCharacterController_resetFall_0"] = wasmExports["rc"];
 
-var _emscripten_bind_btKinematicCharacterController_addExternalVelocity_1 = Module["_emscripten_bind_btKinematicCharacterController_addExternalVelocity_1"] = wasmExports["rc"];
+var _emscripten_bind_btKinematicCharacterController_getVerticalOffset_0 = Module["_emscripten_bind_btKinematicCharacterController_getVerticalOffset_0"] = wasmExports["sc"];
 
-var _emscripten_bind_btKinematicCharacterController_setExternalVelocity_1 = Module["_emscripten_bind_btKinematicCharacterController_setExternalVelocity_1"] = wasmExports["sc"];
+var _emscripten_bind_btKinematicCharacterController_getJumpAxis_0 = Module["_emscripten_bind_btKinematicCharacterController_getJumpAxis_0"] = wasmExports["tc"];
 
-var _emscripten_bind_btKinematicCharacterController_setExternalVelocityAirDampingFactor_1 = Module["_emscripten_bind_btKinematicCharacterController_setExternalVelocityAirDampingFactor_1"] = wasmExports["tc"];
+var _emscripten_bind_btKinematicCharacterController_addExternalVelocity_1 = Module["_emscripten_bind_btKinematicCharacterController_addExternalVelocity_1"] = wasmExports["uc"];
 
-var _emscripten_bind_btKinematicCharacterController_setExternalVelocityGroundDampingFactor_1 = Module["_emscripten_bind_btKinematicCharacterController_setExternalVelocityGroundDampingFactor_1"] = wasmExports["uc"];
+var _emscripten_bind_btKinematicCharacterController_setExternalVelocity_1 = Module["_emscripten_bind_btKinematicCharacterController_setExternalVelocity_1"] = wasmExports["vc"];
 
-var _emscripten_bind_btKinematicCharacterController_getExternalVelocity_0 = Module["_emscripten_bind_btKinematicCharacterController_getExternalVelocity_0"] = wasmExports["vc"];
+var _emscripten_bind_btKinematicCharacterController_setExternalVelocityAirDampingFactor_1 = Module["_emscripten_bind_btKinematicCharacterController_setExternalVelocityAirDampingFactor_1"] = wasmExports["wc"];
 
-var _emscripten_bind_btKinematicCharacterController_isJumping_0 = Module["_emscripten_bind_btKinematicCharacterController_isJumping_0"] = wasmExports["wc"];
+var _emscripten_bind_btKinematicCharacterController_setExternalVelocityGroundDampingFactor_1 = Module["_emscripten_bind_btKinematicCharacterController_setExternalVelocityGroundDampingFactor_1"] = wasmExports["xc"];
 
-var _emscripten_bind_btKinematicCharacterController_getFloorUserIndex_0 = Module["_emscripten_bind_btKinematicCharacterController_getFloorUserIndex_0"] = wasmExports["xc"];
+var _emscripten_bind_btKinematicCharacterController_getExternalVelocity_0 = Module["_emscripten_bind_btKinematicCharacterController_getExternalVelocity_0"] = wasmExports["yc"];
 
-var _emscripten_bind_btKinematicCharacterController___destroy___0 = Module["_emscripten_bind_btKinematicCharacterController___destroy___0"] = wasmExports["yc"];
+var _emscripten_bind_btKinematicCharacterController_isJumping_0 = Module["_emscripten_bind_btKinematicCharacterController_isJumping_0"] = wasmExports["zc"];
 
-var _emscripten_bind_btPairCachingGhostObject_btPairCachingGhostObject_0 = Module["_emscripten_bind_btPairCachingGhostObject_btPairCachingGhostObject_0"] = wasmExports["zc"];
+var _emscripten_bind_btKinematicCharacterController_getFloorUserIndex_0 = Module["_emscripten_bind_btKinematicCharacterController_getFloorUserIndex_0"] = wasmExports["Ac"];
 
-var _emscripten_bind_btPairCachingGhostObject_isStaticObject_0 = Module["_emscripten_bind_btPairCachingGhostObject_isStaticObject_0"] = wasmExports["Ac"];
+var _emscripten_bind_btKinematicCharacterController___destroy___0 = Module["_emscripten_bind_btKinematicCharacterController___destroy___0"] = wasmExports["Bc"];
 
-var _emscripten_bind_btPairCachingGhostObject_getWorldTransform_0 = Module["_emscripten_bind_btPairCachingGhostObject_getWorldTransform_0"] = wasmExports["Bc"];
+var _emscripten_bind_btPairCachingGhostObject_btPairCachingGhostObject_0 = Module["_emscripten_bind_btPairCachingGhostObject_btPairCachingGhostObject_0"] = wasmExports["Cc"];
 
-var _emscripten_bind_btPairCachingGhostObject_setCollisionFlags_1 = Module["_emscripten_bind_btPairCachingGhostObject_setCollisionFlags_1"] = wasmExports["Cc"];
+var _emscripten_bind_btPairCachingGhostObject_setActivationState_1 = Module["_emscripten_bind_btPairCachingGhostObject_setActivationState_1"] = wasmExports["Dc"];
 
-var _emscripten_bind_btPairCachingGhostObject_setWorldTransform_1 = Module["_emscripten_bind_btPairCachingGhostObject_setWorldTransform_1"] = wasmExports["Dc"];
+var _emscripten_bind_btPairCachingGhostObject_getWorldTransform_0 = Module["_emscripten_bind_btPairCachingGhostObject_getWorldTransform_0"] = wasmExports["Ec"];
 
-var _emscripten_bind_btPairCachingGhostObject_setCollisionShape_1 = Module["_emscripten_bind_btPairCachingGhostObject_setCollisionShape_1"] = wasmExports["Ec"];
+var _emscripten_bind_btPairCachingGhostObject_setCollisionFlags_1 = Module["_emscripten_bind_btPairCachingGhostObject_setCollisionFlags_1"] = wasmExports["Fc"];
 
-var _emscripten_bind_btPairCachingGhostObject_setUserIndex_1 = Module["_emscripten_bind_btPairCachingGhostObject_setUserIndex_1"] = wasmExports["Fc"];
+var _emscripten_bind_btPairCachingGhostObject_setWorldTransform_1 = Module["_emscripten_bind_btPairCachingGhostObject_setWorldTransform_1"] = wasmExports["Gc"];
 
-var _emscripten_bind_btPairCachingGhostObject_getNumOverlappingObjects_0 = Module["_emscripten_bind_btPairCachingGhostObject_getNumOverlappingObjects_0"] = wasmExports["Gc"];
+var _emscripten_bind_btPairCachingGhostObject_setCollisionShape_1 = Module["_emscripten_bind_btPairCachingGhostObject_setCollisionShape_1"] = wasmExports["Hc"];
 
-var _emscripten_bind_btPairCachingGhostObject___destroy___0 = Module["_emscripten_bind_btPairCachingGhostObject___destroy___0"] = wasmExports["Hc"];
+var _emscripten_bind_btPairCachingGhostObject_setUserIndex_1 = Module["_emscripten_bind_btPairCachingGhostObject_setUserIndex_1"] = wasmExports["Ic"];
 
-var _emscripten_bind_btGhostPairCallback_btGhostPairCallback_0 = Module["_emscripten_bind_btGhostPairCallback_btGhostPairCallback_0"] = wasmExports["Ic"];
+var _emscripten_bind_btPairCachingGhostObject_getNumOverlappingObjects_0 = Module["_emscripten_bind_btPairCachingGhostObject_getNumOverlappingObjects_0"] = wasmExports["Jc"];
 
-var _emscripten_bind_btGhostPairCallback___destroy___0 = Module["_emscripten_bind_btGhostPairCallback___destroy___0"] = wasmExports["Jc"];
+var _emscripten_bind_btPairCachingGhostObject___destroy___0 = Module["_emscripten_bind_btPairCachingGhostObject___destroy___0"] = wasmExports["Kc"];
 
-var _emscripten_enum_PHY_ScalarType_PHY_FLOAT = Module["_emscripten_enum_PHY_ScalarType_PHY_FLOAT"] = wasmExports["Kc"];
+var _emscripten_bind_btGhostPairCallback_btGhostPairCallback_0 = Module["_emscripten_bind_btGhostPairCallback_btGhostPairCallback_0"] = wasmExports["Lc"];
 
-var _emscripten_enum_PHY_ScalarType_PHY_DOUBLE = Module["_emscripten_enum_PHY_ScalarType_PHY_DOUBLE"] = wasmExports["Lc"];
+var _emscripten_bind_btGhostPairCallback___destroy___0 = Module["_emscripten_bind_btGhostPairCallback___destroy___0"] = wasmExports["Mc"];
 
-var _emscripten_enum_PHY_ScalarType_PHY_INTEGER = Module["_emscripten_enum_PHY_ScalarType_PHY_INTEGER"] = wasmExports["Mc"];
+var _emscripten_enum_PHY_ScalarType_PHY_FLOAT = Module["_emscripten_enum_PHY_ScalarType_PHY_FLOAT"] = wasmExports["Nc"];
 
-var _emscripten_enum_PHY_ScalarType_PHY_SHORT = Module["_emscripten_enum_PHY_ScalarType_PHY_SHORT"] = wasmExports["Nc"];
+var _emscripten_enum_PHY_ScalarType_PHY_DOUBLE = Module["_emscripten_enum_PHY_ScalarType_PHY_DOUBLE"] = wasmExports["Oc"];
 
-var _emscripten_enum_PHY_ScalarType_PHY_FIXEDPOINT88 = Module["_emscripten_enum_PHY_ScalarType_PHY_FIXEDPOINT88"] = wasmExports["Oc"];
+var _emscripten_enum_PHY_ScalarType_PHY_INTEGER = Module["_emscripten_enum_PHY_ScalarType_PHY_INTEGER"] = wasmExports["Pc"];
 
-var _emscripten_enum_PHY_ScalarType_PHY_UCHAR = Module["_emscripten_enum_PHY_ScalarType_PHY_UCHAR"] = wasmExports["Pc"];
+var _emscripten_enum_PHY_ScalarType_PHY_SHORT = Module["_emscripten_enum_PHY_ScalarType_PHY_SHORT"] = wasmExports["Qc"];
 
-var __emscripten_timeout = wasmExports["Rc"];
+var _emscripten_enum_PHY_ScalarType_PHY_FIXEDPOINT88 = Module["_emscripten_enum_PHY_ScalarType_PHY_FIXEDPOINT88"] = wasmExports["Rc"];
+
+var _emscripten_enum_PHY_ScalarType_PHY_UCHAR = Module["_emscripten_enum_PHY_ScalarType_PHY_UCHAR"] = wasmExports["Sc"];
+
+var __emscripten_timeout = wasmExports["Tc"];
 
 // include: postamble.js
 // === Auto-generated postamble setup entry stuff ===
@@ -1418,7 +1427,7 @@ Module["getClass"] = getClass;
     assert(ensureCache.buffer);
     var bytes = view.BYTES_PER_ELEMENT;
     var len = array.length * bytes;
-    len = (len + 7) & -8;
+    len = alignMemory(len, 8);
     // keep things aligned to 8 byte boundaries
     var ret;
     if (ensureCache.pos + len >= ensureCache.size) {
@@ -1436,21 +1445,7 @@ Module["getClass"] = getClass;
     return ret;
   },
   copy(array, view, offset) {
-    offset >>>= 0;
-    var bytes = view.BYTES_PER_ELEMENT;
-    switch (bytes) {
-     case 2:
-      offset >>>= 1;
-      break;
-
-     case 4:
-      offset >>>= 2;
-      break;
-
-     case 8:
-      offset >>>= 3;
-      break;
-    }
+    offset /= view.BYTES_PER_ELEMENT;
     for (var i = 0; i < array.length; i++) {
       view[offset + i] = array[i];
     }
@@ -1466,7 +1461,7 @@ Module["getClass"] = getClass;
   return value;
 }
 
-// btCollisionObject
+// Interface: btCollisionObject
 /** @suppress {undefinedVars, duplicate} @this{Object} */ function btCollisionObject() {
   throw "cannot construct a btCollisionObject, no constructor in IDL";
 }
@@ -1481,46 +1476,47 @@ btCollisionObject.__cache__ = {};
 
 Module["btCollisionObject"] = btCollisionObject;
 
-btCollisionObject.prototype["isStaticObject"] = btCollisionObject.prototype.isStaticObject = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btCollisionObject.prototype["setActivationState"] = btCollisionObject.prototype.setActivationState = function(newState) {
   var self = this.ptr;
-  return !!(_emscripten_bind_btCollisionObject_isStaticObject_0(self));
+  if (newState && typeof newState === "object") newState = newState.ptr;
+  _emscripten_bind_btCollisionObject_setActivationState_1(self, newState);
 };
 
-btCollisionObject.prototype["getWorldTransform"] = btCollisionObject.prototype.getWorldTransform = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btCollisionObject.prototype["getWorldTransform"] = btCollisionObject.prototype.getWorldTransform = function() {
   var self = this.ptr;
   return wrapPointer(_emscripten_bind_btCollisionObject_getWorldTransform_0(self), btTransform);
 };
 
-btCollisionObject.prototype["setCollisionFlags"] = btCollisionObject.prototype.setCollisionFlags = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(flags) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btCollisionObject.prototype["setCollisionFlags"] = btCollisionObject.prototype.setCollisionFlags = function(flags) {
   var self = this.ptr;
   if (flags && typeof flags === "object") flags = flags.ptr;
   _emscripten_bind_btCollisionObject_setCollisionFlags_1(self, flags);
 };
 
-btCollisionObject.prototype["setWorldTransform"] = btCollisionObject.prototype.setWorldTransform = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(worldTrans) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btCollisionObject.prototype["setWorldTransform"] = btCollisionObject.prototype.setWorldTransform = function(worldTrans) {
   var self = this.ptr;
   if (worldTrans && typeof worldTrans === "object") worldTrans = worldTrans.ptr;
   _emscripten_bind_btCollisionObject_setWorldTransform_1(self, worldTrans);
 };
 
-btCollisionObject.prototype["setCollisionShape"] = btCollisionObject.prototype.setCollisionShape = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(collisionShape) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btCollisionObject.prototype["setCollisionShape"] = btCollisionObject.prototype.setCollisionShape = function(collisionShape) {
   var self = this.ptr;
   if (collisionShape && typeof collisionShape === "object") collisionShape = collisionShape.ptr;
   _emscripten_bind_btCollisionObject_setCollisionShape_1(self, collisionShape);
 };
 
-btCollisionObject.prototype["setUserIndex"] = btCollisionObject.prototype.setUserIndex = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(index) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btCollisionObject.prototype["setUserIndex"] = btCollisionObject.prototype.setUserIndex = function(index) {
   var self = this.ptr;
   if (index && typeof index === "object") index = index.ptr;
   _emscripten_bind_btCollisionObject_setUserIndex_1(self, index);
 };
 
-btCollisionObject.prototype["__destroy__"] = btCollisionObject.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btCollisionObject.prototype["__destroy__"] = btCollisionObject.prototype.__destroy__ = function() {
   var self = this.ptr;
   _emscripten_bind_btCollisionObject___destroy___0(self);
 };
 
-// btCollisionShape
+// Interface: btCollisionShape
 /** @suppress {undefinedVars, duplicate} @this{Object} */ function btCollisionShape() {
   throw "cannot construct a btCollisionShape, no constructor in IDL";
 }
@@ -1535,18 +1531,18 @@ btCollisionShape.__cache__ = {};
 
 Module["btCollisionShape"] = btCollisionShape;
 
-btCollisionShape.prototype["setLocalScaling"] = btCollisionShape.prototype.setLocalScaling = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(scaling) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btCollisionShape.prototype["setLocalScaling"] = btCollisionShape.prototype.setLocalScaling = function(scaling) {
   var self = this.ptr;
   if (scaling && typeof scaling === "object") scaling = scaling.ptr;
   _emscripten_bind_btCollisionShape_setLocalScaling_1(self, scaling);
 };
 
-btCollisionShape.prototype["__destroy__"] = btCollisionShape.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btCollisionShape.prototype["__destroy__"] = btCollisionShape.prototype.__destroy__ = function() {
   var self = this.ptr;
   _emscripten_bind_btCollisionShape___destroy___0(self);
 };
 
-// btCollisionWorld
+// Interface: btCollisionWorld
 /** @suppress {undefinedVars, duplicate} @this{Object} */ function btCollisionWorld() {
   throw "cannot construct a btCollisionWorld, no constructor in IDL";
 }
@@ -1561,12 +1557,12 @@ btCollisionWorld.__cache__ = {};
 
 Module["btCollisionWorld"] = btCollisionWorld;
 
-btCollisionWorld.prototype["getDispatcher"] = btCollisionWorld.prototype.getDispatcher = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btCollisionWorld.prototype["getDispatcher"] = btCollisionWorld.prototype.getDispatcher = function() {
   var self = this.ptr;
   return wrapPointer(_emscripten_bind_btCollisionWorld_getDispatcher_0(self), btDispatcher);
 };
 
-btCollisionWorld.prototype["addCollisionObject"] = btCollisionWorld.prototype.addCollisionObject = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(collisionObject, collisionFilterGroup, collisionFilterMask) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btCollisionWorld.prototype["addCollisionObject"] = btCollisionWorld.prototype.addCollisionObject = function(collisionObject, collisionFilterGroup, collisionFilterMask) {
   var self = this.ptr;
   if (collisionObject && typeof collisionObject === "object") collisionObject = collisionObject.ptr;
   if (collisionFilterGroup && typeof collisionFilterGroup === "object") collisionFilterGroup = collisionFilterGroup.ptr;
@@ -1582,23 +1578,23 @@ btCollisionWorld.prototype["addCollisionObject"] = btCollisionWorld.prototype.ad
   _emscripten_bind_btCollisionWorld_addCollisionObject_3(self, collisionObject, collisionFilterGroup, collisionFilterMask);
 };
 
-btCollisionWorld.prototype["removeCollisionObject"] = btCollisionWorld.prototype.removeCollisionObject = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(collisionObject) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btCollisionWorld.prototype["removeCollisionObject"] = btCollisionWorld.prototype.removeCollisionObject = function(collisionObject) {
   var self = this.ptr;
   if (collisionObject && typeof collisionObject === "object") collisionObject = collisionObject.ptr;
   _emscripten_bind_btCollisionWorld_removeCollisionObject_1(self, collisionObject);
 };
 
-btCollisionWorld.prototype["getBroadphase"] = btCollisionWorld.prototype.getBroadphase = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btCollisionWorld.prototype["getBroadphase"] = btCollisionWorld.prototype.getBroadphase = function() {
   var self = this.ptr;
   return wrapPointer(_emscripten_bind_btCollisionWorld_getBroadphase_0(self), btBroadphaseInterface);
 };
 
-btCollisionWorld.prototype["__destroy__"] = btCollisionWorld.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btCollisionWorld.prototype["__destroy__"] = btCollisionWorld.prototype.__destroy__ = function() {
   var self = this.ptr;
   _emscripten_bind_btCollisionWorld___destroy___0(self);
 };
 
-// btMotionState
+// Interface: btMotionState
 /** @suppress {undefinedVars, duplicate} @this{Object} */ function btMotionState() {
   throw "cannot construct a btMotionState, no constructor in IDL";
 }
@@ -1613,24 +1609,24 @@ btMotionState.__cache__ = {};
 
 Module["btMotionState"] = btMotionState;
 
-btMotionState.prototype["getWorldTransform"] = btMotionState.prototype.getWorldTransform = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(worldTrans) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btMotionState.prototype["getWorldTransform"] = btMotionState.prototype.getWorldTransform = function(worldTrans) {
   var self = this.ptr;
   if (worldTrans && typeof worldTrans === "object") worldTrans = worldTrans.ptr;
   _emscripten_bind_btMotionState_getWorldTransform_1(self, worldTrans);
 };
 
-btMotionState.prototype["setWorldTransform"] = btMotionState.prototype.setWorldTransform = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(worldTrans) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btMotionState.prototype["setWorldTransform"] = btMotionState.prototype.setWorldTransform = function(worldTrans) {
   var self = this.ptr;
   if (worldTrans && typeof worldTrans === "object") worldTrans = worldTrans.ptr;
   _emscripten_bind_btMotionState_setWorldTransform_1(self, worldTrans);
 };
 
-btMotionState.prototype["__destroy__"] = btMotionState.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btMotionState.prototype["__destroy__"] = btMotionState.prototype.__destroy__ = function() {
   var self = this.ptr;
   _emscripten_bind_btMotionState___destroy___0(self);
 };
 
-// btStridingMeshInterface
+// Interface: btStridingMeshInterface
 /** @suppress {undefinedVars, duplicate} @this{Object} */ function btStridingMeshInterface() {
   throw "cannot construct a btStridingMeshInterface, no constructor in IDL";
 }
@@ -1645,12 +1641,12 @@ btStridingMeshInterface.__cache__ = {};
 
 Module["btStridingMeshInterface"] = btStridingMeshInterface;
 
-btStridingMeshInterface.prototype["__destroy__"] = btStridingMeshInterface.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btStridingMeshInterface.prototype["__destroy__"] = btStridingMeshInterface.prototype.__destroy__ = function() {
   var self = this.ptr;
   _emscripten_bind_btStridingMeshInterface___destroy___0(self);
 };
 
-// btConcaveShape
+// Interface: btConcaveShape
 /** @suppress {undefinedVars, duplicate} @this{Object} */ function btConcaveShape() {
   throw "cannot construct a btConcaveShape, no constructor in IDL";
 }
@@ -1665,18 +1661,18 @@ btConcaveShape.__cache__ = {};
 
 Module["btConcaveShape"] = btConcaveShape;
 
-btConcaveShape.prototype["setLocalScaling"] = btConcaveShape.prototype.setLocalScaling = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(scaling) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btConcaveShape.prototype["setLocalScaling"] = btConcaveShape.prototype.setLocalScaling = function(scaling) {
   var self = this.ptr;
   if (scaling && typeof scaling === "object") scaling = scaling.ptr;
   _emscripten_bind_btConcaveShape_setLocalScaling_1(self, scaling);
 };
 
-btConcaveShape.prototype["__destroy__"] = btConcaveShape.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btConcaveShape.prototype["__destroy__"] = btConcaveShape.prototype.__destroy__ = function() {
   var self = this.ptr;
   _emscripten_bind_btConcaveShape___destroy___0(self);
 };
 
-// btConstraintSolver
+// Interface: btConstraintSolver
 /** @suppress {undefinedVars, duplicate} @this{Object} */ function btConstraintSolver() {
   throw "cannot construct a btConstraintSolver, no constructor in IDL";
 }
@@ -1691,12 +1687,12 @@ btConstraintSolver.__cache__ = {};
 
 Module["btConstraintSolver"] = btConstraintSolver;
 
-btConstraintSolver.prototype["__destroy__"] = btConstraintSolver.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btConstraintSolver.prototype["__destroy__"] = btConstraintSolver.prototype.__destroy__ = function() {
   var self = this.ptr;
   _emscripten_bind_btConstraintSolver___destroy___0(self);
 };
 
-// btDynamicsWorld
+// Interface: btDynamicsWorld
 /** @suppress {undefinedVars, duplicate} @this{Object} */ function btDynamicsWorld() {
   throw "cannot construct a btDynamicsWorld, no constructor in IDL";
 }
@@ -1711,18 +1707,18 @@ btDynamicsWorld.__cache__ = {};
 
 Module["btDynamicsWorld"] = btDynamicsWorld;
 
-btDynamicsWorld.prototype["addAction"] = btDynamicsWorld.prototype.addAction = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(action) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btDynamicsWorld.prototype["addAction"] = btDynamicsWorld.prototype.addAction = function(action) {
   var self = this.ptr;
   if (action && typeof action === "object") action = action.ptr;
   _emscripten_bind_btDynamicsWorld_addAction_1(self, action);
 };
 
-btDynamicsWorld.prototype["getDispatcher"] = btDynamicsWorld.prototype.getDispatcher = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btDynamicsWorld.prototype["getDispatcher"] = btDynamicsWorld.prototype.getDispatcher = function() {
   var self = this.ptr;
   return wrapPointer(_emscripten_bind_btDynamicsWorld_getDispatcher_0(self), btDispatcher);
 };
 
-btDynamicsWorld.prototype["addCollisionObject"] = btDynamicsWorld.prototype.addCollisionObject = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(collisionObject, collisionFilterGroup, collisionFilterMask) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btDynamicsWorld.prototype["addCollisionObject"] = btDynamicsWorld.prototype.addCollisionObject = function(collisionObject, collisionFilterGroup, collisionFilterMask) {
   var self = this.ptr;
   if (collisionObject && typeof collisionObject === "object") collisionObject = collisionObject.ptr;
   if (collisionFilterGroup && typeof collisionFilterGroup === "object") collisionFilterGroup = collisionFilterGroup.ptr;
@@ -1738,23 +1734,23 @@ btDynamicsWorld.prototype["addCollisionObject"] = btDynamicsWorld.prototype.addC
   _emscripten_bind_btDynamicsWorld_addCollisionObject_3(self, collisionObject, collisionFilterGroup, collisionFilterMask);
 };
 
-btDynamicsWorld.prototype["removeCollisionObject"] = btDynamicsWorld.prototype.removeCollisionObject = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(collisionObject) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btDynamicsWorld.prototype["removeCollisionObject"] = btDynamicsWorld.prototype.removeCollisionObject = function(collisionObject) {
   var self = this.ptr;
   if (collisionObject && typeof collisionObject === "object") collisionObject = collisionObject.ptr;
   _emscripten_bind_btDynamicsWorld_removeCollisionObject_1(self, collisionObject);
 };
 
-btDynamicsWorld.prototype["getBroadphase"] = btDynamicsWorld.prototype.getBroadphase = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btDynamicsWorld.prototype["getBroadphase"] = btDynamicsWorld.prototype.getBroadphase = function() {
   var self = this.ptr;
   return wrapPointer(_emscripten_bind_btDynamicsWorld_getBroadphase_0(self), btBroadphaseInterface);
 };
 
-btDynamicsWorld.prototype["__destroy__"] = btDynamicsWorld.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btDynamicsWorld.prototype["__destroy__"] = btDynamicsWorld.prototype.__destroy__ = function() {
   var self = this.ptr;
   _emscripten_bind_btDynamicsWorld___destroy___0(self);
 };
 
-// btActionInterface
+// Interface: btActionInterface
 /** @suppress {undefinedVars, duplicate} @this{Object} */ function btActionInterface() {
   throw "cannot construct a btActionInterface, no constructor in IDL";
 }
@@ -1769,12 +1765,12 @@ btActionInterface.__cache__ = {};
 
 Module["btActionInterface"] = btActionInterface;
 
-btActionInterface.prototype["__destroy__"] = btActionInterface.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btActionInterface.prototype["__destroy__"] = btActionInterface.prototype.__destroy__ = function() {
   var self = this.ptr;
   _emscripten_bind_btActionInterface___destroy___0(self);
 };
 
-// btGhostObject
+// Interface: btGhostObject
 /** @suppress {undefinedVars, duplicate} @this{Object} */ function btGhostObject() {
   this.ptr = _emscripten_bind_btGhostObject_btGhostObject_0();
   getCache(btGhostObject)[this.ptr] = this;
@@ -1790,51 +1786,52 @@ btGhostObject.__cache__ = {};
 
 Module["btGhostObject"] = btGhostObject;
 
-btGhostObject.prototype["getNumOverlappingObjects"] = btGhostObject.prototype.getNumOverlappingObjects = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btGhostObject.prototype["getNumOverlappingObjects"] = btGhostObject.prototype.getNumOverlappingObjects = function() {
   var self = this.ptr;
   return _emscripten_bind_btGhostObject_getNumOverlappingObjects_0(self);
 };
 
-btGhostObject.prototype["isStaticObject"] = btGhostObject.prototype.isStaticObject = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btGhostObject.prototype["setActivationState"] = btGhostObject.prototype.setActivationState = function(newState) {
   var self = this.ptr;
-  return !!(_emscripten_bind_btGhostObject_isStaticObject_0(self));
+  if (newState && typeof newState === "object") newState = newState.ptr;
+  _emscripten_bind_btGhostObject_setActivationState_1(self, newState);
 };
 
-btGhostObject.prototype["getWorldTransform"] = btGhostObject.prototype.getWorldTransform = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btGhostObject.prototype["getWorldTransform"] = btGhostObject.prototype.getWorldTransform = function() {
   var self = this.ptr;
   return wrapPointer(_emscripten_bind_btGhostObject_getWorldTransform_0(self), btTransform);
 };
 
-btGhostObject.prototype["setCollisionFlags"] = btGhostObject.prototype.setCollisionFlags = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(flags) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btGhostObject.prototype["setCollisionFlags"] = btGhostObject.prototype.setCollisionFlags = function(flags) {
   var self = this.ptr;
   if (flags && typeof flags === "object") flags = flags.ptr;
   _emscripten_bind_btGhostObject_setCollisionFlags_1(self, flags);
 };
 
-btGhostObject.prototype["setWorldTransform"] = btGhostObject.prototype.setWorldTransform = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(worldTrans) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btGhostObject.prototype["setWorldTransform"] = btGhostObject.prototype.setWorldTransform = function(worldTrans) {
   var self = this.ptr;
   if (worldTrans && typeof worldTrans === "object") worldTrans = worldTrans.ptr;
   _emscripten_bind_btGhostObject_setWorldTransform_1(self, worldTrans);
 };
 
-btGhostObject.prototype["setCollisionShape"] = btGhostObject.prototype.setCollisionShape = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(collisionShape) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btGhostObject.prototype["setCollisionShape"] = btGhostObject.prototype.setCollisionShape = function(collisionShape) {
   var self = this.ptr;
   if (collisionShape && typeof collisionShape === "object") collisionShape = collisionShape.ptr;
   _emscripten_bind_btGhostObject_setCollisionShape_1(self, collisionShape);
 };
 
-btGhostObject.prototype["setUserIndex"] = btGhostObject.prototype.setUserIndex = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(index) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btGhostObject.prototype["setUserIndex"] = btGhostObject.prototype.setUserIndex = function(index) {
   var self = this.ptr;
   if (index && typeof index === "object") index = index.ptr;
   _emscripten_bind_btGhostObject_setUserIndex_1(self, index);
 };
 
-btGhostObject.prototype["__destroy__"] = btGhostObject.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btGhostObject.prototype["__destroy__"] = btGhostObject.prototype.__destroy__ = function() {
   var self = this.ptr;
   _emscripten_bind_btGhostObject___destroy___0(self);
 };
 
-// VoidPtr
+// Interface: VoidPtr
 /** @suppress {undefinedVars, duplicate} @this{Object} */ function VoidPtr() {
   throw "cannot construct a VoidPtr, no constructor in IDL";
 }
@@ -1849,12 +1846,12 @@ VoidPtr.__cache__ = {};
 
 Module["VoidPtr"] = VoidPtr;
 
-VoidPtr.prototype["__destroy__"] = VoidPtr.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ VoidPtr.prototype["__destroy__"] = VoidPtr.prototype.__destroy__ = function() {
   var self = this.ptr;
   _emscripten_bind_VoidPtr___destroy___0(self);
 };
 
-// btVector3
+// Interface: btVector3
 /** @suppress {undefinedVars, duplicate} @this{Object} */ function btVector3(x, y, z) {
   if (x && typeof x === "object") x = x.ptr;
   if (y && typeof y === "object") y = y.ptr;
@@ -1888,27 +1885,27 @@ btVector3.__cache__ = {};
 
 Module["btVector3"] = btVector3;
 
-btVector3.prototype["length"] = btVector3.prototype.length = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btVector3.prototype["length"] = btVector3.prototype.length = function() {
   var self = this.ptr;
   return _emscripten_bind_btVector3_length_0(self);
 };
 
-btVector3.prototype["x"] = btVector3.prototype.x = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btVector3.prototype["x"] = btVector3.prototype.x = function() {
   var self = this.ptr;
   return _emscripten_bind_btVector3_x_0(self);
 };
 
-btVector3.prototype["y"] = btVector3.prototype.y = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btVector3.prototype["y"] = btVector3.prototype.y = function() {
   var self = this.ptr;
   return _emscripten_bind_btVector3_y_0(self);
 };
 
-btVector3.prototype["z"] = btVector3.prototype.z = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btVector3.prototype["z"] = btVector3.prototype.z = function() {
   var self = this.ptr;
   return _emscripten_bind_btVector3_z_0(self);
 };
 
-btVector3.prototype["setValue"] = btVector3.prototype.setValue = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(x, y, z) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btVector3.prototype["setValue"] = btVector3.prototype.setValue = function(x, y, z) {
   var self = this.ptr;
   if (x && typeof x === "object") x = x.ptr;
   if (y && typeof y === "object") y = y.ptr;
@@ -1916,12 +1913,12 @@ btVector3.prototype["setValue"] = btVector3.prototype.setValue = /** @suppress {
   _emscripten_bind_btVector3_setValue_3(self, x, y, z);
 };
 
-btVector3.prototype["__destroy__"] = btVector3.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btVector3.prototype["__destroy__"] = btVector3.prototype.__destroy__ = function() {
   var self = this.ptr;
   _emscripten_bind_btVector3___destroy___0(self);
 };
 
-// btQuaternion
+// Interface: btQuaternion
 /** @suppress {undefinedVars, duplicate} @this{Object} */ function btQuaternion(x, y, z, w) {
   if (x && typeof x === "object") x = x.ptr;
   if (y && typeof y === "object") y = y.ptr;
@@ -1941,12 +1938,21 @@ btQuaternion.__cache__ = {};
 
 Module["btQuaternion"] = btQuaternion;
 
-btQuaternion.prototype["__destroy__"] = btQuaternion.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btQuaternion.prototype["setValue"] = btQuaternion.prototype.setValue = function(x, y, z, w) {
+  var self = this.ptr;
+  if (x && typeof x === "object") x = x.ptr;
+  if (y && typeof y === "object") y = y.ptr;
+  if (z && typeof z === "object") z = z.ptr;
+  if (w && typeof w === "object") w = w.ptr;
+  _emscripten_bind_btQuaternion_setValue_4(self, x, y, z, w);
+};
+
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btQuaternion.prototype["__destroy__"] = btQuaternion.prototype.__destroy__ = function() {
   var self = this.ptr;
   _emscripten_bind_btQuaternion___destroy___0(self);
 };
 
-// btTransform
+// Interface: btTransform
 /** @suppress {undefinedVars, duplicate} @this{Object} */ function btTransform(q, v) {
   if (q && typeof q === "object") q = q.ptr;
   if (v && typeof v === "object") v = v.ptr;
@@ -1974,34 +1980,34 @@ btTransform.__cache__ = {};
 
 Module["btTransform"] = btTransform;
 
-btTransform.prototype["setIdentity"] = btTransform.prototype.setIdentity = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btTransform.prototype["setIdentity"] = btTransform.prototype.setIdentity = function() {
   var self = this.ptr;
   _emscripten_bind_btTransform_setIdentity_0(self);
 };
 
-btTransform.prototype["setOrigin"] = btTransform.prototype.setOrigin = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(origin) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btTransform.prototype["setOrigin"] = btTransform.prototype.setOrigin = function(origin) {
   var self = this.ptr;
   if (origin && typeof origin === "object") origin = origin.ptr;
   _emscripten_bind_btTransform_setOrigin_1(self, origin);
 };
 
-btTransform.prototype["setRotation"] = btTransform.prototype.setRotation = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(rotation) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btTransform.prototype["setRotation"] = btTransform.prototype.setRotation = function(rotation) {
   var self = this.ptr;
   if (rotation && typeof rotation === "object") rotation = rotation.ptr;
   _emscripten_bind_btTransform_setRotation_1(self, rotation);
 };
 
-btTransform.prototype["getOrigin"] = btTransform.prototype.getOrigin = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btTransform.prototype["getOrigin"] = btTransform.prototype.getOrigin = function() {
   var self = this.ptr;
   return wrapPointer(_emscripten_bind_btTransform_getOrigin_0(self), btVector3);
 };
 
-btTransform.prototype["__destroy__"] = btTransform.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btTransform.prototype["__destroy__"] = btTransform.prototype.__destroy__ = function() {
   var self = this.ptr;
   _emscripten_bind_btTransform___destroy___0(self);
 };
 
-// btDefaultMotionState
+// Interface: btDefaultMotionState
 /** @suppress {undefinedVars, duplicate} @this{Object} */ function btDefaultMotionState(startTrans, centerOfMassOffset) {
   if (startTrans && typeof startTrans === "object") startTrans = startTrans.ptr;
   if (centerOfMassOffset && typeof centerOfMassOffset === "object") centerOfMassOffset = centerOfMassOffset.ptr;
@@ -2029,24 +2035,24 @@ btDefaultMotionState.__cache__ = {};
 
 Module["btDefaultMotionState"] = btDefaultMotionState;
 
-btDefaultMotionState.prototype["getWorldTransform"] = btDefaultMotionState.prototype.getWorldTransform = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(worldTrans) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btDefaultMotionState.prototype["getWorldTransform"] = btDefaultMotionState.prototype.getWorldTransform = function(worldTrans) {
   var self = this.ptr;
   if (worldTrans && typeof worldTrans === "object") worldTrans = worldTrans.ptr;
   _emscripten_bind_btDefaultMotionState_getWorldTransform_1(self, worldTrans);
 };
 
-btDefaultMotionState.prototype["setWorldTransform"] = btDefaultMotionState.prototype.setWorldTransform = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(worldTrans) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btDefaultMotionState.prototype["setWorldTransform"] = btDefaultMotionState.prototype.setWorldTransform = function(worldTrans) {
   var self = this.ptr;
   if (worldTrans && typeof worldTrans === "object") worldTrans = worldTrans.ptr;
   _emscripten_bind_btDefaultMotionState_setWorldTransform_1(self, worldTrans);
 };
 
-btDefaultMotionState.prototype["__destroy__"] = btDefaultMotionState.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btDefaultMotionState.prototype["__destroy__"] = btDefaultMotionState.prototype.__destroy__ = function() {
   var self = this.ptr;
   _emscripten_bind_btDefaultMotionState___destroy___0(self);
 };
 
-// btConvexShape
+// Interface: btConvexShape
 /** @suppress {undefinedVars, duplicate} @this{Object} */ function btConvexShape() {
   throw "cannot construct a btConvexShape, no constructor in IDL";
 }
@@ -2061,18 +2067,18 @@ btConvexShape.__cache__ = {};
 
 Module["btConvexShape"] = btConvexShape;
 
-btConvexShape.prototype["setLocalScaling"] = btConvexShape.prototype.setLocalScaling = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(scaling) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btConvexShape.prototype["setLocalScaling"] = btConvexShape.prototype.setLocalScaling = function(scaling) {
   var self = this.ptr;
   if (scaling && typeof scaling === "object") scaling = scaling.ptr;
   _emscripten_bind_btConvexShape_setLocalScaling_1(self, scaling);
 };
 
-btConvexShape.prototype["__destroy__"] = btConvexShape.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btConvexShape.prototype["__destroy__"] = btConvexShape.prototype.__destroy__ = function() {
   var self = this.ptr;
   _emscripten_bind_btConvexShape___destroy___0(self);
 };
 
-// btBoxShape
+// Interface: btBoxShape
 /** @suppress {undefinedVars, duplicate} @this{Object} */ function btBoxShape(boxHalfExtents) {
   if (boxHalfExtents && typeof boxHalfExtents === "object") boxHalfExtents = boxHalfExtents.ptr;
   this.ptr = _emscripten_bind_btBoxShape_btBoxShape_1(boxHalfExtents);
@@ -2089,18 +2095,18 @@ btBoxShape.__cache__ = {};
 
 Module["btBoxShape"] = btBoxShape;
 
-btBoxShape.prototype["setLocalScaling"] = btBoxShape.prototype.setLocalScaling = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(scaling) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btBoxShape.prototype["setLocalScaling"] = btBoxShape.prototype.setLocalScaling = function(scaling) {
   var self = this.ptr;
   if (scaling && typeof scaling === "object") scaling = scaling.ptr;
   _emscripten_bind_btBoxShape_setLocalScaling_1(self, scaling);
 };
 
-btBoxShape.prototype["__destroy__"] = btBoxShape.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btBoxShape.prototype["__destroy__"] = btBoxShape.prototype.__destroy__ = function() {
   var self = this.ptr;
   _emscripten_bind_btBoxShape___destroy___0(self);
 };
 
-// btCapsuleShape
+// Interface: btCapsuleShape
 /** @suppress {undefinedVars, duplicate} @this{Object} */ function btCapsuleShape(radius, height) {
   if (radius && typeof radius === "object") radius = radius.ptr;
   if (height && typeof height === "object") height = height.ptr;
@@ -2118,18 +2124,18 @@ btCapsuleShape.__cache__ = {};
 
 Module["btCapsuleShape"] = btCapsuleShape;
 
-btCapsuleShape.prototype["setLocalScaling"] = btCapsuleShape.prototype.setLocalScaling = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(scaling) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btCapsuleShape.prototype["setLocalScaling"] = btCapsuleShape.prototype.setLocalScaling = function(scaling) {
   var self = this.ptr;
   if (scaling && typeof scaling === "object") scaling = scaling.ptr;
   _emscripten_bind_btCapsuleShape_setLocalScaling_1(self, scaling);
 };
 
-btCapsuleShape.prototype["__destroy__"] = btCapsuleShape.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btCapsuleShape.prototype["__destroy__"] = btCapsuleShape.prototype.__destroy__ = function() {
   var self = this.ptr;
   _emscripten_bind_btCapsuleShape___destroy___0(self);
 };
 
-// btConeShape
+// Interface: btConeShape
 /** @suppress {undefinedVars, duplicate} @this{Object} */ function btConeShape(radius, height) {
   if (radius && typeof radius === "object") radius = radius.ptr;
   if (height && typeof height === "object") height = height.ptr;
@@ -2147,18 +2153,18 @@ btConeShape.__cache__ = {};
 
 Module["btConeShape"] = btConeShape;
 
-btConeShape.prototype["setLocalScaling"] = btConeShape.prototype.setLocalScaling = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(scaling) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btConeShape.prototype["setLocalScaling"] = btConeShape.prototype.setLocalScaling = function(scaling) {
   var self = this.ptr;
   if (scaling && typeof scaling === "object") scaling = scaling.ptr;
   _emscripten_bind_btConeShape_setLocalScaling_1(self, scaling);
 };
 
-btConeShape.prototype["__destroy__"] = btConeShape.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btConeShape.prototype["__destroy__"] = btConeShape.prototype.__destroy__ = function() {
   var self = this.ptr;
   _emscripten_bind_btConeShape___destroy___0(self);
 };
 
-// btConvexHullShape
+// Interface: btConvexHullShape
 /** @suppress {undefinedVars, duplicate} @this{Object} */ function btConvexHullShape(points, numPoints) {
   ensureCache.prepare();
   if (typeof points == "object") {
@@ -2189,7 +2195,7 @@ btConvexHullShape.__cache__ = {};
 
 Module["btConvexHullShape"] = btConvexHullShape;
 
-btConvexHullShape.prototype["addPoint"] = btConvexHullShape.prototype.addPoint = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(point, recalculateLocalAABB) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btConvexHullShape.prototype["addPoint"] = btConvexHullShape.prototype.addPoint = function(point, recalculateLocalAABB) {
   var self = this.ptr;
   if (point && typeof point === "object") point = point.ptr;
   if (recalculateLocalAABB && typeof recalculateLocalAABB === "object") recalculateLocalAABB = recalculateLocalAABB.ptr;
@@ -2200,18 +2206,18 @@ btConvexHullShape.prototype["addPoint"] = btConvexHullShape.prototype.addPoint =
   _emscripten_bind_btConvexHullShape_addPoint_2(self, point, recalculateLocalAABB);
 };
 
-btConvexHullShape.prototype["setLocalScaling"] = btConvexHullShape.prototype.setLocalScaling = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(scaling) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btConvexHullShape.prototype["setLocalScaling"] = btConvexHullShape.prototype.setLocalScaling = function(scaling) {
   var self = this.ptr;
   if (scaling && typeof scaling === "object") scaling = scaling.ptr;
   _emscripten_bind_btConvexHullShape_setLocalScaling_1(self, scaling);
 };
 
-btConvexHullShape.prototype["__destroy__"] = btConvexHullShape.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btConvexHullShape.prototype["__destroy__"] = btConvexHullShape.prototype.__destroy__ = function() {
   var self = this.ptr;
   _emscripten_bind_btConvexHullShape___destroy___0(self);
 };
 
-// btCompoundShape
+// Interface: btCompoundShape
 /** @suppress {undefinedVars, duplicate} @this{Object} */ function btCompoundShape(enableDynamicAabbTree) {
   if (enableDynamicAabbTree && typeof enableDynamicAabbTree === "object") enableDynamicAabbTree = enableDynamicAabbTree.ptr;
   if (enableDynamicAabbTree === undefined) {
@@ -2233,25 +2239,25 @@ btCompoundShape.__cache__ = {};
 
 Module["btCompoundShape"] = btCompoundShape;
 
-btCompoundShape.prototype["addChildShape"] = btCompoundShape.prototype.addChildShape = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(localTransform, shape) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btCompoundShape.prototype["addChildShape"] = btCompoundShape.prototype.addChildShape = function(localTransform, shape) {
   var self = this.ptr;
   if (localTransform && typeof localTransform === "object") localTransform = localTransform.ptr;
   if (shape && typeof shape === "object") shape = shape.ptr;
   _emscripten_bind_btCompoundShape_addChildShape_2(self, localTransform, shape);
 };
 
-btCompoundShape.prototype["setLocalScaling"] = btCompoundShape.prototype.setLocalScaling = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(scaling) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btCompoundShape.prototype["setLocalScaling"] = btCompoundShape.prototype.setLocalScaling = function(scaling) {
   var self = this.ptr;
   if (scaling && typeof scaling === "object") scaling = scaling.ptr;
   _emscripten_bind_btCompoundShape_setLocalScaling_1(self, scaling);
 };
 
-btCompoundShape.prototype["__destroy__"] = btCompoundShape.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btCompoundShape.prototype["__destroy__"] = btCompoundShape.prototype.__destroy__ = function() {
   var self = this.ptr;
   _emscripten_bind_btCompoundShape___destroy___0(self);
 };
 
-// btTriangleMesh
+// Interface: btTriangleMesh
 /** @suppress {undefinedVars, duplicate} @this{Object} */ function btTriangleMesh(use32bitIndices, use4componentVertices) {
   if (use32bitIndices && typeof use32bitIndices === "object") use32bitIndices = use32bitIndices.ptr;
   if (use4componentVertices && typeof use4componentVertices === "object") use4componentVertices = use4componentVertices.ptr;
@@ -2279,7 +2285,7 @@ btTriangleMesh.__cache__ = {};
 
 Module["btTriangleMesh"] = btTriangleMesh;
 
-btTriangleMesh.prototype["addTriangle"] = btTriangleMesh.prototype.addTriangle = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(vertex0, vertex1, vertex2, removeDuplicateVertices) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btTriangleMesh.prototype["addTriangle"] = btTriangleMesh.prototype.addTriangle = function(vertex0, vertex1, vertex2, removeDuplicateVertices) {
   var self = this.ptr;
   if (vertex0 && typeof vertex0 === "object") vertex0 = vertex0.ptr;
   if (vertex1 && typeof vertex1 === "object") vertex1 = vertex1.ptr;
@@ -2292,24 +2298,24 @@ btTriangleMesh.prototype["addTriangle"] = btTriangleMesh.prototype.addTriangle =
   _emscripten_bind_btTriangleMesh_addTriangle_4(self, vertex0, vertex1, vertex2, removeDuplicateVertices);
 };
 
-btTriangleMesh.prototype["preallocateIndices"] = btTriangleMesh.prototype.preallocateIndices = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(numindices) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btTriangleMesh.prototype["preallocateIndices"] = btTriangleMesh.prototype.preallocateIndices = function(numindices) {
   var self = this.ptr;
   if (numindices && typeof numindices === "object") numindices = numindices.ptr;
   _emscripten_bind_btTriangleMesh_preallocateIndices_1(self, numindices);
 };
 
-btTriangleMesh.prototype["preallocateVertices"] = btTriangleMesh.prototype.preallocateVertices = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(numverts) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btTriangleMesh.prototype["preallocateVertices"] = btTriangleMesh.prototype.preallocateVertices = function(numverts) {
   var self = this.ptr;
   if (numverts && typeof numverts === "object") numverts = numverts.ptr;
   _emscripten_bind_btTriangleMesh_preallocateVertices_1(self, numverts);
 };
 
-btTriangleMesh.prototype["__destroy__"] = btTriangleMesh.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btTriangleMesh.prototype["__destroy__"] = btTriangleMesh.prototype.__destroy__ = function() {
   var self = this.ptr;
   _emscripten_bind_btTriangleMesh___destroy___0(self);
 };
 
-// btBvhTriangleMeshShape
+// Interface: btBvhTriangleMeshShape
 /** @suppress {undefinedVars, duplicate} @this{Object} */ function btBvhTriangleMeshShape(meshInterface, useQuantizedAabbCompression, buildBvh) {
   if (meshInterface && typeof meshInterface === "object") meshInterface = meshInterface.ptr;
   if (useQuantizedAabbCompression && typeof useQuantizedAabbCompression === "object") useQuantizedAabbCompression = useQuantizedAabbCompression.ptr;
@@ -2333,12 +2339,12 @@ btBvhTriangleMeshShape.__cache__ = {};
 
 Module["btBvhTriangleMeshShape"] = btBvhTriangleMeshShape;
 
-btBvhTriangleMeshShape.prototype["__destroy__"] = btBvhTriangleMeshShape.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btBvhTriangleMeshShape.prototype["__destroy__"] = btBvhTriangleMeshShape.prototype.__destroy__ = function() {
   var self = this.ptr;
   _emscripten_bind_btBvhTriangleMeshShape___destroy___0(self);
 };
 
-// btHeightfieldTerrainShape
+// Interface: btHeightfieldTerrainShape
 /** @suppress {undefinedVars, duplicate} @this{Object} */ function btHeightfieldTerrainShape(heightStickWidth, heightStickLength, heightfieldData, heightScale, minHeight, maxHeight, upAxis, hdt, flipQuadEdges) {
   if (heightStickWidth && typeof heightStickWidth === "object") heightStickWidth = heightStickWidth.ptr;
   if (heightStickLength && typeof heightStickLength === "object") heightStickLength = heightStickLength.ptr;
@@ -2363,29 +2369,29 @@ btHeightfieldTerrainShape.__cache__ = {};
 
 Module["btHeightfieldTerrainShape"] = btHeightfieldTerrainShape;
 
-btHeightfieldTerrainShape.prototype["setMargin"] = btHeightfieldTerrainShape.prototype.setMargin = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(margin) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btHeightfieldTerrainShape.prototype["setMargin"] = btHeightfieldTerrainShape.prototype.setMargin = function(margin) {
   var self = this.ptr;
   if (margin && typeof margin === "object") margin = margin.ptr;
   _emscripten_bind_btHeightfieldTerrainShape_setMargin_1(self, margin);
 };
 
-btHeightfieldTerrainShape.prototype["getMargin"] = btHeightfieldTerrainShape.prototype.getMargin = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btHeightfieldTerrainShape.prototype["getMargin"] = btHeightfieldTerrainShape.prototype.getMargin = function() {
   var self = this.ptr;
   return _emscripten_bind_btHeightfieldTerrainShape_getMargin_0(self);
 };
 
-btHeightfieldTerrainShape.prototype["setLocalScaling"] = btHeightfieldTerrainShape.prototype.setLocalScaling = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(scaling) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btHeightfieldTerrainShape.prototype["setLocalScaling"] = btHeightfieldTerrainShape.prototype.setLocalScaling = function(scaling) {
   var self = this.ptr;
   if (scaling && typeof scaling === "object") scaling = scaling.ptr;
   _emscripten_bind_btHeightfieldTerrainShape_setLocalScaling_1(self, scaling);
 };
 
-btHeightfieldTerrainShape.prototype["__destroy__"] = btHeightfieldTerrainShape.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btHeightfieldTerrainShape.prototype["__destroy__"] = btHeightfieldTerrainShape.prototype.__destroy__ = function() {
   var self = this.ptr;
   _emscripten_bind_btHeightfieldTerrainShape___destroy___0(self);
 };
 
-// btDefaultCollisionConstructionInfo
+// Interface: btDefaultCollisionConstructionInfo
 /** @suppress {undefinedVars, duplicate} @this{Object} */ function btDefaultCollisionConstructionInfo() {
   this.ptr = _emscripten_bind_btDefaultCollisionConstructionInfo_btDefaultCollisionConstructionInfo_0();
   getCache(btDefaultCollisionConstructionInfo)[this.ptr] = this;
@@ -2401,12 +2407,12 @@ btDefaultCollisionConstructionInfo.__cache__ = {};
 
 Module["btDefaultCollisionConstructionInfo"] = btDefaultCollisionConstructionInfo;
 
-btDefaultCollisionConstructionInfo.prototype["__destroy__"] = btDefaultCollisionConstructionInfo.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btDefaultCollisionConstructionInfo.prototype["__destroy__"] = btDefaultCollisionConstructionInfo.prototype.__destroy__ = function() {
   var self = this.ptr;
   _emscripten_bind_btDefaultCollisionConstructionInfo___destroy___0(self);
 };
 
-// btDefaultCollisionConfiguration
+// Interface: btDefaultCollisionConfiguration
 /** @suppress {undefinedVars, duplicate} @this{Object} */ function btDefaultCollisionConfiguration(info) {
   if (info && typeof info === "object") info = info.ptr;
   if (info === undefined) {
@@ -2428,12 +2434,12 @@ btDefaultCollisionConfiguration.__cache__ = {};
 
 Module["btDefaultCollisionConfiguration"] = btDefaultCollisionConfiguration;
 
-btDefaultCollisionConfiguration.prototype["__destroy__"] = btDefaultCollisionConfiguration.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btDefaultCollisionConfiguration.prototype["__destroy__"] = btDefaultCollisionConfiguration.prototype.__destroy__ = function() {
   var self = this.ptr;
   _emscripten_bind_btDefaultCollisionConfiguration___destroy___0(self);
 };
 
-// btDispatcher
+// Interface: btDispatcher
 /** @suppress {undefinedVars, duplicate} @this{Object} */ function btDispatcher() {
   throw "cannot construct a btDispatcher, no constructor in IDL";
 }
@@ -2448,12 +2454,12 @@ btDispatcher.__cache__ = {};
 
 Module["btDispatcher"] = btDispatcher;
 
-btDispatcher.prototype["__destroy__"] = btDispatcher.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btDispatcher.prototype["__destroy__"] = btDispatcher.prototype.__destroy__ = function() {
   var self = this.ptr;
   _emscripten_bind_btDispatcher___destroy___0(self);
 };
 
-// btCollisionDispatcher
+// Interface: btCollisionDispatcher
 /** @suppress {undefinedVars, duplicate} @this{Object} */ function btCollisionDispatcher(conf) {
   if (conf && typeof conf === "object") conf = conf.ptr;
   this.ptr = _emscripten_bind_btCollisionDispatcher_btCollisionDispatcher_1(conf);
@@ -2470,12 +2476,12 @@ btCollisionDispatcher.__cache__ = {};
 
 Module["btCollisionDispatcher"] = btCollisionDispatcher;
 
-btCollisionDispatcher.prototype["__destroy__"] = btCollisionDispatcher.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btCollisionDispatcher.prototype["__destroy__"] = btCollisionDispatcher.prototype.__destroy__ = function() {
   var self = this.ptr;
   _emscripten_bind_btCollisionDispatcher___destroy___0(self);
 };
 
-// btOverlappingPairCallback
+// Interface: btOverlappingPairCallback
 /** @suppress {undefinedVars, duplicate} @this{Object} */ function btOverlappingPairCallback() {
   throw "cannot construct a btOverlappingPairCallback, no constructor in IDL";
 }
@@ -2490,12 +2496,12 @@ btOverlappingPairCallback.__cache__ = {};
 
 Module["btOverlappingPairCallback"] = btOverlappingPairCallback;
 
-btOverlappingPairCallback.prototype["__destroy__"] = btOverlappingPairCallback.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btOverlappingPairCallback.prototype["__destroy__"] = btOverlappingPairCallback.prototype.__destroy__ = function() {
   var self = this.ptr;
   _emscripten_bind_btOverlappingPairCallback___destroy___0(self);
 };
 
-// btOverlappingPairCache
+// Interface: btOverlappingPairCache
 /** @suppress {undefinedVars, duplicate} @this{Object} */ function btOverlappingPairCache() {
   throw "cannot construct a btOverlappingPairCache, no constructor in IDL";
 }
@@ -2510,18 +2516,18 @@ btOverlappingPairCache.__cache__ = {};
 
 Module["btOverlappingPairCache"] = btOverlappingPairCache;
 
-btOverlappingPairCache.prototype["setInternalGhostPairCallback"] = btOverlappingPairCache.prototype.setInternalGhostPairCallback = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(ghostPairCallback) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btOverlappingPairCache.prototype["setInternalGhostPairCallback"] = btOverlappingPairCache.prototype.setInternalGhostPairCallback = function(ghostPairCallback) {
   var self = this.ptr;
   if (ghostPairCallback && typeof ghostPairCallback === "object") ghostPairCallback = ghostPairCallback.ptr;
   _emscripten_bind_btOverlappingPairCache_setInternalGhostPairCallback_1(self, ghostPairCallback);
 };
 
-btOverlappingPairCache.prototype["__destroy__"] = btOverlappingPairCache.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btOverlappingPairCache.prototype["__destroy__"] = btOverlappingPairCache.prototype.__destroy__ = function() {
   var self = this.ptr;
   _emscripten_bind_btOverlappingPairCache___destroy___0(self);
 };
 
-// btBroadphaseInterface
+// Interface: btBroadphaseInterface
 /** @suppress {undefinedVars, duplicate} @this{Object} */ function btBroadphaseInterface() {
   throw "cannot construct a btBroadphaseInterface, no constructor in IDL";
 }
@@ -2536,17 +2542,17 @@ btBroadphaseInterface.__cache__ = {};
 
 Module["btBroadphaseInterface"] = btBroadphaseInterface;
 
-btBroadphaseInterface.prototype["getOverlappingPairCache"] = btBroadphaseInterface.prototype.getOverlappingPairCache = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btBroadphaseInterface.prototype["getOverlappingPairCache"] = btBroadphaseInterface.prototype.getOverlappingPairCache = function() {
   var self = this.ptr;
   return wrapPointer(_emscripten_bind_btBroadphaseInterface_getOverlappingPairCache_0(self), btOverlappingPairCache);
 };
 
-btBroadphaseInterface.prototype["__destroy__"] = btBroadphaseInterface.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btBroadphaseInterface.prototype["__destroy__"] = btBroadphaseInterface.prototype.__destroy__ = function() {
   var self = this.ptr;
   _emscripten_bind_btBroadphaseInterface___destroy___0(self);
 };
 
-// btCollisionConfiguration
+// Interface: btCollisionConfiguration
 /** @suppress {undefinedVars, duplicate} @this{Object} */ function btCollisionConfiguration() {
   throw "cannot construct a btCollisionConfiguration, no constructor in IDL";
 }
@@ -2561,12 +2567,12 @@ btCollisionConfiguration.__cache__ = {};
 
 Module["btCollisionConfiguration"] = btCollisionConfiguration;
 
-btCollisionConfiguration.prototype["__destroy__"] = btCollisionConfiguration.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btCollisionConfiguration.prototype["__destroy__"] = btCollisionConfiguration.prototype.__destroy__ = function() {
   var self = this.ptr;
   _emscripten_bind_btCollisionConfiguration___destroy___0(self);
 };
 
-// btDbvtBroadphase
+// Interface: btDbvtBroadphase
 /** @suppress {undefinedVars, duplicate} @this{Object} */ function btDbvtBroadphase() {
   this.ptr = _emscripten_bind_btDbvtBroadphase_btDbvtBroadphase_0();
   getCache(btDbvtBroadphase)[this.ptr] = this;
@@ -2582,17 +2588,17 @@ btDbvtBroadphase.__cache__ = {};
 
 Module["btDbvtBroadphase"] = btDbvtBroadphase;
 
-btDbvtBroadphase.prototype["optimize"] = btDbvtBroadphase.prototype.optimize = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btDbvtBroadphase.prototype["optimize"] = btDbvtBroadphase.prototype.optimize = function() {
   var self = this.ptr;
   _emscripten_bind_btDbvtBroadphase_optimize_0(self);
 };
 
-btDbvtBroadphase.prototype["__destroy__"] = btDbvtBroadphase.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btDbvtBroadphase.prototype["__destroy__"] = btDbvtBroadphase.prototype.__destroy__ = function() {
   var self = this.ptr;
   _emscripten_bind_btDbvtBroadphase___destroy___0(self);
 };
 
-// btRigidBodyConstructionInfo
+// Interface: btRigidBodyConstructionInfo
 /** @suppress {undefinedVars, duplicate} @this{Object} */ function btRigidBodyConstructionInfo(mass, motionState, collisionShape, localInertia) {
   if (mass && typeof mass === "object") mass = mass.ptr;
   if (motionState && typeof motionState === "object") motionState = motionState.ptr;
@@ -2617,12 +2623,12 @@ btRigidBodyConstructionInfo.__cache__ = {};
 
 Module["btRigidBodyConstructionInfo"] = btRigidBodyConstructionInfo;
 
-btRigidBodyConstructionInfo.prototype["__destroy__"] = btRigidBodyConstructionInfo.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btRigidBodyConstructionInfo.prototype["__destroy__"] = btRigidBodyConstructionInfo.prototype.__destroy__ = function() {
   var self = this.ptr;
   _emscripten_bind_btRigidBodyConstructionInfo___destroy___0(self);
 };
 
-// btRigidBody
+// Interface: btRigidBody
 /** @suppress {undefinedVars, duplicate} @this{Object} */ function btRigidBody(constructionInfo) {
   if (constructionInfo && typeof constructionInfo === "object") constructionInfo = constructionInfo.ptr;
   this.ptr = _emscripten_bind_btRigidBody_btRigidBody_1(constructionInfo);
@@ -2639,46 +2645,52 @@ btRigidBody.__cache__ = {};
 
 Module["btRigidBody"] = btRigidBody;
 
-btRigidBody.prototype["isStaticObject"] = btRigidBody.prototype.isStaticObject = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btRigidBody.prototype["getMotionState"] = btRigidBody.prototype.getMotionState = function() {
   var self = this.ptr;
-  return !!(_emscripten_bind_btRigidBody_isStaticObject_0(self));
+  return wrapPointer(_emscripten_bind_btRigidBody_getMotionState_0(self), btMotionState);
 };
 
-btRigidBody.prototype["getWorldTransform"] = btRigidBody.prototype.getWorldTransform = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btRigidBody.prototype["setActivationState"] = btRigidBody.prototype.setActivationState = function(newState) {
+  var self = this.ptr;
+  if (newState && typeof newState === "object") newState = newState.ptr;
+  _emscripten_bind_btRigidBody_setActivationState_1(self, newState);
+};
+
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btRigidBody.prototype["getWorldTransform"] = btRigidBody.prototype.getWorldTransform = function() {
   var self = this.ptr;
   return wrapPointer(_emscripten_bind_btRigidBody_getWorldTransform_0(self), btTransform);
 };
 
-btRigidBody.prototype["setCollisionFlags"] = btRigidBody.prototype.setCollisionFlags = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(flags) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btRigidBody.prototype["setCollisionFlags"] = btRigidBody.prototype.setCollisionFlags = function(flags) {
   var self = this.ptr;
   if (flags && typeof flags === "object") flags = flags.ptr;
   _emscripten_bind_btRigidBody_setCollisionFlags_1(self, flags);
 };
 
-btRigidBody.prototype["setWorldTransform"] = btRigidBody.prototype.setWorldTransform = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(worldTrans) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btRigidBody.prototype["setWorldTransform"] = btRigidBody.prototype.setWorldTransform = function(worldTrans) {
   var self = this.ptr;
   if (worldTrans && typeof worldTrans === "object") worldTrans = worldTrans.ptr;
   _emscripten_bind_btRigidBody_setWorldTransform_1(self, worldTrans);
 };
 
-btRigidBody.prototype["setCollisionShape"] = btRigidBody.prototype.setCollisionShape = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(collisionShape) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btRigidBody.prototype["setCollisionShape"] = btRigidBody.prototype.setCollisionShape = function(collisionShape) {
   var self = this.ptr;
   if (collisionShape && typeof collisionShape === "object") collisionShape = collisionShape.ptr;
   _emscripten_bind_btRigidBody_setCollisionShape_1(self, collisionShape);
 };
 
-btRigidBody.prototype["setUserIndex"] = btRigidBody.prototype.setUserIndex = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(index) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btRigidBody.prototype["setUserIndex"] = btRigidBody.prototype.setUserIndex = function(index) {
   var self = this.ptr;
   if (index && typeof index === "object") index = index.ptr;
   _emscripten_bind_btRigidBody_setUserIndex_1(self, index);
 };
 
-btRigidBody.prototype["__destroy__"] = btRigidBody.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btRigidBody.prototype["__destroy__"] = btRigidBody.prototype.__destroy__ = function() {
   var self = this.ptr;
   _emscripten_bind_btRigidBody___destroy___0(self);
 };
 
-// btSequentialImpulseConstraintSolver
+// Interface: btSequentialImpulseConstraintSolver
 /** @suppress {undefinedVars, duplicate} @this{Object} */ function btSequentialImpulseConstraintSolver() {
   this.ptr = _emscripten_bind_btSequentialImpulseConstraintSolver_btSequentialImpulseConstraintSolver_0();
   getCache(btSequentialImpulseConstraintSolver)[this.ptr] = this;
@@ -2694,12 +2706,12 @@ btSequentialImpulseConstraintSolver.__cache__ = {};
 
 Module["btSequentialImpulseConstraintSolver"] = btSequentialImpulseConstraintSolver;
 
-btSequentialImpulseConstraintSolver.prototype["__destroy__"] = btSequentialImpulseConstraintSolver.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btSequentialImpulseConstraintSolver.prototype["__destroy__"] = btSequentialImpulseConstraintSolver.prototype.__destroy__ = function() {
   var self = this.ptr;
   _emscripten_bind_btSequentialImpulseConstraintSolver___destroy___0(self);
 };
 
-// btDiscreteDynamicsWorld
+// Interface: btDiscreteDynamicsWorld
 /** @suppress {undefinedVars, duplicate} @this{Object} */ function btDiscreteDynamicsWorld(dispatcher, pairCache, constraintSolver, collisionConfiguration) {
   if (dispatcher && typeof dispatcher === "object") dispatcher = dispatcher.ptr;
   if (pairCache && typeof pairCache === "object") pairCache = pairCache.ptr;
@@ -2719,13 +2731,13 @@ btDiscreteDynamicsWorld.__cache__ = {};
 
 Module["btDiscreteDynamicsWorld"] = btDiscreteDynamicsWorld;
 
-btDiscreteDynamicsWorld.prototype["setGravity"] = btDiscreteDynamicsWorld.prototype.setGravity = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(gravity) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btDiscreteDynamicsWorld.prototype["setGravity"] = btDiscreteDynamicsWorld.prototype.setGravity = function(gravity) {
   var self = this.ptr;
   if (gravity && typeof gravity === "object") gravity = gravity.ptr;
   _emscripten_bind_btDiscreteDynamicsWorld_setGravity_1(self, gravity);
 };
 
-btDiscreteDynamicsWorld.prototype["addRigidBody"] = btDiscreteDynamicsWorld.prototype.addRigidBody = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(body, group, mask) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btDiscreteDynamicsWorld.prototype["addRigidBody"] = btDiscreteDynamicsWorld.prototype.addRigidBody = function(body, group, mask) {
   var self = this.ptr;
   if (body && typeof body === "object") body = body.ptr;
   if (group && typeof group === "object") group = group.ptr;
@@ -2741,13 +2753,13 @@ btDiscreteDynamicsWorld.prototype["addRigidBody"] = btDiscreteDynamicsWorld.prot
   _emscripten_bind_btDiscreteDynamicsWorld_addRigidBody_3(self, body, group, mask);
 };
 
-btDiscreteDynamicsWorld.prototype["removeRigidBody"] = btDiscreteDynamicsWorld.prototype.removeRigidBody = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(body) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btDiscreteDynamicsWorld.prototype["removeRigidBody"] = btDiscreteDynamicsWorld.prototype.removeRigidBody = function(body) {
   var self = this.ptr;
   if (body && typeof body === "object") body = body.ptr;
   _emscripten_bind_btDiscreteDynamicsWorld_removeRigidBody_1(self, body);
 };
 
-btDiscreteDynamicsWorld.prototype["stepSimulation"] = btDiscreteDynamicsWorld.prototype.stepSimulation = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(timeStep, maxSubSteps, fixedTimeStep) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btDiscreteDynamicsWorld.prototype["stepSimulation"] = btDiscreteDynamicsWorld.prototype.stepSimulation = function(timeStep, maxSubSteps, fixedTimeStep) {
   var self = this.ptr;
   if (timeStep && typeof timeStep === "object") timeStep = timeStep.ptr;
   if (maxSubSteps && typeof maxSubSteps === "object") maxSubSteps = maxSubSteps.ptr;
@@ -2761,12 +2773,12 @@ btDiscreteDynamicsWorld.prototype["stepSimulation"] = btDiscreteDynamicsWorld.pr
   return _emscripten_bind_btDiscreteDynamicsWorld_stepSimulation_3(self, timeStep, maxSubSteps, fixedTimeStep);
 };
 
-btDiscreteDynamicsWorld.prototype["getDispatcher"] = btDiscreteDynamicsWorld.prototype.getDispatcher = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btDiscreteDynamicsWorld.prototype["getDispatcher"] = btDiscreteDynamicsWorld.prototype.getDispatcher = function() {
   var self = this.ptr;
   return wrapPointer(_emscripten_bind_btDiscreteDynamicsWorld_getDispatcher_0(self), btDispatcher);
 };
 
-btDiscreteDynamicsWorld.prototype["addCollisionObject"] = btDiscreteDynamicsWorld.prototype.addCollisionObject = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(collisionObject, collisionFilterGroup, collisionFilterMask) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btDiscreteDynamicsWorld.prototype["addCollisionObject"] = btDiscreteDynamicsWorld.prototype.addCollisionObject = function(collisionObject, collisionFilterGroup, collisionFilterMask) {
   var self = this.ptr;
   if (collisionObject && typeof collisionObject === "object") collisionObject = collisionObject.ptr;
   if (collisionFilterGroup && typeof collisionFilterGroup === "object") collisionFilterGroup = collisionFilterGroup.ptr;
@@ -2782,29 +2794,29 @@ btDiscreteDynamicsWorld.prototype["addCollisionObject"] = btDiscreteDynamicsWorl
   _emscripten_bind_btDiscreteDynamicsWorld_addCollisionObject_3(self, collisionObject, collisionFilterGroup, collisionFilterMask);
 };
 
-btDiscreteDynamicsWorld.prototype["removeCollisionObject"] = btDiscreteDynamicsWorld.prototype.removeCollisionObject = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(collisionObject) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btDiscreteDynamicsWorld.prototype["removeCollisionObject"] = btDiscreteDynamicsWorld.prototype.removeCollisionObject = function(collisionObject) {
   var self = this.ptr;
   if (collisionObject && typeof collisionObject === "object") collisionObject = collisionObject.ptr;
   _emscripten_bind_btDiscreteDynamicsWorld_removeCollisionObject_1(self, collisionObject);
 };
 
-btDiscreteDynamicsWorld.prototype["getBroadphase"] = btDiscreteDynamicsWorld.prototype.getBroadphase = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btDiscreteDynamicsWorld.prototype["getBroadphase"] = btDiscreteDynamicsWorld.prototype.getBroadphase = function() {
   var self = this.ptr;
   return wrapPointer(_emscripten_bind_btDiscreteDynamicsWorld_getBroadphase_0(self), btBroadphaseInterface);
 };
 
-btDiscreteDynamicsWorld.prototype["addAction"] = btDiscreteDynamicsWorld.prototype.addAction = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(action) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btDiscreteDynamicsWorld.prototype["addAction"] = btDiscreteDynamicsWorld.prototype.addAction = function(action) {
   var self = this.ptr;
   if (action && typeof action === "object") action = action.ptr;
   _emscripten_bind_btDiscreteDynamicsWorld_addAction_1(self, action);
 };
 
-btDiscreteDynamicsWorld.prototype["__destroy__"] = btDiscreteDynamicsWorld.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btDiscreteDynamicsWorld.prototype["__destroy__"] = btDiscreteDynamicsWorld.prototype.__destroy__ = function() {
   var self = this.ptr;
   _emscripten_bind_btDiscreteDynamicsWorld___destroy___0(self);
 };
 
-// btKinematicCharacterController
+// Interface: btKinematicCharacterController
 /** @suppress {undefinedVars, duplicate} @this{Object} */ function btKinematicCharacterController(ghostObject, convexShape, stepHeight, up) {
   if (ghostObject && typeof ghostObject === "object") ghostObject = ghostObject.ptr;
   if (convexShape && typeof convexShape === "object") convexShape = convexShape.ptr;
@@ -2829,25 +2841,25 @@ btKinematicCharacterController.__cache__ = {};
 
 Module["btKinematicCharacterController"] = btKinematicCharacterController;
 
-btKinematicCharacterController.prototype["setWalkDirection"] = btKinematicCharacterController.prototype.setWalkDirection = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(walkDirection) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btKinematicCharacterController.prototype["setWalkDirection"] = btKinematicCharacterController.prototype.setWalkDirection = function(walkDirection) {
   var self = this.ptr;
   if (walkDirection && typeof walkDirection === "object") walkDirection = walkDirection.ptr;
   _emscripten_bind_btKinematicCharacterController_setWalkDirection_1(self, walkDirection);
 };
 
-btKinematicCharacterController.prototype["warp"] = btKinematicCharacterController.prototype.warp = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(origin) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btKinematicCharacterController.prototype["warp"] = btKinematicCharacterController.prototype.warp = function(origin) {
   var self = this.ptr;
   if (origin && typeof origin === "object") origin = origin.ptr;
   _emscripten_bind_btKinematicCharacterController_warp_1(self, origin);
 };
 
-btKinematicCharacterController.prototype["setJumpSpeed"] = btKinematicCharacterController.prototype.setJumpSpeed = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(jumpSpeed) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btKinematicCharacterController.prototype["setJumpSpeed"] = btKinematicCharacterController.prototype.setJumpSpeed = function(jumpSpeed) {
   var self = this.ptr;
   if (jumpSpeed && typeof jumpSpeed === "object") jumpSpeed = jumpSpeed.ptr;
   _emscripten_bind_btKinematicCharacterController_setJumpSpeed_1(self, jumpSpeed);
 };
 
-btKinematicCharacterController.prototype["jump"] = btKinematicCharacterController.prototype.jump = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(up) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btKinematicCharacterController.prototype["jump"] = btKinematicCharacterController.prototype.jump = function(up) {
   var self = this.ptr;
   if (up && typeof up === "object") up = up.ptr;
   if (up === undefined) {
@@ -2857,106 +2869,106 @@ btKinematicCharacterController.prototype["jump"] = btKinematicCharacterControlle
   _emscripten_bind_btKinematicCharacterController_jump_1(self, up);
 };
 
-btKinematicCharacterController.prototype["setGravity"] = btKinematicCharacterController.prototype.setGravity = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(gravity) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btKinematicCharacterController.prototype["setGravity"] = btKinematicCharacterController.prototype.setGravity = function(gravity) {
   var self = this.ptr;
   if (gravity && typeof gravity === "object") gravity = gravity.ptr;
   _emscripten_bind_btKinematicCharacterController_setGravity_1(self, gravity);
 };
 
-btKinematicCharacterController.prototype["setMaxSlope"] = btKinematicCharacterController.prototype.setMaxSlope = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(slopeRadians) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btKinematicCharacterController.prototype["setMaxSlope"] = btKinematicCharacterController.prototype.setMaxSlope = function(slopeRadians) {
   var self = this.ptr;
   if (slopeRadians && typeof slopeRadians === "object") slopeRadians = slopeRadians.ptr;
   _emscripten_bind_btKinematicCharacterController_setMaxSlope_1(self, slopeRadians);
 };
 
-btKinematicCharacterController.prototype["onGround"] = btKinematicCharacterController.prototype.onGround = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btKinematicCharacterController.prototype["onGround"] = btKinematicCharacterController.prototype.onGround = function() {
   var self = this.ptr;
   return !!(_emscripten_bind_btKinematicCharacterController_onGround_0(self));
 };
 
-btKinematicCharacterController.prototype["setMaxPenetrationDepth"] = btKinematicCharacterController.prototype.setMaxPenetrationDepth = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(d) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btKinematicCharacterController.prototype["setMaxPenetrationDepth"] = btKinematicCharacterController.prototype.setMaxPenetrationDepth = function(d) {
   var self = this.ptr;
   if (d && typeof d === "object") d = d.ptr;
   _emscripten_bind_btKinematicCharacterController_setMaxPenetrationDepth_1(self, d);
 };
 
-btKinematicCharacterController.prototype["setStepHeight"] = btKinematicCharacterController.prototype.setStepHeight = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(h) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btKinematicCharacterController.prototype["setStepHeight"] = btKinematicCharacterController.prototype.setStepHeight = function(h) {
   var self = this.ptr;
   if (h && typeof h === "object") h = h.ptr;
   _emscripten_bind_btKinematicCharacterController_setStepHeight_1(self, h);
 };
 
-btKinematicCharacterController.prototype["getVerticalVelocity"] = btKinematicCharacterController.prototype.getVerticalVelocity = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btKinematicCharacterController.prototype["getVerticalVelocity"] = btKinematicCharacterController.prototype.getVerticalVelocity = function() {
   var self = this.ptr;
   return _emscripten_bind_btKinematicCharacterController_getVerticalVelocity_0(self);
 };
 
-btKinematicCharacterController.prototype["setVerticalVelocity"] = btKinematicCharacterController.prototype.setVerticalVelocity = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(vel) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btKinematicCharacterController.prototype["setVerticalVelocity"] = btKinematicCharacterController.prototype.setVerticalVelocity = function(vel) {
   var self = this.ptr;
   if (vel && typeof vel === "object") vel = vel.ptr;
   _emscripten_bind_btKinematicCharacterController_setVerticalVelocity_1(self, vel);
 };
 
-btKinematicCharacterController.prototype["resetFall"] = btKinematicCharacterController.prototype.resetFall = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btKinematicCharacterController.prototype["resetFall"] = btKinematicCharacterController.prototype.resetFall = function() {
   var self = this.ptr;
   _emscripten_bind_btKinematicCharacterController_resetFall_0(self);
 };
 
-btKinematicCharacterController.prototype["getVerticalOffset"] = btKinematicCharacterController.prototype.getVerticalOffset = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btKinematicCharacterController.prototype["getVerticalOffset"] = btKinematicCharacterController.prototype.getVerticalOffset = function() {
   var self = this.ptr;
   return _emscripten_bind_btKinematicCharacterController_getVerticalOffset_0(self);
 };
 
-btKinematicCharacterController.prototype["getJumpAxis"] = btKinematicCharacterController.prototype.getJumpAxis = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btKinematicCharacterController.prototype["getJumpAxis"] = btKinematicCharacterController.prototype.getJumpAxis = function() {
   var self = this.ptr;
   return wrapPointer(_emscripten_bind_btKinematicCharacterController_getJumpAxis_0(self), btVector3);
 };
 
-btKinematicCharacterController.prototype["addExternalVelocity"] = btKinematicCharacterController.prototype.addExternalVelocity = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(velocity) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btKinematicCharacterController.prototype["addExternalVelocity"] = btKinematicCharacterController.prototype.addExternalVelocity = function(velocity) {
   var self = this.ptr;
   if (velocity && typeof velocity === "object") velocity = velocity.ptr;
   _emscripten_bind_btKinematicCharacterController_addExternalVelocity_1(self, velocity);
 };
 
-btKinematicCharacterController.prototype["setExternalVelocity"] = btKinematicCharacterController.prototype.setExternalVelocity = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(velocity) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btKinematicCharacterController.prototype["setExternalVelocity"] = btKinematicCharacterController.prototype.setExternalVelocity = function(velocity) {
   var self = this.ptr;
   if (velocity && typeof velocity === "object") velocity = velocity.ptr;
   _emscripten_bind_btKinematicCharacterController_setExternalVelocity_1(self, velocity);
 };
 
-btKinematicCharacterController.prototype["setExternalVelocityAirDampingFactor"] = btKinematicCharacterController.prototype.setExternalVelocityAirDampingFactor = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(damping) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btKinematicCharacterController.prototype["setExternalVelocityAirDampingFactor"] = btKinematicCharacterController.prototype.setExternalVelocityAirDampingFactor = function(damping) {
   var self = this.ptr;
   if (damping && typeof damping === "object") damping = damping.ptr;
   _emscripten_bind_btKinematicCharacterController_setExternalVelocityAirDampingFactor_1(self, damping);
 };
 
-btKinematicCharacterController.prototype["setExternalVelocityGroundDampingFactor"] = btKinematicCharacterController.prototype.setExternalVelocityGroundDampingFactor = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(damping) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btKinematicCharacterController.prototype["setExternalVelocityGroundDampingFactor"] = btKinematicCharacterController.prototype.setExternalVelocityGroundDampingFactor = function(damping) {
   var self = this.ptr;
   if (damping && typeof damping === "object") damping = damping.ptr;
   _emscripten_bind_btKinematicCharacterController_setExternalVelocityGroundDampingFactor_1(self, damping);
 };
 
-btKinematicCharacterController.prototype["getExternalVelocity"] = btKinematicCharacterController.prototype.getExternalVelocity = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btKinematicCharacterController.prototype["getExternalVelocity"] = btKinematicCharacterController.prototype.getExternalVelocity = function() {
   var self = this.ptr;
   return wrapPointer(_emscripten_bind_btKinematicCharacterController_getExternalVelocity_0(self), btVector3);
 };
 
-btKinematicCharacterController.prototype["isJumping"] = btKinematicCharacterController.prototype.isJumping = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btKinematicCharacterController.prototype["isJumping"] = btKinematicCharacterController.prototype.isJumping = function() {
   var self = this.ptr;
   return !!(_emscripten_bind_btKinematicCharacterController_isJumping_0(self));
 };
 
-btKinematicCharacterController.prototype["getFloorUserIndex"] = btKinematicCharacterController.prototype.getFloorUserIndex = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btKinematicCharacterController.prototype["getFloorUserIndex"] = btKinematicCharacterController.prototype.getFloorUserIndex = function() {
   var self = this.ptr;
   return _emscripten_bind_btKinematicCharacterController_getFloorUserIndex_0(self);
 };
 
-btKinematicCharacterController.prototype["__destroy__"] = btKinematicCharacterController.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btKinematicCharacterController.prototype["__destroy__"] = btKinematicCharacterController.prototype.__destroy__ = function() {
   var self = this.ptr;
   _emscripten_bind_btKinematicCharacterController___destroy___0(self);
 };
 
-// btPairCachingGhostObject
+// Interface: btPairCachingGhostObject
 /** @suppress {undefinedVars, duplicate} @this{Object} */ function btPairCachingGhostObject() {
   this.ptr = _emscripten_bind_btPairCachingGhostObject_btPairCachingGhostObject_0();
   getCache(btPairCachingGhostObject)[this.ptr] = this;
@@ -2972,51 +2984,52 @@ btPairCachingGhostObject.__cache__ = {};
 
 Module["btPairCachingGhostObject"] = btPairCachingGhostObject;
 
-btPairCachingGhostObject.prototype["isStaticObject"] = btPairCachingGhostObject.prototype.isStaticObject = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btPairCachingGhostObject.prototype["setActivationState"] = btPairCachingGhostObject.prototype.setActivationState = function(newState) {
   var self = this.ptr;
-  return !!(_emscripten_bind_btPairCachingGhostObject_isStaticObject_0(self));
+  if (newState && typeof newState === "object") newState = newState.ptr;
+  _emscripten_bind_btPairCachingGhostObject_setActivationState_1(self, newState);
 };
 
-btPairCachingGhostObject.prototype["getWorldTransform"] = btPairCachingGhostObject.prototype.getWorldTransform = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btPairCachingGhostObject.prototype["getWorldTransform"] = btPairCachingGhostObject.prototype.getWorldTransform = function() {
   var self = this.ptr;
   return wrapPointer(_emscripten_bind_btPairCachingGhostObject_getWorldTransform_0(self), btTransform);
 };
 
-btPairCachingGhostObject.prototype["setCollisionFlags"] = btPairCachingGhostObject.prototype.setCollisionFlags = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(flags) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btPairCachingGhostObject.prototype["setCollisionFlags"] = btPairCachingGhostObject.prototype.setCollisionFlags = function(flags) {
   var self = this.ptr;
   if (flags && typeof flags === "object") flags = flags.ptr;
   _emscripten_bind_btPairCachingGhostObject_setCollisionFlags_1(self, flags);
 };
 
-btPairCachingGhostObject.prototype["setWorldTransform"] = btPairCachingGhostObject.prototype.setWorldTransform = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(worldTrans) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btPairCachingGhostObject.prototype["setWorldTransform"] = btPairCachingGhostObject.prototype.setWorldTransform = function(worldTrans) {
   var self = this.ptr;
   if (worldTrans && typeof worldTrans === "object") worldTrans = worldTrans.ptr;
   _emscripten_bind_btPairCachingGhostObject_setWorldTransform_1(self, worldTrans);
 };
 
-btPairCachingGhostObject.prototype["setCollisionShape"] = btPairCachingGhostObject.prototype.setCollisionShape = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(collisionShape) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btPairCachingGhostObject.prototype["setCollisionShape"] = btPairCachingGhostObject.prototype.setCollisionShape = function(collisionShape) {
   var self = this.ptr;
   if (collisionShape && typeof collisionShape === "object") collisionShape = collisionShape.ptr;
   _emscripten_bind_btPairCachingGhostObject_setCollisionShape_1(self, collisionShape);
 };
 
-btPairCachingGhostObject.prototype["setUserIndex"] = btPairCachingGhostObject.prototype.setUserIndex = /** @suppress {undefinedVars, duplicate} @this{Object} */ function(index) {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btPairCachingGhostObject.prototype["setUserIndex"] = btPairCachingGhostObject.prototype.setUserIndex = function(index) {
   var self = this.ptr;
   if (index && typeof index === "object") index = index.ptr;
   _emscripten_bind_btPairCachingGhostObject_setUserIndex_1(self, index);
 };
 
-btPairCachingGhostObject.prototype["getNumOverlappingObjects"] = btPairCachingGhostObject.prototype.getNumOverlappingObjects = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btPairCachingGhostObject.prototype["getNumOverlappingObjects"] = btPairCachingGhostObject.prototype.getNumOverlappingObjects = function() {
   var self = this.ptr;
   return _emscripten_bind_btPairCachingGhostObject_getNumOverlappingObjects_0(self);
 };
 
-btPairCachingGhostObject.prototype["__destroy__"] = btPairCachingGhostObject.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btPairCachingGhostObject.prototype["__destroy__"] = btPairCachingGhostObject.prototype.__destroy__ = function() {
   var self = this.ptr;
   _emscripten_bind_btPairCachingGhostObject___destroy___0(self);
 };
 
-// btGhostPairCallback
+// Interface: btGhostPairCallback
 /** @suppress {undefinedVars, duplicate} @this{Object} */ function btGhostPairCallback() {
   this.ptr = _emscripten_bind_btGhostPairCallback_btGhostPairCallback_0();
   getCache(btGhostPairCallback)[this.ptr] = this;
@@ -3032,7 +3045,7 @@ btGhostPairCallback.__cache__ = {};
 
 Module["btGhostPairCallback"] = btGhostPairCallback;
 
-btGhostPairCallback.prototype["__destroy__"] = btGhostPairCallback.prototype.__destroy__ = /** @suppress {undefinedVars, duplicate} @this{Object} */ function() {
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btGhostPairCallback.prototype["__destroy__"] = btGhostPairCallback.prototype.__destroy__ = function() {
   var self = this.ptr;
   _emscripten_bind_btGhostPairCallback___destroy___0(self);
 };

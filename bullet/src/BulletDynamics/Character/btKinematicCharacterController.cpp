@@ -204,6 +204,66 @@ btKinematicCharacterController::recoverFromPenetration(btCollisionWorld* collisi
   return penetration;
 }
 
+// If the player is on the ground and the object they're standing on is non-static, then we apply motions from that
+// object to the player's position to keep them standing at the same point on that object.
+//
+// This makes things like moving platforms work.
+void
+btKinematicCharacterController::maybeApplyFloorLock(btCollisionWorld* collisionWorld, btScalar dt) {
+  if (!m_wasOnGround || !m_floorObject) {
+    return;
+  }
+
+  // check that the floor object is still in the collision world
+  btAlignedObjectArray<class btCollisionObject*>& collisionObjectsMut = collisionWorld->getCollisionObjectArray();
+  // can't use `findLinearSearch` because of stupid pointer constness issues in the template
+  auto collisionObjectCount = collisionObjectsMut.size();
+  auto didFindFloorObject = false;
+  for (int i = 0; i < collisionObjectCount; ++i) {
+    if (collisionObjectsMut[i] == m_floorObject) {
+      didFindFloorObject = true;
+      break;
+    }
+  }
+
+  if (!didFindFloorObject) {
+    // floor object has been removed from the collision world
+    m_floorObject = nullptr;
+    m_floorUserIndex = -1;
+    return;
+  }
+
+  // we can skip this work if the floor object is static
+  if (m_floorObject->isStaticObject()) {
+    return;
+  }
+
+  // if the floor object hasn't moved since the last step, nothing to be done
+  auto linearVelocity = m_floorObject->getInterpolationLinearVelocity();
+  auto angularVelocity = m_floorObject->getInterpolationAngularVelocity();
+  if (linearVelocity.length2() < SIMD_EPSILON && angularVelocity.length2() < SIMD_EPSILON) {
+    return;
+  }
+
+  // compute the change in position due to the rotation of the floor object
+  auto posRelativeToFloorObjectOrigin = m_currentPosition - m_floorObject->getWorldTransform().getOrigin();
+  btScalar angle = angularVelocity.length() * dt;
+  if (angle > SIMD_EPSILON) {
+    btVector3 rotationAxis = angularVelocity.normalized();
+    btQuaternion rotationQuat(rotationAxis, angle);
+    btVector3 newRelativePos = quatRotate(rotationQuat, posRelativeToFloorObjectOrigin);
+    m_currentPosition = m_floorObject->getWorldTransform().getOrigin() + newRelativePos;
+  }
+
+  // apply the floor object's motion to the player
+  m_currentPosition += linearVelocity * dt;
+
+  // sync the new position to the ghost object
+  btTransform& xform = m_ghostObject->getWorldTransform();
+  xform.setOrigin(m_currentPosition);
+  m_ghostObject->setWorldTransform(xform);
+}
+
 // phase 1: up
 void
 btKinematicCharacterController::stepUp(btCollisionWorld* world) {
@@ -309,9 +369,7 @@ btKinematicCharacterController::stepForwardAndStrafe(btCollisionWorld* collision
   btTransform start, end;
 
   m_targetPosition = m_currentPosition;
-  // if (m_wasOnGround) {
   m_targetPosition += walkMove;
-  // }
   m_targetPosition += m_externalVelocity;
 
   start.setIdentity();
@@ -455,6 +513,7 @@ btKinematicCharacterController::stepDown(btCollisionWorld* collisionWorld, btSca
     m_externalVelocity -= parallelComponent(m_externalVelocity, m_up);
     m_isJumping = false;
 
+    m_floorObject = callback.m_hitCollisionObject;
     m_floorUserIndex = callback.m_hitCollisionObject->getUserIndex();
   } else {
     m_currentPosition = m_targetPosition;

@@ -61,7 +61,7 @@ interface btVector3 {
 
 interface btQuaternion {
   void btQuaternion(float x, float y, float z, float w);
-  // void setValue(float x, float y, float z, float w);
+  void setValue(float x, float y, float z, float w);
   // void setEulerZYX(float z, float y, float x);
   // void setRotation([Ref] btVector3 axis, float angle);
   // void normalize();
@@ -121,12 +121,12 @@ interface btCollisionObject {
   // void setAnisotropicFriction([Const, Ref] btVector3 anisotropicFriction, long frictionMode);
   // btCollisionShape getCollisionShape();
   // void setContactProcessingThreshold(float contactProcessingThreshold);
-  // void setActivationState(long newState);
+  void setActivationState(long newState);
   // void forceActivationState(long newState);
   // void activate(optional boolean forceActivation);
   // boolean isActive();
   // boolean isKinematicObject();
-  boolean isStaticObject();
+  // boolean isStaticObject();
   // boolean isStaticOrKinematicObject();
   // [Const] float getRestitution();
   // [Const] float getFriction();
@@ -724,7 +724,7 @@ interface btRigidBody {
   // [Const, Ref] btVector3 getAngularVelocity();
   // void setLinearVelocity([Const, Ref] btVector3 lin_vel);
   // void setAngularVelocity([Const, Ref] btVector3 ang_vel);
-  // btMotionState getMotionState();
+  btMotionState getMotionState();
   // void setMotionState(btMotionState motionState);
   // [Const, Ref] btVector3 getAngularFactor();
   // void setAngularFactor([Const, Ref] btVector3 angularFactor);
@@ -925,6 +925,9 @@ interface btDiscreteDynamicsWorld {
   // void setContactAddedCallback(long funcpointer);
   // void setContactProcessedCallback(long funcpointer);
   // void setContactDestroyedCallback(long funcpointer);
+
+  // void setSynchronizeAllMotionStates(boolean synchronizeAll);
+  // boolean getSynchronizeAllMotionStates();
 };
 btDiscreteDynamicsWorld implements btDynamicsWorld;
 

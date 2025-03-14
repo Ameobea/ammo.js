@@ -96,6 +96,12 @@ protected:
   btVector3 m_up;
   btVector3 m_jumpAxis;
 
+  /// Stores the collision object that the player is standing on.
+  ///
+  /// If `onGround()` is not true, then this is the last object that the player was standing on.
+  ///
+  /// Defaults to null if the player has never been on the ground.
+  const btCollisionObject* m_floorObject = nullptr;
   /// Stores the `userIndex` of the collision object that the player is standing on.
   ///
   /// If `onGround()` is not true, then this is the index of the last object that the player was standing on.
@@ -132,6 +138,10 @@ public:
   ~btKinematicCharacterController() {}
 
   /// btActionInterface interface
+  virtual void preAction(btCollisionWorld * collisionWorld, btScalar deltaTime) {
+    maybeApplyFloorLock(collisionWorld, deltaTime);
+  }
+
   virtual void updateAction(btCollisionWorld * collisionWorld, btScalar deltaTime) {
     preStep(collisionWorld);
     playerStep(collisionWorld, deltaTime);
@@ -139,6 +149,8 @@ public:
 
   /// btActionInterface interface
   void debugDraw(btIDebugDraw * debugDrawer) {}
+
+  void maybeApplyFloorLock(btCollisionWorld * collisionWorld, btScalar dt);
 
   void setUp(const btVector3& up);
 

@@ -36,6 +36,12 @@ public:
 	{
 	}
 
+	// `preAction` is called once each full step of the simulation before any sub-steps.
+	//
+	// This is after `saveKinematicState`, so the velocities of kinematic objects will have
+	// already been computed.
+	virtual void preAction( btCollisionWorld* collisionWorld, btScalar deltaTimeStep)=0;
+
 	virtual void updateAction( btCollisionWorld* collisionWorld, btScalar deltaTimeStep)=0;
 
 	virtual void debugDraw(btIDebugDraw* debugDrawer) = 0;

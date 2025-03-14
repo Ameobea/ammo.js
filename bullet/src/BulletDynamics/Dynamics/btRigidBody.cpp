@@ -95,18 +95,16 @@ void	btRigidBody::setupRigidBody(const btRigidBody::btRigidBodyConstructionInfo&
 	m_invMass = m_inverseMass*m_linearFactor;
 	m_pushVelocity.setZero();
 	m_turnVelocity.setZero();
-
-	
-
 }
 
 
 void btRigidBody::predictIntegratedTransform(btScalar timeStep,btTransform& predictedTransform) 
 {
+	printf("Predicting\n");
 	btTransformUtil::integrateTransform(m_worldTransform,m_linearVelocity,m_angularVelocity,timeStep,predictedTransform);
 }
 
-void			btRigidBody::saveKinematicState(btScalar timeStep)
+void btRigidBody::saveKinematicState(btScalar timeStep)
 {
 	//todo: clamp to some (user definable) safe minimum timestep, to limit maximum angular/linear velocities
 	if (timeStep != btScalar(0.))
@@ -114,23 +112,20 @@ void			btRigidBody::saveKinematicState(btScalar timeStep)
 		//if we use motionstate to synchronize world transforms, get the new kinematic/animated world transform
 		if (getMotionState())
 			getMotionState()->getWorldTransform(m_worldTransform);
-		btVector3 linVel,angVel;
 		
 		btTransformUtil::calculateVelocity(m_interpolationWorldTransform,m_worldTransform,timeStep,m_linearVelocity,m_angularVelocity);
 		m_interpolationLinearVelocity = m_linearVelocity;
 		m_interpolationAngularVelocity = m_angularVelocity;
 		m_interpolationWorldTransform = m_worldTransform;
-		//printf("angular = %f %f %f\n",m_angularVelocity.getX(),m_angularVelocity.getY(),m_angularVelocity.getZ());
+	} else {
+		printf("Zero timestep???\n");
 	}
 }
 	
-void	btRigidBody::getAabb(btVector3& aabbMin,btVector3& aabbMax) const
+void btRigidBody::getAabb(btVector3& aabbMin,btVector3& aabbMax) const
 {
 	getCollisionShape()->getAabb(m_worldTransform,aabbMin,aabbMax);
 }
-
-
-
 
 void btRigidBody::setGravity(const btVector3& acceleration) 
 {

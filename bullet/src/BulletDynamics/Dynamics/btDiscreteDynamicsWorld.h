@@ -78,6 +78,8 @@ protected:
 	virtual void	solveConstraints(btContactSolverInfo& solverInfo);
 	
 	virtual void	updateActivationState(btScalar timeStep);
+	
+	void performPreActions(btScalar timeStep);
 
 	void	updateActions(btScalar timeStep);
 

@@ -223,12 +223,7 @@ void	btCollisionWorld::performDiscreteCollisionDetection()
 
 void	btCollisionWorld::removeCollisionObject(btCollisionObject* collisionObject)
 {
-
-
-	//bool removeFromBroadphase = false;
-
 	{
-
 		btBroadphaseProxy* bp = collisionObject->getBroadphaseHandle();
 		if (bp)
 		{
@@ -241,10 +236,8 @@ void	btCollisionWorld::removeCollisionObject(btCollisionObject* collisionObject)
 		}
 	}
 
-
 	//swapremove
 	m_collisionObjects.remove(collisionObject);
-
 }
 
 

@@ -18,14 +18,13 @@ ATTRIBUTE_ALIGNED16(struct)	btDefaultMotionState : public btMotionState
 		m_centerOfMassOffset(centerOfMassOffset),
 		m_startWorldTrans(startTrans),
 		m_userPointer(0)
-
 	{
 	}
 
 	///synchronizes world transform from user to physics
-	virtual void	getWorldTransform(btTransform& centerOfMassWorldTrans ) const 
+	virtual void	getWorldTransform(btTransform& centerOfMassWorldTrans ) const
 	{
-			centerOfMassWorldTrans = 	m_centerOfMassOffset.inverse() * m_graphicsWorldTrans ;
+			centerOfMassWorldTrans = 	m_centerOfMassOffset.inverse() * m_graphicsWorldTrans;
 	}
 
 	///synchronizes world transform from physics to user
@@ -34,9 +33,6 @@ ATTRIBUTE_ALIGNED16(struct)	btDefaultMotionState : public btMotionState
 	{
 			m_graphicsWorldTrans = centerOfMassWorldTrans * m_centerOfMassOffset ;
 	}
-
-	
-
 };
 
 #endif //BT_DEFAULT_MOTION_STATE_H
