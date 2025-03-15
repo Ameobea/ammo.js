@@ -38,6 +38,13 @@ getNormalizedVector(const btVector3& v) {
   return n;
 }
 
+#define MAX_PENETRATION_LOOPS 16
+
+// if set to 1, then 1/MAX_PENETRATION_LOOPS of the penetration depth will be recovered per iteration
+//
+// setting to higher values may reduce or prevent some cases where penetration cannot be recovered from
+#define PENETRATION_RECOVERY_PER_ITER 3.
+
 class btKinematicClosestNotMeRayResultCallback : public btCollisionWorld::ClosestRayResultCallback {
 public:
   btKinematicClosestNotMeRayResultCallback(btCollisionObject* me)
@@ -192,7 +199,8 @@ btKinematicCharacterController::recoverFromPenetration(btCollisionWorld* collisi
         btScalar dist = pt.getDistance();
 
         if (dist < -m_maxPenetrationDepth) {
-          m_currentPosition += pt.m_normalWorldOnB * directionSign * dist * btScalar(1. / 8.);
+          m_currentPosition += pt.m_normalWorldOnB * directionSign * dist *
+                               btScalar(1. / (btScalar(MAX_PENETRATION_LOOPS) / PENETRATION_RECOVERY_PER_ITER));
           penetration = true;
         }
       }
@@ -264,6 +272,18 @@ btKinematicCharacterController::maybeApplyFloorLock(btCollisionWorld* collisionW
   m_ghostObject->setWorldTransform(xform);
 }
 
+void
+btKinematicCharacterController::recoverPreExistingPenetration(btCollisionWorld* collisionWorld) {
+  int numPenetrationLoops = 0;
+  while (recoverFromPenetration(collisionWorld)) {
+    numPenetrationLoops++;
+    if (numPenetrationLoops > MAX_PENETRATION_LOOPS) {
+      printf("Character could not recover from pre-existing penetration after %d loops\n", numPenetrationLoops);
+      break;
+    }
+  }
+}
+
 // phase 1: up
 void
 btKinematicCharacterController::stepUp(btCollisionWorld* world) {
@@ -311,8 +331,8 @@ btKinematicCharacterController::stepUp(btCollisionWorld* world) {
     int numPenetrationLoops = 0;
     while (recoverFromPenetration(world)) {
       numPenetrationLoops += 1;
-      if (numPenetrationLoops > 8) {
-        // printf("character could not recover from penetration in `stepUp` = %d\n", numPenetrationLoops);
+      if (numPenetrationLoops > MAX_PENETRATION_LOOPS) {
+        printf("character could not recover from penetration in `stepUp` = %d\n", numPenetrationLoops);
         break;
       }
     }
@@ -365,15 +385,14 @@ btKinematicCharacterController::updateTargetPositionBasedOnCollision(
 
 // phase 2: forward and strafe
 void
-btKinematicCharacterController::stepForwardAndStrafe(btCollisionWorld* collisionWorld, const btVector3& walkMove) {
+btKinematicCharacterController::stepForwardAndStrafe(btCollisionWorld* collisionWorld, btScalar dt) {
   btTransform start, end;
-
-  m_targetPosition = m_currentPosition;
-  m_targetPosition += walkMove;
-  m_targetPosition += m_externalVelocity;
-
   start.setIdentity();
   end.setIdentity();
+
+  m_targetPosition = m_currentPosition;
+  m_targetPosition += m_walkDirection * dt;
+  m_targetPosition += m_externalVelocity * dt;
 
   btScalar fraction = 1.0;
   btScalar distanceSquared = (m_currentPosition - m_targetPosition).length2();
@@ -542,6 +561,8 @@ btKinematicCharacterController::preStep(btCollisionWorld* collisionWorld) {
 
 void
 btKinematicCharacterController::playerStep(btCollisionWorld* collisionWorld, btScalar dt) {
+  maybeApplyFloorLock(collisionWorld, dt);
+
   m_wasOnGround = onGround();
 
   // Update fall velocity.
@@ -590,9 +611,13 @@ btKinematicCharacterController::playerStep(btCollisionWorld* collisionWorld, btS
     m_externalVelocity.setValue(0.0, 0.0, 0.0);
   }
 
+#if 0
+  recoverPreExistingPenetration(collisionWorld);
+#endif
+
   stepUp(collisionWorld);
 
-  stepForwardAndStrafe(collisionWorld, m_walkDirection);
+  stepForwardAndStrafe(collisionWorld, dt);
 
   stepDown(collisionWorld, dt);
 
@@ -603,8 +628,8 @@ btKinematicCharacterController::playerStep(btCollisionWorld* collisionWorld, btS
   int numPenetrationLoops = 0;
   while (recoverFromPenetration(collisionWorld)) {
     numPenetrationLoops++;
-    if (numPenetrationLoops > 8) {
-      // printf("character could not recover from penetration in `stepDown` = %d\n", numPenetrationLoops);
+    if (numPenetrationLoops > MAX_PENETRATION_LOOPS) {
+      printf("character could not recover from penetration in `stepDown` = %d\n", numPenetrationLoops);
       break;
     }
   }

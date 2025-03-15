@@ -40,6 +40,10 @@ class btTransformUtil
 
 public:
 
+	/**
+	 * Computes the future transformation of an object over a given time step by integrating its current state with the
+	 * specified linear and angular velocities.
+	 */
 	static void integrateTransform(const btTransform& curTrans,const btVector3& linvel,const btVector3& angvel,btScalar timeStep,btTransform& predictedTransform)
 	{
 		predictedTransform.setOrigin(curTrans.getOrigin() + linvel * timeStep);

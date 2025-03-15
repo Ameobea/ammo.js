@@ -114,11 +114,12 @@ protected:
   btVector3 perpindicularComponent(const btVector3& direction, const btVector3& normal);
 
   bool recoverFromPenetration(btCollisionWorld * collisionWorld);
+  void recoverPreExistingPenetration(btCollisionWorld * collisionWorld);
   void stepUp(btCollisionWorld * collisionWorld);
   void updateTargetPositionBasedOnCollision(
     const btVector3& hit_normal, btScalar tangentMag = btScalar(0.0), btScalar normalMag = btScalar(1.0)
   );
-  void stepForwardAndStrafe(btCollisionWorld * collisionWorld, const btVector3& walkMove);
+  void stepForwardAndStrafe(btCollisionWorld * collisionWorld, btScalar dt);
   void stepDown(btCollisionWorld * collisionWorld, btScalar dt);
 
   virtual bool needsCollision(const btCollisionObject* body0, const btCollisionObject* body1);
@@ -138,10 +139,6 @@ public:
   ~btKinematicCharacterController() {}
 
   /// btActionInterface interface
-  virtual void preAction(btCollisionWorld * collisionWorld, btScalar deltaTime) {
-    maybeApplyFloorLock(collisionWorld, deltaTime);
-  }
-
   virtual void updateAction(btCollisionWorld * collisionWorld, btScalar deltaTime) {
     preStep(collisionWorld);
     playerStep(collisionWorld, deltaTime);

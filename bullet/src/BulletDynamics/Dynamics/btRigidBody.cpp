@@ -75,6 +75,7 @@ void	btRigidBody::setupRigidBody(const btRigidBody::btRigidBodyConstructionInfo&
 	m_interpolationWorldTransform = m_worldTransform;
 	m_interpolationLinearVelocity.setValue(0,0,0);
 	m_interpolationAngularVelocity.setValue(0,0,0);
+	m_lastFrameWorldTransform = m_worldTransform;
 	
 	//moved to btCollisionObject
 	m_friction = constructionInfo.m_friction;
@@ -109,6 +110,8 @@ void btRigidBody::saveKinematicState(btScalar timeStep)
 	//todo: clamp to some (user definable) safe minimum timestep, to limit maximum angular/linear velocities
 	if (timeStep != btScalar(0.))
 	{
+		m_lastFrameWorldTransform = m_worldTransform;
+
 		//if we use motionstate to synchronize world transforms, get the new kinematic/animated world transform
 		if (getMotionState())
 			getMotionState()->getWorldTransform(m_worldTransform);

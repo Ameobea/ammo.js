@@ -310,12 +310,12 @@ btCapsuleShape implements btCollisionShape;
 // };
 // btCapsuleShapeZ implements btCapsuleShape;
 
-// interface btCylinderShape {
-//   void btCylinderShape([Ref] btVector3 halfExtents);
-//   void setMargin(float margin);
-//   float getMargin();
-// };
-// btCylinderShape implements btCollisionShape;
+interface btCylinderShape {
+  void btCylinderShape([Ref] btVector3 halfExtents);
+  // void setMargin(float margin);
+  // float getMargin();
+};
+btCylinderShape implements btCollisionShape;
 
 // interface btCylinderShapeX {
 //   void btCylinderShapeX([Ref] btVector3 halfExtents);
@@ -860,25 +860,25 @@ btSequentialImpulseConstraintSolver implements btConstraintSolver;
 interface btConstraintSolver {
 };
 
-// interface btDispatcherInfo {
+interface btDispatcherInfo {
 //   attribute float m_timeStep;
 //   attribute long m_stepCount;
 //   attribute long m_dispatchFunc;
 //   attribute float m_timeOfImpact;
-//   attribute boolean m_useContinuous;
+  attribute boolean m_useContinuous;
 //   attribute boolean m_enableSatConvex;
 //   attribute boolean m_enableSPU;
 //   attribute boolean m_useEpa;
 //   attribute float m_allowedCcdPenetration;
 //   attribute boolean m_useConvexConservativeDistanceUtil;
 //   attribute float m_convexConservativeDistanceThreshold;
-// };
+};
 
 interface btCollisionWorld {
   btDispatcher getDispatcher();
   // void rayTest([Const, Ref] btVector3 rayFromWorld, [Const, Ref] btVector3 rayToWorld, [Ref] RayResultCallback resultCallback);
   // btOverlappingPairCache getPairCache();
-  // [Ref] btDispatcherInfo getDispatchInfo();
+  [Ref] btDispatcherInfo getDispatchInfo();
   void addCollisionObject(btCollisionObject collisionObject, optional short collisionFilterGroup, optional short collisionFilterMask);
   void removeCollisionObject(btCollisionObject collisionObject);
   [Const] btBroadphaseInterface getBroadphase();

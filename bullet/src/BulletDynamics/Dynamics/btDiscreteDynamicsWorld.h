@@ -38,7 +38,7 @@ ATTRIBUTE_ALIGNED16(class) btDiscreteDynamicsWorld : public btDynamicsWorld
 {
 protected:
 	
-    btAlignedObjectArray<btTypedConstraint*>	m_sortedConstraints;
+  btAlignedObjectArray<btTypedConstraint*>	m_sortedConstraints;
 	InplaceSolverIslandCallback* 	m_solverIslandCallback;
 
 	btConstraintSolver*	m_constraintSolver;
@@ -51,10 +51,9 @@ protected:
 
 	btVector3	m_gravity;
 
-	//for variable timesteps
+	// for fixed timesteps, this holds the overflow of the last step
 	btScalar	m_localTime;
 	btScalar	m_fixedTimeStep;
-	//for variable timesteps
 
 	bool	m_ownsIslandManager;
 	bool	m_ownsConstraintSolver;
@@ -76,10 +75,8 @@ protected:
 	virtual void	calculateSimulationIslands();
 
 	virtual void	solveConstraints(btContactSolverInfo& solverInfo);
-	
+
 	virtual void	updateActivationState(btScalar timeStep);
-	
-	void performPreActions(btScalar timeStep);
 
 	void	updateActions(btScalar timeStep);
 
@@ -108,8 +105,9 @@ public:
 	///if maxSubSteps > 0, it will interpolate motion between fixedTimeStep's
 	virtual int	stepSimulation( btScalar timeStep,int maxSubSteps=1, btScalar fixedTimeStep=btScalar(1.)/btScalar(60.));
 
+	void synchronizeMotionStates();
 
-	virtual void	synchronizeMotionStates();
+	virtual void applyManualMotionStateInterpolation(btScalar dt);
 
 	///this can be useful to synchronize a single rigid body -> graphics object
 	void	synchronizeSingleMotionState(btRigidBody* body);

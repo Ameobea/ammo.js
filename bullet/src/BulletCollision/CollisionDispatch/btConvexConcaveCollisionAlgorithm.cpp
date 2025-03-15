@@ -292,10 +292,6 @@ btScalar btConvexConcaveCollisionAlgorithm::calculateTimeOfImpact(btCollisionObj
 
 	};
 
-
-	
-
-	
 	if (triBody->getCollisionShape()->isConcave())
 	{
 		btVector3 rayAabbMin = convexFromLocal.getOrigin();

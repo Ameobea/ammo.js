@@ -902,375 +902,393 @@ var _emscripten_bind_btCollisionShape___destroy___0 = Module["_emscripten_bind_b
 
 var _emscripten_bind_btCollisionWorld_getDispatcher_0 = Module["_emscripten_bind_btCollisionWorld_getDispatcher_0"] = wasmExports["w"];
 
-var _emscripten_bind_btCollisionWorld_addCollisionObject_1 = Module["_emscripten_bind_btCollisionWorld_addCollisionObject_1"] = wasmExports["x"];
+var _emscripten_bind_btCollisionWorld_getDispatchInfo_0 = Module["_emscripten_bind_btCollisionWorld_getDispatchInfo_0"] = wasmExports["x"];
 
-var _emscripten_bind_btCollisionWorld_addCollisionObject_2 = Module["_emscripten_bind_btCollisionWorld_addCollisionObject_2"] = wasmExports["y"];
+var _emscripten_bind_btCollisionWorld_addCollisionObject_1 = Module["_emscripten_bind_btCollisionWorld_addCollisionObject_1"] = wasmExports["y"];
 
-var _emscripten_bind_btCollisionWorld_addCollisionObject_3 = Module["_emscripten_bind_btCollisionWorld_addCollisionObject_3"] = wasmExports["z"];
+var _emscripten_bind_btCollisionWorld_addCollisionObject_2 = Module["_emscripten_bind_btCollisionWorld_addCollisionObject_2"] = wasmExports["z"];
 
-var _emscripten_bind_btCollisionWorld_removeCollisionObject_1 = Module["_emscripten_bind_btCollisionWorld_removeCollisionObject_1"] = wasmExports["A"];
+var _emscripten_bind_btCollisionWorld_addCollisionObject_3 = Module["_emscripten_bind_btCollisionWorld_addCollisionObject_3"] = wasmExports["A"];
 
-var _emscripten_bind_btCollisionWorld_getBroadphase_0 = Module["_emscripten_bind_btCollisionWorld_getBroadphase_0"] = wasmExports["B"];
+var _emscripten_bind_btCollisionWorld_removeCollisionObject_1 = Module["_emscripten_bind_btCollisionWorld_removeCollisionObject_1"] = wasmExports["B"];
 
-var _emscripten_bind_btCollisionWorld___destroy___0 = Module["_emscripten_bind_btCollisionWorld___destroy___0"] = wasmExports["C"];
+var _emscripten_bind_btCollisionWorld_getBroadphase_0 = Module["_emscripten_bind_btCollisionWorld_getBroadphase_0"] = wasmExports["C"];
 
-var _emscripten_bind_btMotionState_getWorldTransform_1 = Module["_emscripten_bind_btMotionState_getWorldTransform_1"] = wasmExports["D"];
+var _emscripten_bind_btCollisionWorld___destroy___0 = Module["_emscripten_bind_btCollisionWorld___destroy___0"] = wasmExports["D"];
 
-var _emscripten_bind_btMotionState_setWorldTransform_1 = Module["_emscripten_bind_btMotionState_setWorldTransform_1"] = wasmExports["E"];
+var _emscripten_bind_btMotionState_getWorldTransform_1 = Module["_emscripten_bind_btMotionState_getWorldTransform_1"] = wasmExports["E"];
 
-var _emscripten_bind_btMotionState___destroy___0 = Module["_emscripten_bind_btMotionState___destroy___0"] = wasmExports["F"];
+var _emscripten_bind_btMotionState_setWorldTransform_1 = Module["_emscripten_bind_btMotionState_setWorldTransform_1"] = wasmExports["F"];
 
-var _emscripten_bind_btStridingMeshInterface___destroy___0 = Module["_emscripten_bind_btStridingMeshInterface___destroy___0"] = wasmExports["G"];
+var _emscripten_bind_btMotionState___destroy___0 = Module["_emscripten_bind_btMotionState___destroy___0"] = wasmExports["G"];
 
-var _emscripten_bind_btConcaveShape_setLocalScaling_1 = Module["_emscripten_bind_btConcaveShape_setLocalScaling_1"] = wasmExports["H"];
+var _emscripten_bind_btStridingMeshInterface___destroy___0 = Module["_emscripten_bind_btStridingMeshInterface___destroy___0"] = wasmExports["H"];
 
-var _emscripten_bind_btConcaveShape___destroy___0 = Module["_emscripten_bind_btConcaveShape___destroy___0"] = wasmExports["I"];
+var _emscripten_bind_btConcaveShape_setLocalScaling_1 = Module["_emscripten_bind_btConcaveShape_setLocalScaling_1"] = wasmExports["I"];
 
-var _emscripten_bind_btConstraintSolver___destroy___0 = Module["_emscripten_bind_btConstraintSolver___destroy___0"] = wasmExports["J"];
+var _emscripten_bind_btConcaveShape___destroy___0 = Module["_emscripten_bind_btConcaveShape___destroy___0"] = wasmExports["J"];
 
-var _emscripten_bind_btDynamicsWorld_addAction_1 = Module["_emscripten_bind_btDynamicsWorld_addAction_1"] = wasmExports["K"];
+var _emscripten_bind_btConstraintSolver___destroy___0 = Module["_emscripten_bind_btConstraintSolver___destroy___0"] = wasmExports["K"];
 
-var _emscripten_bind_btDynamicsWorld_getDispatcher_0 = Module["_emscripten_bind_btDynamicsWorld_getDispatcher_0"] = wasmExports["L"];
+var _emscripten_bind_btDynamicsWorld_addAction_1 = Module["_emscripten_bind_btDynamicsWorld_addAction_1"] = wasmExports["L"];
 
-var _emscripten_bind_btDynamicsWorld_addCollisionObject_1 = Module["_emscripten_bind_btDynamicsWorld_addCollisionObject_1"] = wasmExports["M"];
+var _emscripten_bind_btDynamicsWorld_getDispatcher_0 = Module["_emscripten_bind_btDynamicsWorld_getDispatcher_0"] = wasmExports["M"];
 
-var _emscripten_bind_btDynamicsWorld_addCollisionObject_2 = Module["_emscripten_bind_btDynamicsWorld_addCollisionObject_2"] = wasmExports["N"];
+var _emscripten_bind_btDynamicsWorld_getDispatchInfo_0 = Module["_emscripten_bind_btDynamicsWorld_getDispatchInfo_0"] = wasmExports["N"];
 
-var _emscripten_bind_btDynamicsWorld_addCollisionObject_3 = Module["_emscripten_bind_btDynamicsWorld_addCollisionObject_3"] = wasmExports["O"];
+var _emscripten_bind_btDynamicsWorld_addCollisionObject_1 = Module["_emscripten_bind_btDynamicsWorld_addCollisionObject_1"] = wasmExports["O"];
 
-var _emscripten_bind_btDynamicsWorld_removeCollisionObject_1 = Module["_emscripten_bind_btDynamicsWorld_removeCollisionObject_1"] = wasmExports["P"];
+var _emscripten_bind_btDynamicsWorld_addCollisionObject_2 = Module["_emscripten_bind_btDynamicsWorld_addCollisionObject_2"] = wasmExports["P"];
 
-var _emscripten_bind_btDynamicsWorld_getBroadphase_0 = Module["_emscripten_bind_btDynamicsWorld_getBroadphase_0"] = wasmExports["Q"];
+var _emscripten_bind_btDynamicsWorld_addCollisionObject_3 = Module["_emscripten_bind_btDynamicsWorld_addCollisionObject_3"] = wasmExports["Q"];
 
-var _emscripten_bind_btDynamicsWorld___destroy___0 = Module["_emscripten_bind_btDynamicsWorld___destroy___0"] = wasmExports["R"];
+var _emscripten_bind_btDynamicsWorld_removeCollisionObject_1 = Module["_emscripten_bind_btDynamicsWorld_removeCollisionObject_1"] = wasmExports["R"];
 
-var _emscripten_bind_btActionInterface___destroy___0 = Module["_emscripten_bind_btActionInterface___destroy___0"] = wasmExports["S"];
+var _emscripten_bind_btDynamicsWorld_getBroadphase_0 = Module["_emscripten_bind_btDynamicsWorld_getBroadphase_0"] = wasmExports["S"];
 
-var _emscripten_bind_btGhostObject_btGhostObject_0 = Module["_emscripten_bind_btGhostObject_btGhostObject_0"] = wasmExports["T"];
+var _emscripten_bind_btDynamicsWorld___destroy___0 = Module["_emscripten_bind_btDynamicsWorld___destroy___0"] = wasmExports["T"];
 
-var _emscripten_bind_btGhostObject_getNumOverlappingObjects_0 = Module["_emscripten_bind_btGhostObject_getNumOverlappingObjects_0"] = wasmExports["U"];
+var _emscripten_bind_btActionInterface___destroy___0 = Module["_emscripten_bind_btActionInterface___destroy___0"] = wasmExports["U"];
 
-var _emscripten_bind_btGhostObject_setActivationState_1 = Module["_emscripten_bind_btGhostObject_setActivationState_1"] = wasmExports["V"];
+var _emscripten_bind_btGhostObject_btGhostObject_0 = Module["_emscripten_bind_btGhostObject_btGhostObject_0"] = wasmExports["V"];
 
-var _emscripten_bind_btGhostObject_getWorldTransform_0 = Module["_emscripten_bind_btGhostObject_getWorldTransform_0"] = wasmExports["W"];
+var _emscripten_bind_btGhostObject_getNumOverlappingObjects_0 = Module["_emscripten_bind_btGhostObject_getNumOverlappingObjects_0"] = wasmExports["W"];
 
-var _emscripten_bind_btGhostObject_setCollisionFlags_1 = Module["_emscripten_bind_btGhostObject_setCollisionFlags_1"] = wasmExports["X"];
+var _emscripten_bind_btGhostObject_setActivationState_1 = Module["_emscripten_bind_btGhostObject_setActivationState_1"] = wasmExports["X"];
 
-var _emscripten_bind_btGhostObject_setWorldTransform_1 = Module["_emscripten_bind_btGhostObject_setWorldTransform_1"] = wasmExports["Y"];
+var _emscripten_bind_btGhostObject_getWorldTransform_0 = Module["_emscripten_bind_btGhostObject_getWorldTransform_0"] = wasmExports["Y"];
 
-var _emscripten_bind_btGhostObject_setCollisionShape_1 = Module["_emscripten_bind_btGhostObject_setCollisionShape_1"] = wasmExports["Z"];
+var _emscripten_bind_btGhostObject_setCollisionFlags_1 = Module["_emscripten_bind_btGhostObject_setCollisionFlags_1"] = wasmExports["Z"];
 
-var _emscripten_bind_btGhostObject_setUserIndex_1 = Module["_emscripten_bind_btGhostObject_setUserIndex_1"] = wasmExports["_"];
+var _emscripten_bind_btGhostObject_setWorldTransform_1 = Module["_emscripten_bind_btGhostObject_setWorldTransform_1"] = wasmExports["_"];
 
-var _emscripten_bind_btGhostObject___destroy___0 = Module["_emscripten_bind_btGhostObject___destroy___0"] = wasmExports["$"];
+var _emscripten_bind_btGhostObject_setCollisionShape_1 = Module["_emscripten_bind_btGhostObject_setCollisionShape_1"] = wasmExports["$"];
 
-var _emscripten_bind_VoidPtr___destroy___0 = Module["_emscripten_bind_VoidPtr___destroy___0"] = wasmExports["aa"];
+var _emscripten_bind_btGhostObject_setUserIndex_1 = Module["_emscripten_bind_btGhostObject_setUserIndex_1"] = wasmExports["aa"];
 
-var _emscripten_bind_btVector3_btVector3_0 = Module["_emscripten_bind_btVector3_btVector3_0"] = wasmExports["ba"];
+var _emscripten_bind_btGhostObject___destroy___0 = Module["_emscripten_bind_btGhostObject___destroy___0"] = wasmExports["ba"];
 
-var _emscripten_bind_btVector3_btVector3_3 = Module["_emscripten_bind_btVector3_btVector3_3"] = wasmExports["ca"];
+var _emscripten_bind_VoidPtr___destroy___0 = Module["_emscripten_bind_VoidPtr___destroy___0"] = wasmExports["ca"];
 
-var _emscripten_bind_btVector3_length_0 = Module["_emscripten_bind_btVector3_length_0"] = wasmExports["da"];
+var _emscripten_bind_btVector3_btVector3_0 = Module["_emscripten_bind_btVector3_btVector3_0"] = wasmExports["da"];
 
-var _emscripten_bind_btVector3_x_0 = Module["_emscripten_bind_btVector3_x_0"] = wasmExports["ea"];
+var _emscripten_bind_btVector3_btVector3_3 = Module["_emscripten_bind_btVector3_btVector3_3"] = wasmExports["ea"];
 
-var _emscripten_bind_btVector3_y_0 = Module["_emscripten_bind_btVector3_y_0"] = wasmExports["fa"];
+var _emscripten_bind_btVector3_length_0 = Module["_emscripten_bind_btVector3_length_0"] = wasmExports["fa"];
 
-var _emscripten_bind_btVector3_z_0 = Module["_emscripten_bind_btVector3_z_0"] = wasmExports["ga"];
+var _emscripten_bind_btVector3_x_0 = Module["_emscripten_bind_btVector3_x_0"] = wasmExports["ga"];
 
-var _emscripten_bind_btVector3_setValue_3 = Module["_emscripten_bind_btVector3_setValue_3"] = wasmExports["ha"];
+var _emscripten_bind_btVector3_y_0 = Module["_emscripten_bind_btVector3_y_0"] = wasmExports["ha"];
 
-var _emscripten_bind_btVector3___destroy___0 = Module["_emscripten_bind_btVector3___destroy___0"] = wasmExports["ia"];
+var _emscripten_bind_btVector3_z_0 = Module["_emscripten_bind_btVector3_z_0"] = wasmExports["ia"];
 
-var _emscripten_bind_btQuaternion_btQuaternion_4 = Module["_emscripten_bind_btQuaternion_btQuaternion_4"] = wasmExports["ja"];
+var _emscripten_bind_btVector3_setValue_3 = Module["_emscripten_bind_btVector3_setValue_3"] = wasmExports["ja"];
 
-var _emscripten_bind_btQuaternion_setValue_4 = Module["_emscripten_bind_btQuaternion_setValue_4"] = wasmExports["ka"];
+var _emscripten_bind_btVector3___destroy___0 = Module["_emscripten_bind_btVector3___destroy___0"] = wasmExports["ka"];
 
-var _emscripten_bind_btQuaternion___destroy___0 = Module["_emscripten_bind_btQuaternion___destroy___0"] = wasmExports["la"];
+var _emscripten_bind_btQuaternion_btQuaternion_4 = Module["_emscripten_bind_btQuaternion_btQuaternion_4"] = wasmExports["la"];
 
-var _emscripten_bind_btTransform_btTransform_0 = Module["_emscripten_bind_btTransform_btTransform_0"] = wasmExports["ma"];
+var _emscripten_bind_btQuaternion_setValue_4 = Module["_emscripten_bind_btQuaternion_setValue_4"] = wasmExports["ma"];
 
-var _emscripten_bind_btTransform_btTransform_2 = Module["_emscripten_bind_btTransform_btTransform_2"] = wasmExports["na"];
+var _emscripten_bind_btQuaternion___destroy___0 = Module["_emscripten_bind_btQuaternion___destroy___0"] = wasmExports["na"];
 
-var _emscripten_bind_btTransform_setIdentity_0 = Module["_emscripten_bind_btTransform_setIdentity_0"] = wasmExports["oa"];
+var _emscripten_bind_btTransform_btTransform_0 = Module["_emscripten_bind_btTransform_btTransform_0"] = wasmExports["oa"];
 
-var _emscripten_bind_btTransform_setOrigin_1 = Module["_emscripten_bind_btTransform_setOrigin_1"] = wasmExports["pa"];
+var _emscripten_bind_btTransform_btTransform_2 = Module["_emscripten_bind_btTransform_btTransform_2"] = wasmExports["pa"];
 
-var _emscripten_bind_btTransform_setRotation_1 = Module["_emscripten_bind_btTransform_setRotation_1"] = wasmExports["qa"];
+var _emscripten_bind_btTransform_setIdentity_0 = Module["_emscripten_bind_btTransform_setIdentity_0"] = wasmExports["qa"];
 
-var _emscripten_bind_btTransform_getOrigin_0 = Module["_emscripten_bind_btTransform_getOrigin_0"] = wasmExports["ra"];
+var _emscripten_bind_btTransform_setOrigin_1 = Module["_emscripten_bind_btTransform_setOrigin_1"] = wasmExports["ra"];
 
-var _emscripten_bind_btTransform___destroy___0 = Module["_emscripten_bind_btTransform___destroy___0"] = wasmExports["sa"];
+var _emscripten_bind_btTransform_setRotation_1 = Module["_emscripten_bind_btTransform_setRotation_1"] = wasmExports["sa"];
 
-var _emscripten_bind_btDefaultMotionState_btDefaultMotionState_0 = Module["_emscripten_bind_btDefaultMotionState_btDefaultMotionState_0"] = wasmExports["ta"];
+var _emscripten_bind_btTransform_getOrigin_0 = Module["_emscripten_bind_btTransform_getOrigin_0"] = wasmExports["ta"];
 
-var _emscripten_bind_btDefaultMotionState_btDefaultMotionState_1 = Module["_emscripten_bind_btDefaultMotionState_btDefaultMotionState_1"] = wasmExports["ua"];
+var _emscripten_bind_btTransform___destroy___0 = Module["_emscripten_bind_btTransform___destroy___0"] = wasmExports["ua"];
 
-var _emscripten_bind_btDefaultMotionState_btDefaultMotionState_2 = Module["_emscripten_bind_btDefaultMotionState_btDefaultMotionState_2"] = wasmExports["va"];
+var _emscripten_bind_btDefaultMotionState_btDefaultMotionState_0 = Module["_emscripten_bind_btDefaultMotionState_btDefaultMotionState_0"] = wasmExports["va"];
 
-var _emscripten_bind_btDefaultMotionState_getWorldTransform_1 = Module["_emscripten_bind_btDefaultMotionState_getWorldTransform_1"] = wasmExports["wa"];
+var _emscripten_bind_btDefaultMotionState_btDefaultMotionState_1 = Module["_emscripten_bind_btDefaultMotionState_btDefaultMotionState_1"] = wasmExports["wa"];
 
-var _emscripten_bind_btDefaultMotionState_setWorldTransform_1 = Module["_emscripten_bind_btDefaultMotionState_setWorldTransform_1"] = wasmExports["xa"];
+var _emscripten_bind_btDefaultMotionState_btDefaultMotionState_2 = Module["_emscripten_bind_btDefaultMotionState_btDefaultMotionState_2"] = wasmExports["xa"];
 
-var _emscripten_bind_btDefaultMotionState___destroy___0 = Module["_emscripten_bind_btDefaultMotionState___destroy___0"] = wasmExports["ya"];
+var _emscripten_bind_btDefaultMotionState_getWorldTransform_1 = Module["_emscripten_bind_btDefaultMotionState_getWorldTransform_1"] = wasmExports["ya"];
 
-var _emscripten_bind_btConvexShape_setLocalScaling_1 = Module["_emscripten_bind_btConvexShape_setLocalScaling_1"] = wasmExports["za"];
+var _emscripten_bind_btDefaultMotionState_setWorldTransform_1 = Module["_emscripten_bind_btDefaultMotionState_setWorldTransform_1"] = wasmExports["za"];
 
-var _emscripten_bind_btConvexShape___destroy___0 = Module["_emscripten_bind_btConvexShape___destroy___0"] = wasmExports["Aa"];
+var _emscripten_bind_btDefaultMotionState___destroy___0 = Module["_emscripten_bind_btDefaultMotionState___destroy___0"] = wasmExports["Aa"];
 
-var _emscripten_bind_btBoxShape_btBoxShape_1 = Module["_emscripten_bind_btBoxShape_btBoxShape_1"] = wasmExports["Ba"];
+var _emscripten_bind_btConvexShape_setLocalScaling_1 = Module["_emscripten_bind_btConvexShape_setLocalScaling_1"] = wasmExports["Ba"];
 
-var _emscripten_bind_btBoxShape_setLocalScaling_1 = Module["_emscripten_bind_btBoxShape_setLocalScaling_1"] = wasmExports["Ca"];
+var _emscripten_bind_btConvexShape___destroy___0 = Module["_emscripten_bind_btConvexShape___destroy___0"] = wasmExports["Ca"];
 
-var _emscripten_bind_btBoxShape___destroy___0 = Module["_emscripten_bind_btBoxShape___destroy___0"] = wasmExports["Da"];
+var _emscripten_bind_btBoxShape_btBoxShape_1 = Module["_emscripten_bind_btBoxShape_btBoxShape_1"] = wasmExports["Da"];
 
-var _emscripten_bind_btCapsuleShape_btCapsuleShape_2 = Module["_emscripten_bind_btCapsuleShape_btCapsuleShape_2"] = wasmExports["Ea"];
+var _emscripten_bind_btBoxShape_setLocalScaling_1 = Module["_emscripten_bind_btBoxShape_setLocalScaling_1"] = wasmExports["Ea"];
 
-var _emscripten_bind_btCapsuleShape_setLocalScaling_1 = Module["_emscripten_bind_btCapsuleShape_setLocalScaling_1"] = wasmExports["Fa"];
+var _emscripten_bind_btBoxShape___destroy___0 = Module["_emscripten_bind_btBoxShape___destroy___0"] = wasmExports["Fa"];
 
-var _emscripten_bind_btCapsuleShape___destroy___0 = Module["_emscripten_bind_btCapsuleShape___destroy___0"] = wasmExports["Ga"];
+var _emscripten_bind_btCapsuleShape_btCapsuleShape_2 = Module["_emscripten_bind_btCapsuleShape_btCapsuleShape_2"] = wasmExports["Ga"];
 
-var _emscripten_bind_btConeShape_btConeShape_2 = Module["_emscripten_bind_btConeShape_btConeShape_2"] = wasmExports["Ha"];
+var _emscripten_bind_btCapsuleShape_setLocalScaling_1 = Module["_emscripten_bind_btCapsuleShape_setLocalScaling_1"] = wasmExports["Ha"];
 
-var _emscripten_bind_btConeShape_setLocalScaling_1 = Module["_emscripten_bind_btConeShape_setLocalScaling_1"] = wasmExports["Ia"];
+var _emscripten_bind_btCapsuleShape___destroy___0 = Module["_emscripten_bind_btCapsuleShape___destroy___0"] = wasmExports["Ia"];
 
-var _emscripten_bind_btConeShape___destroy___0 = Module["_emscripten_bind_btConeShape___destroy___0"] = wasmExports["Ja"];
+var _emscripten_bind_btCylinderShape_btCylinderShape_1 = Module["_emscripten_bind_btCylinderShape_btCylinderShape_1"] = wasmExports["Ja"];
 
-var _emscripten_bind_btConvexHullShape_btConvexHullShape_0 = Module["_emscripten_bind_btConvexHullShape_btConvexHullShape_0"] = wasmExports["Ka"];
+var _emscripten_bind_btCylinderShape_setLocalScaling_1 = Module["_emscripten_bind_btCylinderShape_setLocalScaling_1"] = wasmExports["Ka"];
 
-var _emscripten_bind_btConvexHullShape_btConvexHullShape_1 = Module["_emscripten_bind_btConvexHullShape_btConvexHullShape_1"] = wasmExports["La"];
+var _emscripten_bind_btCylinderShape___destroy___0 = Module["_emscripten_bind_btCylinderShape___destroy___0"] = wasmExports["La"];
 
-var _emscripten_bind_btConvexHullShape_btConvexHullShape_2 = Module["_emscripten_bind_btConvexHullShape_btConvexHullShape_2"] = wasmExports["Ma"];
+var _emscripten_bind_btConeShape_btConeShape_2 = Module["_emscripten_bind_btConeShape_btConeShape_2"] = wasmExports["Ma"];
 
-var _emscripten_bind_btConvexHullShape_addPoint_1 = Module["_emscripten_bind_btConvexHullShape_addPoint_1"] = wasmExports["Na"];
+var _emscripten_bind_btConeShape_setLocalScaling_1 = Module["_emscripten_bind_btConeShape_setLocalScaling_1"] = wasmExports["Na"];
 
-var _emscripten_bind_btConvexHullShape_addPoint_2 = Module["_emscripten_bind_btConvexHullShape_addPoint_2"] = wasmExports["Oa"];
+var _emscripten_bind_btConeShape___destroy___0 = Module["_emscripten_bind_btConeShape___destroy___0"] = wasmExports["Oa"];
 
-var _emscripten_bind_btConvexHullShape_setLocalScaling_1 = Module["_emscripten_bind_btConvexHullShape_setLocalScaling_1"] = wasmExports["Pa"];
+var _emscripten_bind_btConvexHullShape_btConvexHullShape_0 = Module["_emscripten_bind_btConvexHullShape_btConvexHullShape_0"] = wasmExports["Pa"];
 
-var _emscripten_bind_btConvexHullShape___destroy___0 = Module["_emscripten_bind_btConvexHullShape___destroy___0"] = wasmExports["Qa"];
+var _emscripten_bind_btConvexHullShape_btConvexHullShape_1 = Module["_emscripten_bind_btConvexHullShape_btConvexHullShape_1"] = wasmExports["Qa"];
 
-var _emscripten_bind_btCompoundShape_btCompoundShape_0 = Module["_emscripten_bind_btCompoundShape_btCompoundShape_0"] = wasmExports["Ra"];
+var _emscripten_bind_btConvexHullShape_btConvexHullShape_2 = Module["_emscripten_bind_btConvexHullShape_btConvexHullShape_2"] = wasmExports["Ra"];
 
-var _emscripten_bind_btCompoundShape_btCompoundShape_1 = Module["_emscripten_bind_btCompoundShape_btCompoundShape_1"] = wasmExports["Sa"];
+var _emscripten_bind_btConvexHullShape_addPoint_1 = Module["_emscripten_bind_btConvexHullShape_addPoint_1"] = wasmExports["Sa"];
 
-var _emscripten_bind_btCompoundShape_addChildShape_2 = Module["_emscripten_bind_btCompoundShape_addChildShape_2"] = wasmExports["Ta"];
+var _emscripten_bind_btConvexHullShape_addPoint_2 = Module["_emscripten_bind_btConvexHullShape_addPoint_2"] = wasmExports["Ta"];
 
-var _emscripten_bind_btCompoundShape_setLocalScaling_1 = Module["_emscripten_bind_btCompoundShape_setLocalScaling_1"] = wasmExports["Ua"];
+var _emscripten_bind_btConvexHullShape_setLocalScaling_1 = Module["_emscripten_bind_btConvexHullShape_setLocalScaling_1"] = wasmExports["Ua"];
 
-var _emscripten_bind_btCompoundShape___destroy___0 = Module["_emscripten_bind_btCompoundShape___destroy___0"] = wasmExports["Va"];
+var _emscripten_bind_btConvexHullShape___destroy___0 = Module["_emscripten_bind_btConvexHullShape___destroy___0"] = wasmExports["Va"];
 
-var _emscripten_bind_btTriangleMesh_btTriangleMesh_0 = Module["_emscripten_bind_btTriangleMesh_btTriangleMesh_0"] = wasmExports["Wa"];
+var _emscripten_bind_btCompoundShape_btCompoundShape_0 = Module["_emscripten_bind_btCompoundShape_btCompoundShape_0"] = wasmExports["Wa"];
 
-var _emscripten_bind_btTriangleMesh_btTriangleMesh_1 = Module["_emscripten_bind_btTriangleMesh_btTriangleMesh_1"] = wasmExports["Xa"];
+var _emscripten_bind_btCompoundShape_btCompoundShape_1 = Module["_emscripten_bind_btCompoundShape_btCompoundShape_1"] = wasmExports["Xa"];
 
-var _emscripten_bind_btTriangleMesh_btTriangleMesh_2 = Module["_emscripten_bind_btTriangleMesh_btTriangleMesh_2"] = wasmExports["Ya"];
+var _emscripten_bind_btCompoundShape_addChildShape_2 = Module["_emscripten_bind_btCompoundShape_addChildShape_2"] = wasmExports["Ya"];
 
-var _emscripten_bind_btTriangleMesh_addTriangle_3 = Module["_emscripten_bind_btTriangleMesh_addTriangle_3"] = wasmExports["Za"];
+var _emscripten_bind_btCompoundShape_setLocalScaling_1 = Module["_emscripten_bind_btCompoundShape_setLocalScaling_1"] = wasmExports["Za"];
 
-var _emscripten_bind_btTriangleMesh_addTriangle_4 = Module["_emscripten_bind_btTriangleMesh_addTriangle_4"] = wasmExports["_a"];
+var _emscripten_bind_btCompoundShape___destroy___0 = Module["_emscripten_bind_btCompoundShape___destroy___0"] = wasmExports["_a"];
 
-var _emscripten_bind_btTriangleMesh_preallocateIndices_1 = Module["_emscripten_bind_btTriangleMesh_preallocateIndices_1"] = wasmExports["$a"];
+var _emscripten_bind_btTriangleMesh_btTriangleMesh_0 = Module["_emscripten_bind_btTriangleMesh_btTriangleMesh_0"] = wasmExports["$a"];
 
-var _emscripten_bind_btTriangleMesh_preallocateVertices_1 = Module["_emscripten_bind_btTriangleMesh_preallocateVertices_1"] = wasmExports["ab"];
+var _emscripten_bind_btTriangleMesh_btTriangleMesh_1 = Module["_emscripten_bind_btTriangleMesh_btTriangleMesh_1"] = wasmExports["ab"];
 
-var _emscripten_bind_btTriangleMesh___destroy___0 = Module["_emscripten_bind_btTriangleMesh___destroy___0"] = wasmExports["bb"];
+var _emscripten_bind_btTriangleMesh_btTriangleMesh_2 = Module["_emscripten_bind_btTriangleMesh_btTriangleMesh_2"] = wasmExports["bb"];
 
-var _emscripten_bind_btBvhTriangleMeshShape_btBvhTriangleMeshShape_2 = Module["_emscripten_bind_btBvhTriangleMeshShape_btBvhTriangleMeshShape_2"] = wasmExports["cb"];
+var _emscripten_bind_btTriangleMesh_addTriangle_3 = Module["_emscripten_bind_btTriangleMesh_addTriangle_3"] = wasmExports["cb"];
 
-var _emscripten_bind_btBvhTriangleMeshShape_btBvhTriangleMeshShape_3 = Module["_emscripten_bind_btBvhTriangleMeshShape_btBvhTriangleMeshShape_3"] = wasmExports["db"];
+var _emscripten_bind_btTriangleMesh_addTriangle_4 = Module["_emscripten_bind_btTriangleMesh_addTriangle_4"] = wasmExports["db"];
 
-var _emscripten_bind_btBvhTriangleMeshShape___destroy___0 = Module["_emscripten_bind_btBvhTriangleMeshShape___destroy___0"] = wasmExports["eb"];
+var _emscripten_bind_btTriangleMesh_preallocateIndices_1 = Module["_emscripten_bind_btTriangleMesh_preallocateIndices_1"] = wasmExports["eb"];
 
-var _emscripten_bind_btHeightfieldTerrainShape_btHeightfieldTerrainShape_9 = Module["_emscripten_bind_btHeightfieldTerrainShape_btHeightfieldTerrainShape_9"] = wasmExports["fb"];
+var _emscripten_bind_btTriangleMesh_preallocateVertices_1 = Module["_emscripten_bind_btTriangleMesh_preallocateVertices_1"] = wasmExports["fb"];
 
-var _emscripten_bind_btHeightfieldTerrainShape_setMargin_1 = Module["_emscripten_bind_btHeightfieldTerrainShape_setMargin_1"] = wasmExports["gb"];
+var _emscripten_bind_btTriangleMesh___destroy___0 = Module["_emscripten_bind_btTriangleMesh___destroy___0"] = wasmExports["gb"];
 
-var _emscripten_bind_btHeightfieldTerrainShape_getMargin_0 = Module["_emscripten_bind_btHeightfieldTerrainShape_getMargin_0"] = wasmExports["hb"];
+var _emscripten_bind_btBvhTriangleMeshShape_btBvhTriangleMeshShape_2 = Module["_emscripten_bind_btBvhTriangleMeshShape_btBvhTriangleMeshShape_2"] = wasmExports["hb"];
 
-var _emscripten_bind_btHeightfieldTerrainShape_setLocalScaling_1 = Module["_emscripten_bind_btHeightfieldTerrainShape_setLocalScaling_1"] = wasmExports["ib"];
+var _emscripten_bind_btBvhTriangleMeshShape_btBvhTriangleMeshShape_3 = Module["_emscripten_bind_btBvhTriangleMeshShape_btBvhTriangleMeshShape_3"] = wasmExports["ib"];
 
-var _emscripten_bind_btHeightfieldTerrainShape___destroy___0 = Module["_emscripten_bind_btHeightfieldTerrainShape___destroy___0"] = wasmExports["jb"];
+var _emscripten_bind_btBvhTriangleMeshShape___destroy___0 = Module["_emscripten_bind_btBvhTriangleMeshShape___destroy___0"] = wasmExports["jb"];
 
-var _emscripten_bind_btDefaultCollisionConstructionInfo_btDefaultCollisionConstructionInfo_0 = Module["_emscripten_bind_btDefaultCollisionConstructionInfo_btDefaultCollisionConstructionInfo_0"] = wasmExports["kb"];
+var _emscripten_bind_btHeightfieldTerrainShape_btHeightfieldTerrainShape_9 = Module["_emscripten_bind_btHeightfieldTerrainShape_btHeightfieldTerrainShape_9"] = wasmExports["kb"];
 
-var _emscripten_bind_btDefaultCollisionConstructionInfo___destroy___0 = Module["_emscripten_bind_btDefaultCollisionConstructionInfo___destroy___0"] = wasmExports["lb"];
+var _emscripten_bind_btHeightfieldTerrainShape_setMargin_1 = Module["_emscripten_bind_btHeightfieldTerrainShape_setMargin_1"] = wasmExports["lb"];
 
-var _emscripten_bind_btDefaultCollisionConfiguration_btDefaultCollisionConfiguration_0 = Module["_emscripten_bind_btDefaultCollisionConfiguration_btDefaultCollisionConfiguration_0"] = wasmExports["mb"];
+var _emscripten_bind_btHeightfieldTerrainShape_getMargin_0 = Module["_emscripten_bind_btHeightfieldTerrainShape_getMargin_0"] = wasmExports["mb"];
 
-var _emscripten_bind_btDefaultCollisionConfiguration_btDefaultCollisionConfiguration_1 = Module["_emscripten_bind_btDefaultCollisionConfiguration_btDefaultCollisionConfiguration_1"] = wasmExports["nb"];
+var _emscripten_bind_btHeightfieldTerrainShape_setLocalScaling_1 = Module["_emscripten_bind_btHeightfieldTerrainShape_setLocalScaling_1"] = wasmExports["nb"];
 
-var _emscripten_bind_btDefaultCollisionConfiguration___destroy___0 = Module["_emscripten_bind_btDefaultCollisionConfiguration___destroy___0"] = wasmExports["ob"];
+var _emscripten_bind_btHeightfieldTerrainShape___destroy___0 = Module["_emscripten_bind_btHeightfieldTerrainShape___destroy___0"] = wasmExports["ob"];
 
-var _emscripten_bind_btDispatcher___destroy___0 = Module["_emscripten_bind_btDispatcher___destroy___0"] = wasmExports["pb"];
+var _emscripten_bind_btDefaultCollisionConstructionInfo_btDefaultCollisionConstructionInfo_0 = Module["_emscripten_bind_btDefaultCollisionConstructionInfo_btDefaultCollisionConstructionInfo_0"] = wasmExports["pb"];
 
-var _emscripten_bind_btCollisionDispatcher_btCollisionDispatcher_1 = Module["_emscripten_bind_btCollisionDispatcher_btCollisionDispatcher_1"] = wasmExports["qb"];
+var _emscripten_bind_btDefaultCollisionConstructionInfo___destroy___0 = Module["_emscripten_bind_btDefaultCollisionConstructionInfo___destroy___0"] = wasmExports["qb"];
 
-var _emscripten_bind_btCollisionDispatcher___destroy___0 = Module["_emscripten_bind_btCollisionDispatcher___destroy___0"] = wasmExports["rb"];
+var _emscripten_bind_btDefaultCollisionConfiguration_btDefaultCollisionConfiguration_0 = Module["_emscripten_bind_btDefaultCollisionConfiguration_btDefaultCollisionConfiguration_0"] = wasmExports["rb"];
 
-var _emscripten_bind_btOverlappingPairCallback___destroy___0 = Module["_emscripten_bind_btOverlappingPairCallback___destroy___0"] = wasmExports["sb"];
+var _emscripten_bind_btDefaultCollisionConfiguration_btDefaultCollisionConfiguration_1 = Module["_emscripten_bind_btDefaultCollisionConfiguration_btDefaultCollisionConfiguration_1"] = wasmExports["sb"];
 
-var _emscripten_bind_btOverlappingPairCache_setInternalGhostPairCallback_1 = Module["_emscripten_bind_btOverlappingPairCache_setInternalGhostPairCallback_1"] = wasmExports["tb"];
+var _emscripten_bind_btDefaultCollisionConfiguration___destroy___0 = Module["_emscripten_bind_btDefaultCollisionConfiguration___destroy___0"] = wasmExports["tb"];
 
-var _emscripten_bind_btOverlappingPairCache___destroy___0 = Module["_emscripten_bind_btOverlappingPairCache___destroy___0"] = wasmExports["ub"];
+var _emscripten_bind_btDispatcher___destroy___0 = Module["_emscripten_bind_btDispatcher___destroy___0"] = wasmExports["ub"];
 
-var _emscripten_bind_btBroadphaseInterface_getOverlappingPairCache_0 = Module["_emscripten_bind_btBroadphaseInterface_getOverlappingPairCache_0"] = wasmExports["vb"];
+var _emscripten_bind_btCollisionDispatcher_btCollisionDispatcher_1 = Module["_emscripten_bind_btCollisionDispatcher_btCollisionDispatcher_1"] = wasmExports["vb"];
 
-var _emscripten_bind_btBroadphaseInterface___destroy___0 = Module["_emscripten_bind_btBroadphaseInterface___destroy___0"] = wasmExports["wb"];
+var _emscripten_bind_btCollisionDispatcher___destroy___0 = Module["_emscripten_bind_btCollisionDispatcher___destroy___0"] = wasmExports["wb"];
 
-var _emscripten_bind_btCollisionConfiguration___destroy___0 = Module["_emscripten_bind_btCollisionConfiguration___destroy___0"] = wasmExports["xb"];
+var _emscripten_bind_btOverlappingPairCallback___destroy___0 = Module["_emscripten_bind_btOverlappingPairCallback___destroy___0"] = wasmExports["xb"];
 
-var _emscripten_bind_btDbvtBroadphase_btDbvtBroadphase_0 = Module["_emscripten_bind_btDbvtBroadphase_btDbvtBroadphase_0"] = wasmExports["yb"];
+var _emscripten_bind_btOverlappingPairCache_setInternalGhostPairCallback_1 = Module["_emscripten_bind_btOverlappingPairCache_setInternalGhostPairCallback_1"] = wasmExports["yb"];
 
-var _emscripten_bind_btDbvtBroadphase_optimize_0 = Module["_emscripten_bind_btDbvtBroadphase_optimize_0"] = wasmExports["zb"];
+var _emscripten_bind_btOverlappingPairCache___destroy___0 = Module["_emscripten_bind_btOverlappingPairCache___destroy___0"] = wasmExports["zb"];
 
-var _emscripten_bind_btDbvtBroadphase___destroy___0 = Module["_emscripten_bind_btDbvtBroadphase___destroy___0"] = wasmExports["Ab"];
+var _emscripten_bind_btBroadphaseInterface_getOverlappingPairCache_0 = Module["_emscripten_bind_btBroadphaseInterface_getOverlappingPairCache_0"] = wasmExports["Ab"];
 
-var _emscripten_bind_btRigidBodyConstructionInfo_btRigidBodyConstructionInfo_3 = Module["_emscripten_bind_btRigidBodyConstructionInfo_btRigidBodyConstructionInfo_3"] = wasmExports["Bb"];
+var _emscripten_bind_btBroadphaseInterface___destroy___0 = Module["_emscripten_bind_btBroadphaseInterface___destroy___0"] = wasmExports["Bb"];
 
-var _emscripten_bind_btRigidBodyConstructionInfo_btRigidBodyConstructionInfo_4 = Module["_emscripten_bind_btRigidBodyConstructionInfo_btRigidBodyConstructionInfo_4"] = wasmExports["Cb"];
+var _emscripten_bind_btCollisionConfiguration___destroy___0 = Module["_emscripten_bind_btCollisionConfiguration___destroy___0"] = wasmExports["Cb"];
 
-var _emscripten_bind_btRigidBodyConstructionInfo___destroy___0 = Module["_emscripten_bind_btRigidBodyConstructionInfo___destroy___0"] = wasmExports["Db"];
+var _emscripten_bind_btDbvtBroadphase_btDbvtBroadphase_0 = Module["_emscripten_bind_btDbvtBroadphase_btDbvtBroadphase_0"] = wasmExports["Db"];
 
-var _emscripten_bind_btRigidBody_btRigidBody_1 = Module["_emscripten_bind_btRigidBody_btRigidBody_1"] = wasmExports["Eb"];
+var _emscripten_bind_btDbvtBroadphase_optimize_0 = Module["_emscripten_bind_btDbvtBroadphase_optimize_0"] = wasmExports["Eb"];
 
-var _emscripten_bind_btRigidBody_getMotionState_0 = Module["_emscripten_bind_btRigidBody_getMotionState_0"] = wasmExports["Fb"];
+var _emscripten_bind_btDbvtBroadphase___destroy___0 = Module["_emscripten_bind_btDbvtBroadphase___destroy___0"] = wasmExports["Fb"];
 
-var _emscripten_bind_btRigidBody_setActivationState_1 = Module["_emscripten_bind_btRigidBody_setActivationState_1"] = wasmExports["Gb"];
+var _emscripten_bind_btRigidBodyConstructionInfo_btRigidBodyConstructionInfo_3 = Module["_emscripten_bind_btRigidBodyConstructionInfo_btRigidBodyConstructionInfo_3"] = wasmExports["Gb"];
 
-var _emscripten_bind_btRigidBody_getWorldTransform_0 = Module["_emscripten_bind_btRigidBody_getWorldTransform_0"] = wasmExports["Hb"];
+var _emscripten_bind_btRigidBodyConstructionInfo_btRigidBodyConstructionInfo_4 = Module["_emscripten_bind_btRigidBodyConstructionInfo_btRigidBodyConstructionInfo_4"] = wasmExports["Hb"];
 
-var _emscripten_bind_btRigidBody_setCollisionFlags_1 = Module["_emscripten_bind_btRigidBody_setCollisionFlags_1"] = wasmExports["Ib"];
+var _emscripten_bind_btRigidBodyConstructionInfo___destroy___0 = Module["_emscripten_bind_btRigidBodyConstructionInfo___destroy___0"] = wasmExports["Ib"];
 
-var _emscripten_bind_btRigidBody_setWorldTransform_1 = Module["_emscripten_bind_btRigidBody_setWorldTransform_1"] = wasmExports["Jb"];
+var _emscripten_bind_btRigidBody_btRigidBody_1 = Module["_emscripten_bind_btRigidBody_btRigidBody_1"] = wasmExports["Jb"];
 
-var _emscripten_bind_btRigidBody_setCollisionShape_1 = Module["_emscripten_bind_btRigidBody_setCollisionShape_1"] = wasmExports["Kb"];
+var _emscripten_bind_btRigidBody_getMotionState_0 = Module["_emscripten_bind_btRigidBody_getMotionState_0"] = wasmExports["Kb"];
 
-var _emscripten_bind_btRigidBody_setUserIndex_1 = Module["_emscripten_bind_btRigidBody_setUserIndex_1"] = wasmExports["Lb"];
+var _emscripten_bind_btRigidBody_setActivationState_1 = Module["_emscripten_bind_btRigidBody_setActivationState_1"] = wasmExports["Lb"];
 
-var _emscripten_bind_btRigidBody___destroy___0 = Module["_emscripten_bind_btRigidBody___destroy___0"] = wasmExports["Mb"];
+var _emscripten_bind_btRigidBody_getWorldTransform_0 = Module["_emscripten_bind_btRigidBody_getWorldTransform_0"] = wasmExports["Mb"];
 
-var _emscripten_bind_btSequentialImpulseConstraintSolver_btSequentialImpulseConstraintSolver_0 = Module["_emscripten_bind_btSequentialImpulseConstraintSolver_btSequentialImpulseConstraintSolver_0"] = wasmExports["Nb"];
+var _emscripten_bind_btRigidBody_setCollisionFlags_1 = Module["_emscripten_bind_btRigidBody_setCollisionFlags_1"] = wasmExports["Nb"];
 
-var _emscripten_bind_btSequentialImpulseConstraintSolver___destroy___0 = Module["_emscripten_bind_btSequentialImpulseConstraintSolver___destroy___0"] = wasmExports["Ob"];
+var _emscripten_bind_btRigidBody_setWorldTransform_1 = Module["_emscripten_bind_btRigidBody_setWorldTransform_1"] = wasmExports["Ob"];
 
-var _emscripten_bind_btDiscreteDynamicsWorld_btDiscreteDynamicsWorld_4 = Module["_emscripten_bind_btDiscreteDynamicsWorld_btDiscreteDynamicsWorld_4"] = wasmExports["Pb"];
+var _emscripten_bind_btRigidBody_setCollisionShape_1 = Module["_emscripten_bind_btRigidBody_setCollisionShape_1"] = wasmExports["Pb"];
 
-var _emscripten_bind_btDiscreteDynamicsWorld_setGravity_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_setGravity_1"] = wasmExports["Qb"];
+var _emscripten_bind_btRigidBody_setUserIndex_1 = Module["_emscripten_bind_btRigidBody_setUserIndex_1"] = wasmExports["Qb"];
 
-var _emscripten_bind_btDiscreteDynamicsWorld_addRigidBody_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_addRigidBody_1"] = wasmExports["Rb"];
+var _emscripten_bind_btRigidBody___destroy___0 = Module["_emscripten_bind_btRigidBody___destroy___0"] = wasmExports["Rb"];
 
-var _emscripten_bind_btDiscreteDynamicsWorld_addRigidBody_3 = Module["_emscripten_bind_btDiscreteDynamicsWorld_addRigidBody_3"] = wasmExports["Sb"];
+var _emscripten_bind_btSequentialImpulseConstraintSolver_btSequentialImpulseConstraintSolver_0 = Module["_emscripten_bind_btSequentialImpulseConstraintSolver_btSequentialImpulseConstraintSolver_0"] = wasmExports["Sb"];
 
-var _emscripten_bind_btDiscreteDynamicsWorld_removeRigidBody_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_removeRigidBody_1"] = wasmExports["Tb"];
+var _emscripten_bind_btSequentialImpulseConstraintSolver___destroy___0 = Module["_emscripten_bind_btSequentialImpulseConstraintSolver___destroy___0"] = wasmExports["Tb"];
 
-var _emscripten_bind_btDiscreteDynamicsWorld_stepSimulation_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_stepSimulation_1"] = wasmExports["Ub"];
+var _emscripten_bind_btDispatcherInfo_get_m_useContinuous_0 = Module["_emscripten_bind_btDispatcherInfo_get_m_useContinuous_0"] = wasmExports["Ub"];
 
-var _emscripten_bind_btDiscreteDynamicsWorld_stepSimulation_2 = Module["_emscripten_bind_btDiscreteDynamicsWorld_stepSimulation_2"] = wasmExports["Vb"];
+var _emscripten_bind_btDispatcherInfo_set_m_useContinuous_1 = Module["_emscripten_bind_btDispatcherInfo_set_m_useContinuous_1"] = wasmExports["Vb"];
 
-var _emscripten_bind_btDiscreteDynamicsWorld_stepSimulation_3 = Module["_emscripten_bind_btDiscreteDynamicsWorld_stepSimulation_3"] = wasmExports["Wb"];
+var _emscripten_bind_btDispatcherInfo___destroy___0 = Module["_emscripten_bind_btDispatcherInfo___destroy___0"] = wasmExports["Wb"];
 
-var _emscripten_bind_btDiscreteDynamicsWorld_getDispatcher_0 = Module["_emscripten_bind_btDiscreteDynamicsWorld_getDispatcher_0"] = wasmExports["Xb"];
+var _emscripten_bind_btDiscreteDynamicsWorld_btDiscreteDynamicsWorld_4 = Module["_emscripten_bind_btDiscreteDynamicsWorld_btDiscreteDynamicsWorld_4"] = wasmExports["Xb"];
 
-var _emscripten_bind_btDiscreteDynamicsWorld_addCollisionObject_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_addCollisionObject_1"] = wasmExports["Yb"];
+var _emscripten_bind_btDiscreteDynamicsWorld_setGravity_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_setGravity_1"] = wasmExports["Yb"];
 
-var _emscripten_bind_btDiscreteDynamicsWorld_addCollisionObject_2 = Module["_emscripten_bind_btDiscreteDynamicsWorld_addCollisionObject_2"] = wasmExports["Zb"];
+var _emscripten_bind_btDiscreteDynamicsWorld_addRigidBody_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_addRigidBody_1"] = wasmExports["Zb"];
 
-var _emscripten_bind_btDiscreteDynamicsWorld_addCollisionObject_3 = Module["_emscripten_bind_btDiscreteDynamicsWorld_addCollisionObject_3"] = wasmExports["_b"];
+var _emscripten_bind_btDiscreteDynamicsWorld_addRigidBody_3 = Module["_emscripten_bind_btDiscreteDynamicsWorld_addRigidBody_3"] = wasmExports["_b"];
 
-var _emscripten_bind_btDiscreteDynamicsWorld_removeCollisionObject_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_removeCollisionObject_1"] = wasmExports["$b"];
+var _emscripten_bind_btDiscreteDynamicsWorld_removeRigidBody_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_removeRigidBody_1"] = wasmExports["$b"];
 
-var _emscripten_bind_btDiscreteDynamicsWorld_getBroadphase_0 = Module["_emscripten_bind_btDiscreteDynamicsWorld_getBroadphase_0"] = wasmExports["ac"];
+var _emscripten_bind_btDiscreteDynamicsWorld_stepSimulation_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_stepSimulation_1"] = wasmExports["ac"];
 
-var _emscripten_bind_btDiscreteDynamicsWorld_addAction_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_addAction_1"] = wasmExports["bc"];
+var _emscripten_bind_btDiscreteDynamicsWorld_stepSimulation_2 = Module["_emscripten_bind_btDiscreteDynamicsWorld_stepSimulation_2"] = wasmExports["bc"];
 
-var _emscripten_bind_btDiscreteDynamicsWorld___destroy___0 = Module["_emscripten_bind_btDiscreteDynamicsWorld___destroy___0"] = wasmExports["cc"];
+var _emscripten_bind_btDiscreteDynamicsWorld_stepSimulation_3 = Module["_emscripten_bind_btDiscreteDynamicsWorld_stepSimulation_3"] = wasmExports["cc"];
 
-var _emscripten_bind_btKinematicCharacterController_btKinematicCharacterController_3 = Module["_emscripten_bind_btKinematicCharacterController_btKinematicCharacterController_3"] = wasmExports["dc"];
+var _emscripten_bind_btDiscreteDynamicsWorld_getDispatcher_0 = Module["_emscripten_bind_btDiscreteDynamicsWorld_getDispatcher_0"] = wasmExports["dc"];
 
-var _emscripten_bind_btKinematicCharacterController_btKinematicCharacterController_4 = Module["_emscripten_bind_btKinematicCharacterController_btKinematicCharacterController_4"] = wasmExports["ec"];
+var _emscripten_bind_btDiscreteDynamicsWorld_getDispatchInfo_0 = Module["_emscripten_bind_btDiscreteDynamicsWorld_getDispatchInfo_0"] = wasmExports["ec"];
 
-var _emscripten_bind_btKinematicCharacterController_setWalkDirection_1 = Module["_emscripten_bind_btKinematicCharacterController_setWalkDirection_1"] = wasmExports["fc"];
+var _emscripten_bind_btDiscreteDynamicsWorld_addCollisionObject_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_addCollisionObject_1"] = wasmExports["fc"];
 
-var _emscripten_bind_btKinematicCharacterController_warp_1 = Module["_emscripten_bind_btKinematicCharacterController_warp_1"] = wasmExports["gc"];
+var _emscripten_bind_btDiscreteDynamicsWorld_addCollisionObject_2 = Module["_emscripten_bind_btDiscreteDynamicsWorld_addCollisionObject_2"] = wasmExports["gc"];
 
-var _emscripten_bind_btKinematicCharacterController_setJumpSpeed_1 = Module["_emscripten_bind_btKinematicCharacterController_setJumpSpeed_1"] = wasmExports["hc"];
+var _emscripten_bind_btDiscreteDynamicsWorld_addCollisionObject_3 = Module["_emscripten_bind_btDiscreteDynamicsWorld_addCollisionObject_3"] = wasmExports["hc"];
 
-var _emscripten_bind_btKinematicCharacterController_jump_0 = Module["_emscripten_bind_btKinematicCharacterController_jump_0"] = wasmExports["ic"];
+var _emscripten_bind_btDiscreteDynamicsWorld_removeCollisionObject_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_removeCollisionObject_1"] = wasmExports["ic"];
 
-var _emscripten_bind_btKinematicCharacterController_jump_1 = Module["_emscripten_bind_btKinematicCharacterController_jump_1"] = wasmExports["jc"];
+var _emscripten_bind_btDiscreteDynamicsWorld_getBroadphase_0 = Module["_emscripten_bind_btDiscreteDynamicsWorld_getBroadphase_0"] = wasmExports["jc"];
 
-var _emscripten_bind_btKinematicCharacterController_setGravity_1 = Module["_emscripten_bind_btKinematicCharacterController_setGravity_1"] = wasmExports["kc"];
+var _emscripten_bind_btDiscreteDynamicsWorld_addAction_1 = Module["_emscripten_bind_btDiscreteDynamicsWorld_addAction_1"] = wasmExports["kc"];
 
-var _emscripten_bind_btKinematicCharacterController_setMaxSlope_1 = Module["_emscripten_bind_btKinematicCharacterController_setMaxSlope_1"] = wasmExports["lc"];
+var _emscripten_bind_btDiscreteDynamicsWorld___destroy___0 = Module["_emscripten_bind_btDiscreteDynamicsWorld___destroy___0"] = wasmExports["lc"];
 
-var _emscripten_bind_btKinematicCharacterController_onGround_0 = Module["_emscripten_bind_btKinematicCharacterController_onGround_0"] = wasmExports["mc"];
+var _emscripten_bind_btKinematicCharacterController_btKinematicCharacterController_3 = Module["_emscripten_bind_btKinematicCharacterController_btKinematicCharacterController_3"] = wasmExports["mc"];
 
-var _emscripten_bind_btKinematicCharacterController_setMaxPenetrationDepth_1 = Module["_emscripten_bind_btKinematicCharacterController_setMaxPenetrationDepth_1"] = wasmExports["nc"];
+var _emscripten_bind_btKinematicCharacterController_btKinematicCharacterController_4 = Module["_emscripten_bind_btKinematicCharacterController_btKinematicCharacterController_4"] = wasmExports["nc"];
 
-var _emscripten_bind_btKinematicCharacterController_setStepHeight_1 = Module["_emscripten_bind_btKinematicCharacterController_setStepHeight_1"] = wasmExports["oc"];
+var _emscripten_bind_btKinematicCharacterController_setWalkDirection_1 = Module["_emscripten_bind_btKinematicCharacterController_setWalkDirection_1"] = wasmExports["oc"];
 
-var _emscripten_bind_btKinematicCharacterController_getVerticalVelocity_0 = Module["_emscripten_bind_btKinematicCharacterController_getVerticalVelocity_0"] = wasmExports["pc"];
+var _emscripten_bind_btKinematicCharacterController_warp_1 = Module["_emscripten_bind_btKinematicCharacterController_warp_1"] = wasmExports["pc"];
 
-var _emscripten_bind_btKinematicCharacterController_setVerticalVelocity_1 = Module["_emscripten_bind_btKinematicCharacterController_setVerticalVelocity_1"] = wasmExports["qc"];
+var _emscripten_bind_btKinematicCharacterController_setJumpSpeed_1 = Module["_emscripten_bind_btKinematicCharacterController_setJumpSpeed_1"] = wasmExports["qc"];
 
-var _emscripten_bind_btKinematicCharacterController_resetFall_0 = Module["_emscripten_bind_btKinematicCharacterController_resetFall_0"] = wasmExports["rc"];
+var _emscripten_bind_btKinematicCharacterController_jump_0 = Module["_emscripten_bind_btKinematicCharacterController_jump_0"] = wasmExports["rc"];
 
-var _emscripten_bind_btKinematicCharacterController_getVerticalOffset_0 = Module["_emscripten_bind_btKinematicCharacterController_getVerticalOffset_0"] = wasmExports["sc"];
+var _emscripten_bind_btKinematicCharacterController_jump_1 = Module["_emscripten_bind_btKinematicCharacterController_jump_1"] = wasmExports["sc"];
 
-var _emscripten_bind_btKinematicCharacterController_getJumpAxis_0 = Module["_emscripten_bind_btKinematicCharacterController_getJumpAxis_0"] = wasmExports["tc"];
+var _emscripten_bind_btKinematicCharacterController_setGravity_1 = Module["_emscripten_bind_btKinematicCharacterController_setGravity_1"] = wasmExports["tc"];
 
-var _emscripten_bind_btKinematicCharacterController_addExternalVelocity_1 = Module["_emscripten_bind_btKinematicCharacterController_addExternalVelocity_1"] = wasmExports["uc"];
+var _emscripten_bind_btKinematicCharacterController_setMaxSlope_1 = Module["_emscripten_bind_btKinematicCharacterController_setMaxSlope_1"] = wasmExports["uc"];
 
-var _emscripten_bind_btKinematicCharacterController_setExternalVelocity_1 = Module["_emscripten_bind_btKinematicCharacterController_setExternalVelocity_1"] = wasmExports["vc"];
+var _emscripten_bind_btKinematicCharacterController_onGround_0 = Module["_emscripten_bind_btKinematicCharacterController_onGround_0"] = wasmExports["vc"];
 
-var _emscripten_bind_btKinematicCharacterController_setExternalVelocityAirDampingFactor_1 = Module["_emscripten_bind_btKinematicCharacterController_setExternalVelocityAirDampingFactor_1"] = wasmExports["wc"];
+var _emscripten_bind_btKinematicCharacterController_setMaxPenetrationDepth_1 = Module["_emscripten_bind_btKinematicCharacterController_setMaxPenetrationDepth_1"] = wasmExports["wc"];
 
-var _emscripten_bind_btKinematicCharacterController_setExternalVelocityGroundDampingFactor_1 = Module["_emscripten_bind_btKinematicCharacterController_setExternalVelocityGroundDampingFactor_1"] = wasmExports["xc"];
+var _emscripten_bind_btKinematicCharacterController_setStepHeight_1 = Module["_emscripten_bind_btKinematicCharacterController_setStepHeight_1"] = wasmExports["xc"];
 
-var _emscripten_bind_btKinematicCharacterController_getExternalVelocity_0 = Module["_emscripten_bind_btKinematicCharacterController_getExternalVelocity_0"] = wasmExports["yc"];
+var _emscripten_bind_btKinematicCharacterController_getVerticalVelocity_0 = Module["_emscripten_bind_btKinematicCharacterController_getVerticalVelocity_0"] = wasmExports["yc"];
 
-var _emscripten_bind_btKinematicCharacterController_isJumping_0 = Module["_emscripten_bind_btKinematicCharacterController_isJumping_0"] = wasmExports["zc"];
+var _emscripten_bind_btKinematicCharacterController_setVerticalVelocity_1 = Module["_emscripten_bind_btKinematicCharacterController_setVerticalVelocity_1"] = wasmExports["zc"];
 
-var _emscripten_bind_btKinematicCharacterController_getFloorUserIndex_0 = Module["_emscripten_bind_btKinematicCharacterController_getFloorUserIndex_0"] = wasmExports["Ac"];
+var _emscripten_bind_btKinematicCharacterController_resetFall_0 = Module["_emscripten_bind_btKinematicCharacterController_resetFall_0"] = wasmExports["Ac"];
 
-var _emscripten_bind_btKinematicCharacterController___destroy___0 = Module["_emscripten_bind_btKinematicCharacterController___destroy___0"] = wasmExports["Bc"];
+var _emscripten_bind_btKinematicCharacterController_getVerticalOffset_0 = Module["_emscripten_bind_btKinematicCharacterController_getVerticalOffset_0"] = wasmExports["Bc"];
 
-var _emscripten_bind_btPairCachingGhostObject_btPairCachingGhostObject_0 = Module["_emscripten_bind_btPairCachingGhostObject_btPairCachingGhostObject_0"] = wasmExports["Cc"];
+var _emscripten_bind_btKinematicCharacterController_getJumpAxis_0 = Module["_emscripten_bind_btKinematicCharacterController_getJumpAxis_0"] = wasmExports["Cc"];
 
-var _emscripten_bind_btPairCachingGhostObject_setActivationState_1 = Module["_emscripten_bind_btPairCachingGhostObject_setActivationState_1"] = wasmExports["Dc"];
+var _emscripten_bind_btKinematicCharacterController_addExternalVelocity_1 = Module["_emscripten_bind_btKinematicCharacterController_addExternalVelocity_1"] = wasmExports["Dc"];
 
-var _emscripten_bind_btPairCachingGhostObject_getWorldTransform_0 = Module["_emscripten_bind_btPairCachingGhostObject_getWorldTransform_0"] = wasmExports["Ec"];
+var _emscripten_bind_btKinematicCharacterController_setExternalVelocity_1 = Module["_emscripten_bind_btKinematicCharacterController_setExternalVelocity_1"] = wasmExports["Ec"];
 
-var _emscripten_bind_btPairCachingGhostObject_setCollisionFlags_1 = Module["_emscripten_bind_btPairCachingGhostObject_setCollisionFlags_1"] = wasmExports["Fc"];
+var _emscripten_bind_btKinematicCharacterController_setExternalVelocityAirDampingFactor_1 = Module["_emscripten_bind_btKinematicCharacterController_setExternalVelocityAirDampingFactor_1"] = wasmExports["Fc"];
 
-var _emscripten_bind_btPairCachingGhostObject_setWorldTransform_1 = Module["_emscripten_bind_btPairCachingGhostObject_setWorldTransform_1"] = wasmExports["Gc"];
+var _emscripten_bind_btKinematicCharacterController_setExternalVelocityGroundDampingFactor_1 = Module["_emscripten_bind_btKinematicCharacterController_setExternalVelocityGroundDampingFactor_1"] = wasmExports["Gc"];
 
-var _emscripten_bind_btPairCachingGhostObject_setCollisionShape_1 = Module["_emscripten_bind_btPairCachingGhostObject_setCollisionShape_1"] = wasmExports["Hc"];
+var _emscripten_bind_btKinematicCharacterController_getExternalVelocity_0 = Module["_emscripten_bind_btKinematicCharacterController_getExternalVelocity_0"] = wasmExports["Hc"];
 
-var _emscripten_bind_btPairCachingGhostObject_setUserIndex_1 = Module["_emscripten_bind_btPairCachingGhostObject_setUserIndex_1"] = wasmExports["Ic"];
+var _emscripten_bind_btKinematicCharacterController_isJumping_0 = Module["_emscripten_bind_btKinematicCharacterController_isJumping_0"] = wasmExports["Ic"];
 
-var _emscripten_bind_btPairCachingGhostObject_getNumOverlappingObjects_0 = Module["_emscripten_bind_btPairCachingGhostObject_getNumOverlappingObjects_0"] = wasmExports["Jc"];
+var _emscripten_bind_btKinematicCharacterController_getFloorUserIndex_0 = Module["_emscripten_bind_btKinematicCharacterController_getFloorUserIndex_0"] = wasmExports["Jc"];
 
-var _emscripten_bind_btPairCachingGhostObject___destroy___0 = Module["_emscripten_bind_btPairCachingGhostObject___destroy___0"] = wasmExports["Kc"];
+var _emscripten_bind_btKinematicCharacterController___destroy___0 = Module["_emscripten_bind_btKinematicCharacterController___destroy___0"] = wasmExports["Kc"];
 
-var _emscripten_bind_btGhostPairCallback_btGhostPairCallback_0 = Module["_emscripten_bind_btGhostPairCallback_btGhostPairCallback_0"] = wasmExports["Lc"];
+var _emscripten_bind_btPairCachingGhostObject_btPairCachingGhostObject_0 = Module["_emscripten_bind_btPairCachingGhostObject_btPairCachingGhostObject_0"] = wasmExports["Lc"];
 
-var _emscripten_bind_btGhostPairCallback___destroy___0 = Module["_emscripten_bind_btGhostPairCallback___destroy___0"] = wasmExports["Mc"];
+var _emscripten_bind_btPairCachingGhostObject_setActivationState_1 = Module["_emscripten_bind_btPairCachingGhostObject_setActivationState_1"] = wasmExports["Mc"];
 
-var _emscripten_enum_PHY_ScalarType_PHY_FLOAT = Module["_emscripten_enum_PHY_ScalarType_PHY_FLOAT"] = wasmExports["Nc"];
+var _emscripten_bind_btPairCachingGhostObject_getWorldTransform_0 = Module["_emscripten_bind_btPairCachingGhostObject_getWorldTransform_0"] = wasmExports["Nc"];
 
-var _emscripten_enum_PHY_ScalarType_PHY_DOUBLE = Module["_emscripten_enum_PHY_ScalarType_PHY_DOUBLE"] = wasmExports["Oc"];
+var _emscripten_bind_btPairCachingGhostObject_setCollisionFlags_1 = Module["_emscripten_bind_btPairCachingGhostObject_setCollisionFlags_1"] = wasmExports["Oc"];
 
-var _emscripten_enum_PHY_ScalarType_PHY_INTEGER = Module["_emscripten_enum_PHY_ScalarType_PHY_INTEGER"] = wasmExports["Pc"];
+var _emscripten_bind_btPairCachingGhostObject_setWorldTransform_1 = Module["_emscripten_bind_btPairCachingGhostObject_setWorldTransform_1"] = wasmExports["Pc"];
 
-var _emscripten_enum_PHY_ScalarType_PHY_SHORT = Module["_emscripten_enum_PHY_ScalarType_PHY_SHORT"] = wasmExports["Qc"];
+var _emscripten_bind_btPairCachingGhostObject_setCollisionShape_1 = Module["_emscripten_bind_btPairCachingGhostObject_setCollisionShape_1"] = wasmExports["Qc"];
 
-var _emscripten_enum_PHY_ScalarType_PHY_FIXEDPOINT88 = Module["_emscripten_enum_PHY_ScalarType_PHY_FIXEDPOINT88"] = wasmExports["Rc"];
+var _emscripten_bind_btPairCachingGhostObject_setUserIndex_1 = Module["_emscripten_bind_btPairCachingGhostObject_setUserIndex_1"] = wasmExports["Rc"];
 
-var _emscripten_enum_PHY_ScalarType_PHY_UCHAR = Module["_emscripten_enum_PHY_ScalarType_PHY_UCHAR"] = wasmExports["Sc"];
+var _emscripten_bind_btPairCachingGhostObject_getNumOverlappingObjects_0 = Module["_emscripten_bind_btPairCachingGhostObject_getNumOverlappingObjects_0"] = wasmExports["Sc"];
 
-var __emscripten_timeout = wasmExports["Tc"];
+var _emscripten_bind_btPairCachingGhostObject___destroy___0 = Module["_emscripten_bind_btPairCachingGhostObject___destroy___0"] = wasmExports["Tc"];
+
+var _emscripten_bind_btGhostPairCallback_btGhostPairCallback_0 = Module["_emscripten_bind_btGhostPairCallback_btGhostPairCallback_0"] = wasmExports["Uc"];
+
+var _emscripten_bind_btGhostPairCallback___destroy___0 = Module["_emscripten_bind_btGhostPairCallback___destroy___0"] = wasmExports["Vc"];
+
+var _emscripten_enum_PHY_ScalarType_PHY_FLOAT = Module["_emscripten_enum_PHY_ScalarType_PHY_FLOAT"] = wasmExports["Wc"];
+
+var _emscripten_enum_PHY_ScalarType_PHY_DOUBLE = Module["_emscripten_enum_PHY_ScalarType_PHY_DOUBLE"] = wasmExports["Xc"];
+
+var _emscripten_enum_PHY_ScalarType_PHY_INTEGER = Module["_emscripten_enum_PHY_ScalarType_PHY_INTEGER"] = wasmExports["Yc"];
+
+var _emscripten_enum_PHY_ScalarType_PHY_SHORT = Module["_emscripten_enum_PHY_ScalarType_PHY_SHORT"] = wasmExports["Zc"];
+
+var _emscripten_enum_PHY_ScalarType_PHY_FIXEDPOINT88 = Module["_emscripten_enum_PHY_ScalarType_PHY_FIXEDPOINT88"] = wasmExports["_c"];
+
+var _emscripten_enum_PHY_ScalarType_PHY_UCHAR = Module["_emscripten_enum_PHY_ScalarType_PHY_UCHAR"] = wasmExports["$c"];
+
+var __emscripten_timeout = wasmExports["ad"];
 
 // include: postamble.js
 // === Auto-generated postamble setup entry stuff ===
@@ -1562,6 +1580,11 @@ Module["btCollisionWorld"] = btCollisionWorld;
   return wrapPointer(_emscripten_bind_btCollisionWorld_getDispatcher_0(self), btDispatcher);
 };
 
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btCollisionWorld.prototype["getDispatchInfo"] = btCollisionWorld.prototype.getDispatchInfo = function() {
+  var self = this.ptr;
+  return wrapPointer(_emscripten_bind_btCollisionWorld_getDispatchInfo_0(self), btDispatcherInfo);
+};
+
 /** @suppress {undefinedVars, duplicate} @this{Object} */ btCollisionWorld.prototype["addCollisionObject"] = btCollisionWorld.prototype.addCollisionObject = function(collisionObject, collisionFilterGroup, collisionFilterMask) {
   var self = this.ptr;
   if (collisionObject && typeof collisionObject === "object") collisionObject = collisionObject.ptr;
@@ -1716,6 +1739,11 @@ Module["btDynamicsWorld"] = btDynamicsWorld;
 /** @suppress {undefinedVars, duplicate} @this{Object} */ btDynamicsWorld.prototype["getDispatcher"] = btDynamicsWorld.prototype.getDispatcher = function() {
   var self = this.ptr;
   return wrapPointer(_emscripten_bind_btDynamicsWorld_getDispatcher_0(self), btDispatcher);
+};
+
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btDynamicsWorld.prototype["getDispatchInfo"] = btDynamicsWorld.prototype.getDispatchInfo = function() {
+  var self = this.ptr;
+  return wrapPointer(_emscripten_bind_btDynamicsWorld_getDispatchInfo_0(self), btDispatcherInfo);
 };
 
 /** @suppress {undefinedVars, duplicate} @this{Object} */ btDynamicsWorld.prototype["addCollisionObject"] = btDynamicsWorld.prototype.addCollisionObject = function(collisionObject, collisionFilterGroup, collisionFilterMask) {
@@ -2133,6 +2161,34 @@ Module["btCapsuleShape"] = btCapsuleShape;
 /** @suppress {undefinedVars, duplicate} @this{Object} */ btCapsuleShape.prototype["__destroy__"] = btCapsuleShape.prototype.__destroy__ = function() {
   var self = this.ptr;
   _emscripten_bind_btCapsuleShape___destroy___0(self);
+};
+
+// Interface: btCylinderShape
+/** @suppress {undefinedVars, duplicate} @this{Object} */ function btCylinderShape(halfExtents) {
+  if (halfExtents && typeof halfExtents === "object") halfExtents = halfExtents.ptr;
+  this.ptr = _emscripten_bind_btCylinderShape_btCylinderShape_1(halfExtents);
+  getCache(btCylinderShape)[this.ptr] = this;
+}
+
+btCylinderShape.prototype = Object.create(btCollisionShape.prototype);
+
+btCylinderShape.prototype.constructor = btCylinderShape;
+
+btCylinderShape.prototype.__class__ = btCylinderShape;
+
+btCylinderShape.__cache__ = {};
+
+Module["btCylinderShape"] = btCylinderShape;
+
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btCylinderShape.prototype["setLocalScaling"] = btCylinderShape.prototype.setLocalScaling = function(scaling) {
+  var self = this.ptr;
+  if (scaling && typeof scaling === "object") scaling = scaling.ptr;
+  _emscripten_bind_btCylinderShape_setLocalScaling_1(self, scaling);
+};
+
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btCylinderShape.prototype["__destroy__"] = btCylinderShape.prototype.__destroy__ = function() {
+  var self = this.ptr;
+  _emscripten_bind_btCylinderShape___destroy___0(self);
 };
 
 // Interface: btConeShape
@@ -2711,6 +2767,42 @@ Module["btSequentialImpulseConstraintSolver"] = btSequentialImpulseConstraintSol
   _emscripten_bind_btSequentialImpulseConstraintSolver___destroy___0(self);
 };
 
+// Interface: btDispatcherInfo
+/** @suppress {undefinedVars, duplicate} @this{Object} */ function btDispatcherInfo() {
+  throw "cannot construct a btDispatcherInfo, no constructor in IDL";
+}
+
+btDispatcherInfo.prototype = Object.create(WrapperObject.prototype);
+
+btDispatcherInfo.prototype.constructor = btDispatcherInfo;
+
+btDispatcherInfo.prototype.__class__ = btDispatcherInfo;
+
+btDispatcherInfo.__cache__ = {};
+
+Module["btDispatcherInfo"] = btDispatcherInfo;
+
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btDispatcherInfo.prototype["get_m_useContinuous"] = btDispatcherInfo.prototype.get_m_useContinuous = function() {
+  var self = this.ptr;
+  return !!(_emscripten_bind_btDispatcherInfo_get_m_useContinuous_0(self));
+};
+
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btDispatcherInfo.prototype["set_m_useContinuous"] = btDispatcherInfo.prototype.set_m_useContinuous = function(arg0) {
+  var self = this.ptr;
+  if (arg0 && typeof arg0 === "object") arg0 = arg0.ptr;
+  _emscripten_bind_btDispatcherInfo_set_m_useContinuous_1(self, arg0);
+};
+
+/** @suppress {checkTypes} */ Object.defineProperty(btDispatcherInfo.prototype, "m_useContinuous", {
+  get: btDispatcherInfo.prototype.get_m_useContinuous,
+  set: btDispatcherInfo.prototype.set_m_useContinuous
+});
+
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btDispatcherInfo.prototype["__destroy__"] = btDispatcherInfo.prototype.__destroy__ = function() {
+  var self = this.ptr;
+  _emscripten_bind_btDispatcherInfo___destroy___0(self);
+};
+
 // Interface: btDiscreteDynamicsWorld
 /** @suppress {undefinedVars, duplicate} @this{Object} */ function btDiscreteDynamicsWorld(dispatcher, pairCache, constraintSolver, collisionConfiguration) {
   if (dispatcher && typeof dispatcher === "object") dispatcher = dispatcher.ptr;
@@ -2776,6 +2868,11 @@ Module["btDiscreteDynamicsWorld"] = btDiscreteDynamicsWorld;
 /** @suppress {undefinedVars, duplicate} @this{Object} */ btDiscreteDynamicsWorld.prototype["getDispatcher"] = btDiscreteDynamicsWorld.prototype.getDispatcher = function() {
   var self = this.ptr;
   return wrapPointer(_emscripten_bind_btDiscreteDynamicsWorld_getDispatcher_0(self), btDispatcher);
+};
+
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btDiscreteDynamicsWorld.prototype["getDispatchInfo"] = btDiscreteDynamicsWorld.prototype.getDispatchInfo = function() {
+  var self = this.ptr;
+  return wrapPointer(_emscripten_bind_btDiscreteDynamicsWorld_getDispatchInfo_0(self), btDispatcherInfo);
 };
 
 /** @suppress {undefinedVars, duplicate} @this{Object} */ btDiscreteDynamicsWorld.prototype["addCollisionObject"] = btDiscreteDynamicsWorld.prototype.addCollisionObject = function(collisionObject, collisionFilterGroup, collisionFilterMask) {

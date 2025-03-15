@@ -101,10 +101,10 @@ protected:
 	btVector3		m_invMass;
 	btVector3		m_pushVelocity;
 	btVector3		m_turnVelocity;
-
+	// world transform at the end of the last simulation tick or substep
+	btTransform m_lastFrameWorldTransform;
 
 public:
-
 
 	///The btRigidBodyConstructionInfo structure provides information to create a rigid body. Setting mass to zero creates a fixed (non-dynamic) rigid body.
 	///For dynamic objects, you can use the collision shape to approximate the local inertia tensor, otherwise use the zero vector (default argument)
@@ -493,6 +493,15 @@ public:
 		m_optionalMotionState = motionState;
 		if (m_optionalMotionState)
 			motionState->getWorldTransform(m_worldTransform);
+	}
+
+	// returns the world transform at the end of the last simulation tick or substep
+	btTransform getLastFrameWorldTransform() {
+		return m_lastFrameWorldTransform;
+	}
+	void setLastFrameWorldTransform(const btTransform& lastFrameWorldTrans)
+	{
+		m_lastFrameWorldTransform = lastFrameWorldTrans;
 	}
 
 	//for experimental overriding of friction/contact solver func

@@ -359,15 +359,42 @@ void	btDiscreteDynamicsWorld::synchronizeSingleMotionState(btRigidBody* body)
 		//if (body->getActivationState() != ISLAND_SLEEPING)
 		{
 			btTransform interpolatedTransform;
-			btTransformUtil::integrateTransform(body->getInterpolationWorldTransform(),
-				body->getInterpolationLinearVelocity(),body->getInterpolationAngularVelocity(),
-				(m_latencyMotionStateInterpolation && m_fixedTimeStep) ? m_localTime - m_fixedTimeStep : m_localTime*body->getHitFraction(),
-				interpolatedTransform);
+			btTransformUtil::integrateTransform(
+        body->getInterpolationWorldTransform(),
+				body->getInterpolationLinearVelocity(),
+        body->getInterpolationAngularVelocity(),
+        (m_latencyMotionStateInterpolation && m_fixedTimeStep) ? m_localTime - m_fixedTimeStep
+                                                               : m_localTime * body->getHitFraction(),
+        interpolatedTransform
+      );
 			body->getMotionState()->setWorldTransform(interpolatedTransform);
 		}
 	}
 }
 
+/**
+ * This is some custom stuff I added to get interpolated positions of kinematic objects for internal
+ * subticks.  The built-in interpolation doesn't seem to work for kinematic objects, and this forces
+ * interpolation between the past and most recently set transforms for kinematic objects.
+ */
+void btDiscreteDynamicsWorld::applyManualMotionStateInterpolation(btScalar dt) {
+	for (int i = 0; i < m_nonStaticRigidBodies.size(); i++){
+		btRigidBody* body = m_nonStaticRigidBodies[i];
+		if (body->isActive() && body->isKinematicObject()) {
+			auto startPos = body->getLastFrameWorldTransform();
+			btTransform dstPos;
+			btTransformUtil::integrateTransform(
+				startPos,
+				body->getInterpolationLinearVelocity(),
+				body->getInterpolationAngularVelocity(),
+				dt,
+				dstPos
+			);
+			body->setWorldTransform(dstPos);
+			body->setLastFrameWorldTransform(dstPos);
+		}
+	}
+}
 
 void	btDiscreteDynamicsWorld::synchronizeMotionStates()
 {
@@ -436,20 +463,24 @@ int	btDiscreteDynamicsWorld::stepSimulation( btScalar timeStep,int maxSubSteps, 
 		btIDebugDraw* debugDrawer = getDebugDrawer ();
 		gDisableDeactivation = (debugDrawer->getDebugMode() & btIDebugDraw::DBG_NoDeactivation) != 0;
 	}
+
 	if (numSimulationSubSteps)
 	{
-
 		//clamp the number of substeps, to prevent simulation grinding spiralling down to a halt
 		int clampedSimulationSteps = (numSimulationSubSteps > maxSubSteps)? maxSubSteps : numSimulationSubSteps;
 
 		saveKinematicState(fixedTimeStep * clampedSimulationSteps);
 
-		performPreActions(fixedTimeStep * clampedSimulationSteps);
-
 		applyGravity();
 
 		for (int i=0;i<clampedSimulationSteps;i++)
 		{
+			// the built-in interpolation is confusing and doesn't really seem to work.
+			//
+			// to smoothly animate the motion state, we manually compute the position of kinematic objects with motion
+			// state at each internal step.
+			applyManualMotionStateInterpolation(fixedTimeStep);
+
 			internalSingleStepSimulation(fixedTimeStep);
 			synchronizeMotionStates();
 		}
@@ -600,20 +631,6 @@ void	btDiscreteDynamicsWorld::addRigidBody(btRigidBody* body, short group, short
 			body->setActivationState(ISLAND_SLEEPING);
 		}
 		addCollisionObject(body,group,mask);
-	}
-}
-
-// Pre-actions are handled once each full step of the simulation before any sub-steps.
-//
-// They are called after `saveKinematicState`, so the velocities of kinematic objects will have
-// already been computed.
-void	btDiscreteDynamicsWorld::performPreActions(btScalar timeStep)
-{
-	BT_PROFILE("preActions");
-	
-	for ( int i=0;i<m_actions.size();i++)
-	{
-		m_actions[i]->preAction( this, timeStep);
 	}
 }
 
