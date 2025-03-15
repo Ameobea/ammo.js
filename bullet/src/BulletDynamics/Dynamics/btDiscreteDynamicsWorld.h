@@ -107,7 +107,9 @@ public:
 
 	void synchronizeMotionStates();
 
-	virtual void applyManualMotionStateInterpolation(btScalar dt);
+	void applyManualMotionStateInterpolation(btScalar dt);
+
+	void synchronizeManualMotionStates();
 
 	///this can be useful to synchronize a single rigid body -> graphics object
 	void	synchronizeSingleMotionState(btRigidBody* body);

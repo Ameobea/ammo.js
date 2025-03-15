@@ -396,6 +396,20 @@ void btDiscreteDynamicsWorld::applyManualMotionStateInterpolation(btScalar dt) {
 	}
 }
 
+/**
+ * When using the manual motion state interpolation, we need to manually sync the world transforms
+ * at the end of the `stepSimulation` call.  If this isn't done, then the transforms of these objects
+ * may drift due to leftover `dt` being stored in `m_localTime` and inaccuracies in the interpolation.
+ */
+void btDiscreteDynamicsWorld::synchronizeManualMotionStates() {
+	for (int i = 0; i < m_nonStaticRigidBodies.size(); i++) {
+		btRigidBody* body = m_nonStaticRigidBodies[i];
+		if (body->isActive() && body->isKinematicObject()) {
+			body->setWorldTransform(body->getInterpolationWorldTransform());
+		}
+	}
+}
+
 void	btDiscreteDynamicsWorld::synchronizeMotionStates()
 {
 	BT_PROFILE("synchronizeMotionStates");
@@ -489,6 +503,8 @@ int	btDiscreteDynamicsWorld::stepSimulation( btScalar timeStep,int maxSubSteps, 
 	{
 		synchronizeMotionStates();
 	}
+
+	synchronizeManualMotionStates();
 
 	clearForces();
 

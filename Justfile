@@ -3,7 +3,7 @@ build:
   cd builds && make -j16
   echo "export {Ammo};" >> builds/ammo.wasm.js
 
-  wasm-opt --enable-simd -ffm --vacuum -c -O4 -g builds/ammo.wasm.wasm -o builds/ammo.wasm.wasm --enable-bulk-memory-opt --enable-nontrapping-float-to-int
+  wasm-opt --enable-simd -ffm --vacuum -c -O4 -g builds/ammo.wasm.wasm -o builds/ammo.wasm.wasm --enable-bulk-memory --enable-nontrapping-float-to-int
 
 install:
   cp builds/ammo.wasm.* ~/dream/src/ammojs
