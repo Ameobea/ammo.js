@@ -331,12 +331,12 @@ btCylinderShape implements btCollisionShape;
 // };
 // btCylinderShapeZ implements btCylinderShape;
 
-// interface btSphereShape {
-//   void btSphereShape(float radius);
+interface btSphereShape {
+   void btSphereShape(float radius);
 //   void setMargin(float margin);
 //   float getMargin();
-// };
-// btSphereShape implements btCollisionShape;
+};
+btSphereShape implements btCollisionShape;
 
 // interface btMultiSphereShape {
 //   void btMultiSphereShape([Const] btVector3 positions, [Const] float[] radii, long numPoints);
@@ -1025,6 +1025,7 @@ interface btKinematicCharacterController {
   // void setUp ([Const,Ref] btVector3 up);
   void setWalkDirection ([Const,Ref] btVector3 walkDirection);
   void warp ([Const, Ref]btVector3 origin);
+  [Ref] btVector3 getPosition ();
   // void preStep (btCollisionWorld collisionWorld);
   // void playerStep (btCollisionWorld collisionWorld, float dt);
   // void setFallSpeed (float fallSpeed);

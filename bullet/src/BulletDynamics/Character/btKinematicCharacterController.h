@@ -162,6 +162,10 @@ public:
 
   void warp(const btVector3& origin);
 
+  btVector3& getPosition() {
+    return m_currentPosition;
+  }
+
   void preStep(btCollisionWorld * collisionWorld);
   void playerStep(btCollisionWorld * collisionWorld, btScalar dt);
 
