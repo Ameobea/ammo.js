@@ -884,6 +884,7 @@ interface btCollisionWorld {
   [Const] btBroadphaseInterface getBroadphase();
   // void convexSweepTest([Const] btConvexShape castShape, [Const, Ref] btTransform from, [Const, Ref] btTransform to, [Ref] ConvexResultCallback resultCallback, float allowedCcdPenetration);
   // void contactPairTest(btCollisionObject colObjA, btCollisionObject colObjB, [Ref] ContactResultCallback resultCallback);
+  boolean contactPairTestBinary(btCollisionObject colObjA, btCollisionObject colObjB, float minPenetrationDepth);
   // void contactTest(btCollisionObject colObj, [Ref] ContactResultCallback resultCallback);
   // void updateSingleAabb(btCollisionObject colObj);
   // void setDebugDrawer(btIDebugDraw debugDrawer);

@@ -423,6 +423,7 @@ public:
 	///it reports one or more contact points (including the one with deepest penetration)
 	void	contactPairTest(btCollisionObject* colObjA, btCollisionObject* colObjB, ContactResultCallback& resultCallback);
 
+	bool contactPairTestBinary(btCollisionObject* colObjA, btCollisionObject* colObjB, btScalar minPenetrationDepth);
 
 	/// rayTestSingle performs a raycast call and calls the resultCallback. It is used internally by rayTest.
 	/// In a future implementation, we consider moving the ray test as a virtual method in btCollisionShape.

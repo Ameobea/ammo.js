@@ -1183,7 +1183,35 @@ void	btCollisionWorld::contactPairTest(btCollisionObject* colObjA, btCollisionOb
 
 }
 
+struct BinaryContactResultCallback: public btCollisionWorld::ContactResultCallback {
+	public:
+	  bool m_hasCollision;
+		btScalar m_minPenetrationDepth;
+	  BinaryContactResultCallback(btScalar minPenetrationDepth) : m_hasCollision(false), m_minPenetrationDepth(minPenetrationDepth) {}
 
+		bool GetHasCollision() const { return m_hasCollision; }
+
+	virtual	btScalar addSingleResult(
+		btManifoldPoint& cp,
+		const btCollisionObjectWrapper* colObj0Wrap,
+		int partId0,
+		int index0,
+		const btCollisionObjectWrapper* colObj1Wrap,
+		int partId1,
+		int index1
+	) {
+		m_hasCollision = m_hasCollision || cp.getDistance() <= -m_minPenetrationDepth;
+		return 1.f;
+	}
+};
+
+/// Simplified version of `contactPairTest` that just returns a bool indicating whether or not
+/// the two objects are colliding.
+bool btCollisionWorld::contactPairTestBinary(btCollisionObject* colObjA, btCollisionObject* colObjB, btScalar minPenetrationDepth) {
+	BinaryContactResultCallback resultCallback = BinaryContactResultCallback(minPenetrationDepth);
+	contactPairTest(colObjA, colObjB, resultCallback);
+	return resultCallback.GetHasCollision();
+}
 
 
 class DebugDrawcallback : public btTriangleCallback, public btInternalTriangleIndexCallback
