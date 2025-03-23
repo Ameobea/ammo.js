@@ -145,6 +145,7 @@ btKinematicCharacterController::btKinematicCharacterController(
   m_maxPenetrationDepth = 0.2;
   m_externalVelocityAirDampingFactor = btVector3(0.82, 0.75, 0.82);
   m_externalVelocityGroundDampingFactor = btVector3(0.9992, 0.9992, 0.9992);
+  m_forcedRotation.setValue(0., 0., 0., 1.);
 
   setUp(up);
   setStepHeight(stepHeight);
@@ -259,6 +260,9 @@ btKinematicCharacterController::maybeApplyFloorLock(btCollisionWorld* collisionW
   if (angle > SIMD_EPSILON) {
     btVector3 rotationAxis = angularVelocity.normalized();
     btQuaternion rotationQuat(rotationAxis, angle);
+    // accumulate the total forced rotation of the player over all substeps so that
+    // it can be applied to the camera before rendering
+    m_forcedRotation = m_forcedRotation * rotationQuat;
     btVector3 newRelativePos = quatRotate(rotationQuat, posRelativeToFloorObjectOrigin);
     m_currentPosition = m_floorObject->getWorldTransform().getOrigin() + newRelativePos;
   }
@@ -551,6 +555,8 @@ btKinematicCharacterController::warp(const btVector3& origin) {
   xform.setIdentity();
   xform.setOrigin(origin);
   m_ghostObject->setWorldTransform(xform);
+  m_currentPosition = origin;
+  m_targetPosition = origin;
 }
 
 void

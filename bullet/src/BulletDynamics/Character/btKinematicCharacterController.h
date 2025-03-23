@@ -96,6 +96,10 @@ protected:
   btVector3 m_up;
   btVector3 m_jumpAxis;
 
+  // this keeps track of the total rotation that has been applied to the player over the course
+  // of a full step (possibly including multiple substeps)
+  btQuaternion m_forcedRotation;
+
   /// Stores the collision object that the player is standing on.
   ///
   /// If `onGround()` is not true, then this is the last object that the player was standing on.
@@ -204,6 +208,10 @@ public:
     m_verticalVelocity = v;
   }
 
+  void setOnGround(bool onGround) {
+    m_wasOnGround = onGround;
+  }
+
   void resetFall() {
     if (m_verticalVelocity < 0) {
       m_verticalVelocity = 0;
@@ -236,6 +244,14 @@ public:
 
   btVector3& getExternalVelocity() {
     return m_externalVelocity;
+  }
+
+  btQuaternion& getForcedRotation() {
+    return m_forcedRotation;
+  }
+
+  void resetForcedRotation() {
+    m_forcedRotation.setValue(0., 0., 0., 1.);
   }
 
   bool isJumping() const {

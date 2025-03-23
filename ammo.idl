@@ -62,7 +62,11 @@ interface btVector3 {
 interface btQuaternion {
   void btQuaternion(float x, float y, float z, float w);
   void setValue(float x, float y, float z, float w);
-  // void setEulerZYX(float z, float y, float x);
+  void setEulerZYX(float z, float y, float x);
+  float x();
+  float y();
+  float z();
+  float w();
   // void setRotation([Ref] btVector3 axis, float angle);
   // void normalize();
   // float length2();
@@ -97,6 +101,7 @@ interface btTransform {
   void setOrigin([Ref] btVector3 origin);
   void setRotation([Ref] btQuaternion rotation);
   [Ref] btVector3 getOrigin();
+  void setEulerZYX(float x, float y, float z);
   // [Value] btQuaternion getRotation();
   // [Ref] btMatrix3x3 getBasis();
   // void setFromOpenGLMatrix(float[] m);
@@ -119,7 +124,7 @@ btDefaultMotionState implements btMotionState;
 
 interface btCollisionObject {
   // void setAnisotropicFriction([Const, Ref] btVector3 anisotropicFriction, long frictionMode);
-  // btCollisionShape getCollisionShape();
+  btCollisionShape getCollisionShape();
   // void setContactProcessingThreshold(float contactProcessingThreshold);
   void setActivationState(long newState);
   // void forceActivationState(long newState);
@@ -728,7 +733,7 @@ interface btRigidBody {
   // void setMotionState(btMotionState motionState);
   // [Const, Ref] btVector3 getAngularFactor();
   // void setAngularFactor([Const, Ref] btVector3 angularFactor);
-  // btRigidBody upcast(btCollisionObject colObj);
+  static btRigidBody upcast(btCollisionObject colObj);
   // void getAabb([Ref] btVector3 aabbMin, [Ref] btVector3 aabbMax);
   // void applyGravity();
   // [Const, Ref] btVector3 getGravity();
@@ -1038,6 +1043,7 @@ interface btKinematicCharacterController {
   // btPairCachingGhostObject getGhostObject ();
   // void setUseGhostSweepTest (boolean useGhostObjectSweepTest);
   boolean onGround ();
+  void setOnGround (boolean onGround);
   void setMaxPenetrationDepth (float d);
   void setStepHeight (float h);
   float getVerticalVelocity();
@@ -1052,6 +1058,8 @@ interface btKinematicCharacterController {
   [Ref] btVector3 getExternalVelocity();
   boolean isJumping();
   long getFloorUserIndex();
+  [Ref] btQuaternion getForcedRotation();
+  void resetForcedRotation();
 };
 btKinematicCharacterController implements btActionInterface;
 

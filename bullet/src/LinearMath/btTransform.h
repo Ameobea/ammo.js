@@ -167,6 +167,10 @@ public:
 		m_basis.setRotation(q);
 	}
 
+	SIMD_FORCE_INLINE void setEulerZYX(btScalar x, btScalar y, btScalar z) {
+		m_basis.setEulerZYX(x, y, z);
+	}
+
   /**@brief Set this transformation to the identity */
 	void setIdentity()
 	{
