@@ -107,8 +107,6 @@ public:
 
 	void synchronizeMotionStates();
 
-	void applyManualMotionStateInterpolation(btScalar dt);
-
 	void synchronizeManualMotionStates();
 
 	///this can be useful to synchronize a single rigid body -> graphics object
@@ -241,7 +239,17 @@ public:
 	}
 	void setContactDestroyedCallback(unsigned long callbackFunction) {
 		gContactDestroyedCallback = (ContactDestroyedCallback)callbackFunction;
-	}	
+	}
+
+	/// Split stepping API: allows JS to run per-substep logic between substeps.
+	/// Usage: numSubsteps = beginStepSimulation(...); for (i=0; i<numSubsteps; i++) { substepSimulation(); /* drain events */ } finishStepSimulation();
+	int beginStepSimulation(btScalar timeStep, int maxSubSteps, btScalar fixedTimeStep);
+	void substepSimulation();
+	void finishStepSimulation();
+
+	/// Compute interpolation velocities from two transforms and set them on a collision object.
+	/// Used by JS-driven per-substep animation to provide correct velocities for floor-lock.
+	void computeAndSetInterpolationVelocity(btCollisionObject* body, const btTransform& from, const btTransform& to, btScalar dt);
 };
 
 #endif //BT_DISCRETE_DYNAMICS_WORLD_H

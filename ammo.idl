@@ -102,7 +102,7 @@ interface btTransform {
   void setRotation([Ref] btQuaternion rotation);
   [Ref] btVector3 getOrigin();
   void setEulerZYX(float x, float y, float z);
-  // [Value] btQuaternion getRotation();
+  [Value] btQuaternion getRotation();
   // [Ref] btMatrix3x3 getBasis();
   // void setFromOpenGLMatrix(float[] m);
   // [Value] btTransform inverse();
@@ -143,6 +143,8 @@ interface btCollisionObject {
   // long getCollisionFlags();
   void setCollisionFlags(long flags);
   void setWorldTransform([Const,Ref] btTransform worldTrans);
+  void setInterpolationLinearVelocity([Const, Ref] btVector3 linvel);
+  void setInterpolationAngularVelocity([Const, Ref] btVector3 angvel);
   void setCollisionShape(btCollisionShape collisionShape);
   // void setCcdMotionThreshold (float ccdMotionThreshold);
   // void setCcdSweptSphereRadius (float radius);
@@ -927,6 +929,12 @@ interface btDiscreteDynamicsWorld {
 
   long stepSimulation(float timeStep, optional long maxSubSteps, optional float fixedTimeStep);
 
+  // Split stepping API: call beginStepSimulation, then substepSimulation in a loop, then finishStepSimulation
+  long beginStepSimulation(float timeStep, long maxSubSteps, float fixedTimeStep);
+  void substepSimulation();
+  void finishStepSimulation();
+  void computeAndSetInterpolationVelocity(btCollisionObject body, [Const, Ref] btTransform from, [Const, Ref] btTransform to, float dt);
+
 	// Contact callback support
   // void setContactAddedCallback(long funcpointer);
   // void setContactProcessedCallback(long funcpointer);
@@ -1025,6 +1033,32 @@ interface btActionInterface {
     // void updateAction (btCollisionWorld collisionWorld, float deltaTimeStep);
 };
 
+interface btJumpPad {
+  void btJumpPad(btPairCachingGhostObject ghostObject, long zoneId, float baseImpulse, float speedScaling, float cooldownSeconds);
+  void setDirection([Const, Ref] btVector3 direction);
+  void setBaseImpulse(float impulse);
+  void setSpeedScaling(float scaling);
+  void setCooldownSeconds(float seconds);
+  long getZoneId();
+  void setEnabled(boolean enabled);
+};
+
+interface btBoostZone {
+  void btBoostZone(btPairCachingGhostObject ghostObject, long zoneId, float strength, float directionalBias);
+  void setDirection([Const, Ref] btVector3 direction);
+  void setStrength(float strength);
+  void setDirectionalBias(float bias);
+  long getZoneId();
+  void setEnabled(boolean enabled);
+};
+
+interface btSensor {
+  void btSensor(btPairCachingGhostObject ghostObject, long zoneId, float minPenetrationDepth);
+  long getZoneId();
+  boolean isOverlapping();
+  void setEnabled(boolean enabled);
+};
+
 interface btKinematicCharacterController {
   void btKinematicCharacterController(btPairCachingGhostObject ghostObject, btConvexShape convexShape, float stepHeight, [Const,Ref] optional btVector3 up);
 
@@ -1060,6 +1094,18 @@ interface btKinematicCharacterController {
   long getFloorUserIndex();
   [Ref] btQuaternion getForcedRotation();
   void resetForcedRotation();
+  void addJumpPad(btJumpPad pad);
+  void removeJumpPad(btJumpPad pad);
+  void addBoostZone(btBoostZone zone);
+  void removeBoostZone(btBoostZone zone);
+  void addSensor(btSensor sensor);
+  void removeSensor(btSensor sensor);
+
+  // Event queue - read after each substep
+  long getNumPendingEvents();
+  long getPendingEventId(long index);
+  long getPendingEventType(long index);
+  void clearPendingEvents();
 };
 btKinematicCharacterController implements btActionInterface;
 

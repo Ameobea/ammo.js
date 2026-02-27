@@ -372,30 +372,6 @@ void	btDiscreteDynamicsWorld::synchronizeSingleMotionState(btRigidBody* body)
 	}
 }
 
-/**
- * This is some custom stuff I added to get interpolated positions of kinematic objects for internal
- * subticks.  The built-in interpolation doesn't seem to work for kinematic objects, and this forces
- * interpolation between the past and most recently set transforms for kinematic objects.
- */
-void btDiscreteDynamicsWorld::applyManualMotionStateInterpolation(btScalar dt) {
-	for (int i = 0; i < m_nonStaticRigidBodies.size(); i++){
-		btRigidBody* body = m_nonStaticRigidBodies[i];
-		if (body->isActive() && body->isKinematicObject()) {
-			auto startPos = body->getLastFrameWorldTransform();
-			btTransform dstPos;
-			btTransformUtil::integrateTransform(
-				startPos,
-				body->getInterpolationLinearVelocity(),
-				body->getInterpolationAngularVelocity(),
-				dt,
-				dstPos
-			);
-			body->setWorldTransform(dstPos);
-			body->setLastFrameWorldTransform(dstPos);
-		}
-	}
-}
-
 void	btDiscreteDynamicsWorld::synchronizeMotionStates()
 {
 	BT_PROFILE("synchronizeMotionStates");
@@ -475,12 +451,6 @@ int	btDiscreteDynamicsWorld::stepSimulation( btScalar timeStep,int maxSubSteps, 
 
 		for (int i=0;i<clampedSimulationSteps;i++)
 		{
-			// the built-in interpolation is confusing and doesn't really seem to work.
-			//
-			// to smoothly animate the motion state, we manually compute the position of kinematic objects with motion
-			// state at each internal step.
-			applyManualMotionStateInterpolation(fixedTimeStep);
-
 			internalSingleStepSimulation(fixedTimeStep);
 			synchronizeMotionStates();
 		}
@@ -497,6 +467,61 @@ int	btDiscreteDynamicsWorld::stepSimulation( btScalar timeStep,int maxSubSteps, 
 #endif //BT_NO_PROFILE
 	
 	return numSimulationSubSteps;
+}
+
+int btDiscreteDynamicsWorld::beginStepSimulation(btScalar timeStep, int maxSubSteps, btScalar fixedTimeStep)
+{
+	startProfiling(timeStep);
+
+	int pendingSubsteps = 0;
+
+	if (maxSubSteps)
+	{
+		m_fixedTimeStep = fixedTimeStep;
+		m_localTime += timeStep;
+		if (m_localTime >= fixedTimeStep)
+		{
+			int numSimulationSubSteps = int( m_localTime / fixedTimeStep);
+			m_localTime -= numSimulationSubSteps * fixedTimeStep;
+			pendingSubsteps = (numSimulationSubSteps > maxSubSteps) ? maxSubSteps : numSimulationSubSteps;
+		}
+	}
+
+	if (pendingSubsteps)
+	{
+		saveKinematicState(fixedTimeStep * pendingSubsteps);
+		applyGravity();
+	} else
+	{
+		synchronizeMotionStates();
+	}
+
+	return pendingSubsteps;
+}
+
+void btDiscreteDynamicsWorld::substepSimulation()
+{
+	internalSingleStepSimulation(m_fixedTimeStep);
+	synchronizeMotionStates();
+}
+
+void btDiscreteDynamicsWorld::computeAndSetInterpolationVelocity(btCollisionObject* body, const btTransform& from, const btTransform& to, btScalar dt) {
+	if (dt <= btScalar(0.)) {
+		return;
+	}
+	btVector3 linVel, angVel;
+	btTransformUtil::calculateVelocity(from, to, dt, linVel, angVel);
+	body->setInterpolationLinearVelocity(linVel);
+	body->setInterpolationAngularVelocity(angVel);
+}
+
+void btDiscreteDynamicsWorld::finishStepSimulation()
+{
+	clearForces();
+
+#ifndef BT_NO_PROFILE
+	CProfileManager::Increment_Frame_Counter();
+#endif //BT_NO_PROFILE
 }
 
 void	btDiscreteDynamicsWorld::internalSingleStepSimulation(btScalar timeStep)
@@ -1483,4 +1508,3 @@ void	btDiscreteDynamicsWorld::serialize(btSerializer* serializer)
 
 	serializer->finishSerialization();
 }
-

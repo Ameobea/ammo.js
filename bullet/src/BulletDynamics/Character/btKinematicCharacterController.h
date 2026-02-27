@@ -20,8 +20,13 @@ software.
 #define BT_KINEMATIC_CHARACTER_CONTROLLER_H
 
 #include "LinearMath/btVector3.h"
+#include "LinearMath/btAlignedObjectArray.h"
 
 #include "btCharacterControllerInterface.h"
+#include "btJumpPad.h"
+#include "btBoostZone.h"
+#include "btSensor.h"
+#include "btZoneEvent.h"
 
 #include "BulletCollision/BroadphaseCollision/btCollisionAlgorithm.h"
 
@@ -112,6 +117,18 @@ protected:
   ///
   /// Defaults to -1 if the player has never been on the ground.
   int m_floorUserIndex = -1;
+
+  btAlignedObjectArray<btJumpPad*> m_jumpPads;
+  btAlignedObjectArray<btBoostZone*> m_boostZones;
+  btAlignedObjectArray<btSensor*> m_sensors;
+  btAlignedObjectArray<btZoneEvent> m_pendingEvents;
+  btScalar m_totalElapsedTime = 0;
+
+  void processJumpPads(btCollisionWorld* collisionWorld, btScalar dt);
+  void processBoostZones(btCollisionWorld* collisionWorld, btScalar dt);
+  void processSensors(btCollisionWorld* collisionWorld);
+  bool checkZoneOverlap(btCollisionWorld* world, btPairCachingGhostObject* zoneGhost);
+  bool checkZoneOverlapWithPenetration(btCollisionWorld* world, btPairCachingGhostObject* zoneGhost, btScalar minPenetrationDepth);
 
   btVector3 computeReflectionDirection(const btVector3& direction, const btVector3& normal);
   btVector3 parallelComponent(const btVector3& direction, const btVector3& normal);
@@ -260,6 +277,47 @@ public:
 
   int getFloorUserIndex() const {
     return m_floorUserIndex;
+  }
+
+  void addJumpPad(btJumpPad* pad) {
+    m_jumpPads.push_back(pad);
+  }
+
+  void removeJumpPad(btJumpPad* pad) {
+    m_jumpPads.remove(pad);
+  }
+
+  void addBoostZone(btBoostZone* zone) {
+    m_boostZones.push_back(zone);
+  }
+
+  void removeBoostZone(btBoostZone* zone) {
+    m_boostZones.remove(zone);
+  }
+
+  void addSensor(btSensor* sensor) {
+    m_sensors.push_back(sensor);
+  }
+
+  void removeSensor(btSensor* sensor) {
+    m_sensors.remove(sensor);
+  }
+
+  // Event queue access - read from JS after each substep
+  int getNumPendingEvents() const {
+    return m_pendingEvents.size();
+  }
+
+  int getPendingEventId(int index) const {
+    return m_pendingEvents[index].m_zoneId;
+  }
+
+  int getPendingEventType(int index) const {
+    return m_pendingEvents[index].m_eventType;
+  }
+
+  void clearPendingEvents() {
+    m_pendingEvents.resize(0);
   }
 };
 

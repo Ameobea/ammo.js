@@ -19,6 +19,8 @@ software.
 */
 
 #include "btKinematicCharacterController.h"
+#include "btJumpPad.h"
+#include "btBoostZone.h"
 #include "BulletCollision/BroadphaseCollision/btCollisionAlgorithm.h"
 #include "BulletCollision/BroadphaseCollision/btOverlappingPairCache.h"
 #include "BulletCollision/CollisionDispatch/btCollisionWorld.h"
@@ -567,6 +569,8 @@ btKinematicCharacterController::preStep(btCollisionWorld* collisionWorld) {
 
 void
 btKinematicCharacterController::playerStep(btCollisionWorld* collisionWorld, btScalar dt) {
+  m_totalElapsedTime += dt;
+
   maybeApplyFloorLock(collisionWorld, dt);
 
   m_wasOnGround = onGround();
@@ -626,6 +630,11 @@ btKinematicCharacterController::playerStep(btCollisionWorld* collisionWorld, btS
   stepForwardAndStrafe(collisionWorld, dt);
 
   stepDown(collisionWorld, dt);
+
+  // Process movement zones and sensors after movement phases but before final penetration recovery
+  processJumpPads(collisionWorld, dt);
+  processBoostZones(collisionWorld, dt);
+  processSensors(collisionWorld);
 
   btTransform xform = m_ghostObject->getWorldTransform();
   xform.setOrigin(m_currentPosition);
@@ -687,6 +696,161 @@ btKinematicCharacterController::setUp(const btVector3& up) {
   }
 
   setUpVector(up);
+}
+
+bool
+btKinematicCharacterController::checkZoneOverlap(btCollisionWorld* world, btPairCachingGhostObject* zoneGhost) {
+  if (zoneGhost->getNumOverlappingObjects() == 0) {
+    return false;
+  }
+  return world->contactPairTestBinary(zoneGhost, m_ghostObject, 0.0);
+}
+
+bool
+btKinematicCharacterController::checkZoneOverlapWithPenetration(
+  btCollisionWorld* world,
+  btPairCachingGhostObject* zoneGhost,
+  btScalar minPenetrationDepth
+) {
+  if (zoneGhost->getNumOverlappingObjects() == 0) {
+    return false;
+  }
+  return world->contactPairTestBinary(zoneGhost, m_ghostObject, minPenetrationDepth);
+}
+
+void
+btKinematicCharacterController::processJumpPads(btCollisionWorld* collisionWorld, btScalar dt) {
+  for (int i = 0; i < m_jumpPads.size(); i++) {
+    btJumpPad* pad = m_jumpPads[i];
+
+    if (!pad->m_enabled) {
+      continue;
+    }
+
+    bool isOverlapping = checkZoneOverlap(collisionWorld, pad->m_ghostObject);
+    bool wasOverlapping = pad->m_wasOverlapping;
+    pad->m_wasOverlapping = isOverlapping;
+
+    // Only trigger on entry (not while staying inside)
+    if (!isOverlapping || wasOverlapping) {
+      continue;
+    }
+
+    // Cooldown check
+    if ((m_totalElapsedTime - pad->m_lastTriggerTime) < pad->m_cooldownSeconds) {
+      continue;
+    }
+
+    // Compute approach speed
+    btVector3 playerVel = m_walkDirection + m_externalVelocity;
+    playerVel += m_up * m_verticalVelocity;
+    btScalar approachSpeed = btMax(btScalar(0), playerVel.dot(-pad->m_direction));
+
+    // Decompose pad direction into vertical and horizontal components
+    btScalar verticalComponent = pad->m_direction.dot(m_up);
+    btVector3 horizontalDir = pad->m_direction - m_up * verticalComponent;
+    if (horizontalDir.length2() > SIMD_EPSILON) {
+      horizontalDir.normalize();
+    }
+
+    // Set vertical velocity for upward launch
+    m_verticalVelocity = pad->m_baseImpulse * verticalComponent;
+    m_verticalOffset = m_verticalVelocity * dt;
+    m_jumpAxis = m_up;
+    m_isJumping = true;
+
+    // Add horizontal boost via external velocity
+    btVector3 horizontalBoost = horizontalDir * (pad->m_baseImpulse * (btScalar(1) - btFabs(verticalComponent)));
+    horizontalBoost += horizontalDir * (approachSpeed * pad->m_speedScaling);
+    m_externalVelocity += horizontalBoost;
+
+    // Clear downward external velocity to prevent fighting the launch
+    btScalar vertExtVel = m_externalVelocity.dot(m_up);
+    if (vertExtVel < 0) {
+      m_externalVelocity -= m_up * vertExtVel;
+    }
+
+    pad->m_lastTriggerTime = m_totalElapsedTime;
+
+    btZoneEvent evt;
+    evt.m_zoneId = pad->m_zoneId;
+    evt.m_eventType = ZONE_EVENT_JUMP_PAD_TRIGGERED;
+    m_pendingEvents.push_back(evt);
+  }
+}
+
+void
+btKinematicCharacterController::processBoostZones(btCollisionWorld* collisionWorld, btScalar dt) {
+  for (int i = 0; i < m_boostZones.size(); i++) {
+    btBoostZone* zone = m_boostZones[i];
+
+    if (!zone->m_enabled) {
+      continue;
+    }
+
+    bool isOverlapping = checkZoneOverlap(collisionWorld, zone->m_ghostObject);
+    bool wasOverlapping = zone->m_wasOverlapping;
+    zone->m_wasOverlapping = zone->m_isOverlapping;
+    zone->m_isOverlapping = isOverlapping;
+
+    // Enter/exit detection
+    if (isOverlapping && !wasOverlapping) {
+      btZoneEvent evt;
+      evt.m_zoneId = zone->m_zoneId;
+      evt.m_eventType = ZONE_EVENT_BOOST_ZONE_ENTER;
+      m_pendingEvents.push_back(evt);
+    }
+    if (!isOverlapping && wasOverlapping) {
+      btZoneEvent evt;
+      evt.m_zoneId = zone->m_zoneId;
+      evt.m_eventType = ZONE_EVENT_BOOST_ZONE_EXIT;
+      m_pendingEvents.push_back(evt);
+    }
+
+    if (isOverlapping) {
+      // Compute alignment factor
+      btScalar alignmentFactor = btScalar(1.0);
+      if (zone->m_directionalBias > 0 && m_normalizedDirection.length2() > 0) {
+        btScalar alignment = m_normalizedDirection.dot(zone->m_direction);
+        // lerp(1.0, max(0, alignment), directionalBias)
+        alignmentFactor = btScalar(1.0) + zone->m_directionalBias * (btMax(btScalar(0), alignment) - btScalar(1.0));
+      }
+
+      // Apply boost as external velocity addition
+      btVector3 boost = zone->m_direction * zone->m_strength * alignmentFactor * dt;
+      m_externalVelocity += boost;
+    }
+  }
+}
+
+void
+btKinematicCharacterController::processSensors(btCollisionWorld* collisionWorld) {
+  for (int i = 0; i < m_sensors.size(); i++) {
+    btSensor* sensor = m_sensors[i];
+
+    if (!sensor->m_enabled) {
+      continue;
+    }
+
+    bool isOverlapping = checkZoneOverlapWithPenetration(
+      collisionWorld, sensor->m_ghostObject, sensor->m_minPenetrationDepth
+    );
+    bool wasOverlapping = sensor->m_isOverlapping;
+    sensor->m_isOverlapping = isOverlapping;
+
+    if (isOverlapping && !wasOverlapping) {
+      btZoneEvent evt;
+      evt.m_zoneId = sensor->m_zoneId;
+      evt.m_eventType = ZONE_EVENT_SENSOR_ENTER;
+      m_pendingEvents.push_back(evt);
+    }
+    if (!isOverlapping && wasOverlapping) {
+      btZoneEvent evt;
+      evt.m_zoneId = sensor->m_zoneId;
+      evt.m_eventType = ZONE_EVENT_SENSOR_LEAVE;
+      m_pendingEvents.push_back(evt);
+    }
+  }
 }
 
 void

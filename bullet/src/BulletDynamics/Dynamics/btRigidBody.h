@@ -101,8 +101,6 @@ protected:
 	btVector3		m_invMass;
 	btVector3		m_pushVelocity;
 	btVector3		m_turnVelocity;
-	// world transform at the end of the last simulation tick or substep
-	btTransform m_lastFrameWorldTransform;
 
 public:
 
@@ -495,15 +493,6 @@ public:
 			motionState->getWorldTransform(m_worldTransform);
 	}
 
-	// returns the world transform at the end of the last simulation tick or substep
-	btTransform getLastFrameWorldTransform() {
-		return m_lastFrameWorldTransform;
-	}
-	void setLastFrameWorldTransform(const btTransform& lastFrameWorldTrans)
-	{
-		m_lastFrameWorldTransform = lastFrameWorldTrans;
-	}
-
 	//for experimental overriding of friction/contact solver func
 	int	m_contactSolverType;
 	int	m_frictionSolverType;
@@ -625,4 +614,3 @@ struct	btRigidBodyDoubleData
 
 
 #endif //BT_RIGIDBODY_H
-
