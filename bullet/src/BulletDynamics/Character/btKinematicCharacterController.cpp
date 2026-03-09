@@ -142,6 +142,7 @@ btKinematicCharacterController::btKinematicCharacterController(
   m_terminalVelocity = 55.0;
   m_defaultJumpSpeed = 10.0;
   m_wasOnGround = false;
+  m_onGround = false;
   m_isJumping = false;
   m_currentStepOffset = 0.0;
   m_maxPenetrationDepth = 0.2;
@@ -537,6 +538,7 @@ btKinematicCharacterController::stepDown(btCollisionWorld* collisionWorld, btSca
     // Remove downward component of external velocity
     m_externalVelocity -= parallelComponent(m_externalVelocity, m_up);
     m_isJumping = false;
+    m_onGround = true;
 
     m_floorObject = callback.m_hitCollisionObject;
     m_floorUserIndex = callback.m_hitCollisionObject->getUserIndex();
@@ -567,6 +569,46 @@ btKinematicCharacterController::preStep(btCollisionWorld* collisionWorld) {
   m_targetPosition = m_currentPosition;
 }
 
+btScalar
+btKinematicCharacterController::computeShapedGravity() const {
+  if (m_gravityShapeOnlyJumps && !m_isJumping) {
+    return m_gravity;
+  }
+
+  // Check if shaping is effectively disabled (all multipliers at 1.0)
+  if (m_gravityShapeRiseMultiplier == 1.0 && m_gravityShapeApexMultiplier == 1.0 &&
+      m_gravityShapeFallMultiplier == 1.0) {
+    return m_gravity;
+  }
+
+  btScalar v = m_verticalVelocity;
+  btScalar absV = btFabs(v);
+  btScalar threshold = m_gravityShapeApexThreshold;
+  btScalar halfKnee = m_gravityShapeKneeWidth * 0.5;
+
+  // smoothstep: returns 0 when x <= edge0, 1 when x >= edge1, smooth interpolation between
+  auto smoothstep = [](btScalar edge0, btScalar edge1, btScalar x) -> btScalar {
+    if (edge1 <= edge0) {
+      return x >= edge0 ? 1.0 : 0.0;
+    }
+    btScalar t = (x - edge0) / (edge1 - edge0);
+    if (t <= 0.0) {
+      return 0.0;
+    } else if (t >= 1.0) {
+      return 1.0;
+    }
+    return t * t * (3.0 - 2.0 * t);
+  };
+
+  btScalar outerMultiplier = v >= 0.0 ? m_gravityShapeRiseMultiplier : m_gravityShapeFallMultiplier;
+
+  // blend from apexMultiplier (when |v| is near 0) to outerMultiplier (when |v| is large)
+  btScalar blend = smoothstep(threshold - halfKnee, threshold + halfKnee, absV);
+  btScalar multiplier = m_gravityShapeApexMultiplier + (outerMultiplier - m_gravityShapeApexMultiplier) * blend;
+
+  return m_gravity * multiplier;
+}
+
 void
 btKinematicCharacterController::playerStep(btCollisionWorld* collisionWorld, btScalar dt) {
   m_totalElapsedTime += dt;
@@ -574,17 +616,11 @@ btKinematicCharacterController::playerStep(btCollisionWorld* collisionWorld, btS
   maybeApplyFloorLock(collisionWorld, dt);
 
   m_wasOnGround = onGround();
+  m_onGround = false;
 
   // Update fall velocity.
-  m_verticalVelocity -= m_gravity * dt;
-  if (m_verticalVelocity == 0.0) {
-    // It can sometimes happen that the jump velocities and timesteps match up in such ways that
-    // player vertical velocity comes out to exactly 0 at the apogee of the jump. This causes
-    // the us to think that the player is on the ground at that point.
-    //
-    // So we prevent that by adding a tiny amount of downward velocity to the player in that case
-    m_verticalVelocity = -0.0001;
-  } else if (m_verticalVelocity < 0.0 && btFabs(m_verticalVelocity) > btFabs(m_terminalVelocity)) {
+  m_verticalVelocity -= computeShapedGravity() * dt;
+  if (m_verticalVelocity < 0.0 && btFabs(m_verticalVelocity) > btFabs(m_terminalVelocity)) {
     m_verticalVelocity = -btFabs(m_terminalVelocity);
   }
   m_verticalOffset = m_verticalVelocity * dt;

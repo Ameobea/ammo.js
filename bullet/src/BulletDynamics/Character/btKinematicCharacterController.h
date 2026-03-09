@@ -97,6 +97,7 @@ protected:
 
   // if the player was on the ground at the start of the current step
   bool m_wasOnGround;
+  bool m_onGround;
   bool m_isJumping;
   btVector3 m_up;
   btVector3 m_jumpAxis;
@@ -117,6 +118,26 @@ protected:
   ///
   /// Defaults to -1 if the player has never been on the ground.
   int m_floorUserIndex = -1;
+
+  // Gravity shaping: allows the effective gravity to vary based on vertical velocity,
+  // producing asymmetric jump curves (e.g., fast rise, long hang at apex, fast fall).
+  //
+  // The effective gravity multiplier is computed from three zones based on |m_verticalVelocity|:
+  //   - Rise zone (v > apexThreshold): riseMultiplier
+  //   - Apex zone (|v| near zero):     apexMultiplier
+  //   - Fall zone (v < -apexThreshold): fallMultiplier
+  //
+  // Transitions between zones are smoothed by kneeWidth to avoid jarring acceleration changes.
+  btScalar m_gravityShapeRiseMultiplier = 1.0;
+  btScalar m_gravityShapeApexMultiplier = 1.0;
+  btScalar m_gravityShapeFallMultiplier = 1.0;
+  btScalar m_gravityShapeApexThreshold = 3.0;
+  btScalar m_gravityShapeKneeWidth = 2.0;
+  // If true, gravity shaping only applies when the player is in a jump (m_isJumping == true).
+  // Walking off a ledge or other non-jump airborne states will use flat gravity.
+  bool m_gravityShapeOnlyJumps = false;
+
+  btScalar computeShapedGravity() const;
 
   btAlignedObjectArray<btJumpPad*> m_jumpPads;
   btAlignedObjectArray<btBoostZone*> m_boostZones;
@@ -214,7 +235,7 @@ public:
   void setMaxPenetrationDepth(btScalar d);
 
   bool onGround() const {
-    return (fabs(m_verticalVelocity) < SIMD_EPSILON) && (fabs(m_verticalOffset) < SIMD_EPSILON);
+    return m_onGround;
   }
 
   btScalar getVerticalVelocity() const {
@@ -226,6 +247,7 @@ public:
   }
 
   void setOnGround(bool onGround) {
+    m_onGround = onGround;
     m_wasOnGround = onGround;
   }
 
@@ -258,6 +280,13 @@ public:
   void setExternalVelocityGroundDampingFactor(const btVector3& v) {
     m_externalVelocityGroundDampingFactor = v;
   }
+
+  void setGravityShapeRiseMultiplier(btScalar v) { m_gravityShapeRiseMultiplier = v; }
+  void setGravityShapeApexMultiplier(btScalar v) { m_gravityShapeApexMultiplier = v; }
+  void setGravityShapeFallMultiplier(btScalar v) { m_gravityShapeFallMultiplier = v; }
+  void setGravityShapeApexThreshold(btScalar v) { m_gravityShapeApexThreshold = v; }
+  void setGravityShapeKneeWidth(btScalar v) { m_gravityShapeKneeWidth = v; }
+  void setGravityShapeOnlyJumps(bool v) { m_gravityShapeOnlyJumps = v; }
 
   btVector3& getExternalVelocity() {
     return m_externalVelocity;

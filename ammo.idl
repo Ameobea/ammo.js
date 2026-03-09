@@ -1068,7 +1068,7 @@ interface btKinematicCharacterController {
   [Ref] btVector3 getPosition ();
   // void preStep (btCollisionWorld collisionWorld);
   // void playerStep (btCollisionWorld collisionWorld, float dt);
-  // void setFallSpeed (float fallSpeed);
+  void setFallSpeed (float fallSpeed);
   void setJumpSpeed (float jumpSpeed);
   void jump ([Const,Ref] optional btVector3 up);
   void setGravity ([Const,Ref]btVector3 gravity);
@@ -1100,6 +1100,13 @@ interface btKinematicCharacterController {
   void removeBoostZone(btBoostZone zone);
   void addSensor(btSensor sensor);
   void removeSensor(btSensor sensor);
+
+  void setGravityShapeRiseMultiplier(float v);
+  void setGravityShapeApexMultiplier(float v);
+  void setGravityShapeFallMultiplier(float v);
+  void setGravityShapeApexThreshold(float v);
+  void setGravityShapeKneeWidth(float v);
+  void setGravityShapeOnlyJumps(boolean v);
 
   // Event queue - read after each substep
   long getNumPendingEvents();
