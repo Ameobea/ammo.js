@@ -1388,49 +1388,51 @@ var _emscripten_bind_btKinematicCharacterController_getPendingEventType_1 = Modu
 
 var _emscripten_bind_btKinematicCharacterController_clearPendingEvents_0 = Module["_emscripten_bind_btKinematicCharacterController_clearPendingEvents_0"] = wasmExports["Xd"];
 
-var _emscripten_bind_btKinematicCharacterController___destroy___0 = Module["_emscripten_bind_btKinematicCharacterController___destroy___0"] = wasmExports["Yd"];
+var _emscripten_bind_btKinematicCharacterController_cameraRayTest_7 = Module["_emscripten_bind_btKinematicCharacterController_cameraRayTest_7"] = wasmExports["Yd"];
 
-var _emscripten_bind_btPairCachingGhostObject_btPairCachingGhostObject_0 = Module["_emscripten_bind_btPairCachingGhostObject_btPairCachingGhostObject_0"] = wasmExports["Zd"];
+var _emscripten_bind_btKinematicCharacterController___destroy___0 = Module["_emscripten_bind_btKinematicCharacterController___destroy___0"] = wasmExports["Zd"];
 
-var _emscripten_bind_btPairCachingGhostObject_getCollisionShape_0 = Module["_emscripten_bind_btPairCachingGhostObject_getCollisionShape_0"] = wasmExports["_d"];
+var _emscripten_bind_btPairCachingGhostObject_btPairCachingGhostObject_0 = Module["_emscripten_bind_btPairCachingGhostObject_btPairCachingGhostObject_0"] = wasmExports["_d"];
 
-var _emscripten_bind_btPairCachingGhostObject_setActivationState_1 = Module["_emscripten_bind_btPairCachingGhostObject_setActivationState_1"] = wasmExports["$d"];
+var _emscripten_bind_btPairCachingGhostObject_getCollisionShape_0 = Module["_emscripten_bind_btPairCachingGhostObject_getCollisionShape_0"] = wasmExports["$d"];
 
-var _emscripten_bind_btPairCachingGhostObject_getWorldTransform_0 = Module["_emscripten_bind_btPairCachingGhostObject_getWorldTransform_0"] = wasmExports["ae"];
+var _emscripten_bind_btPairCachingGhostObject_setActivationState_1 = Module["_emscripten_bind_btPairCachingGhostObject_setActivationState_1"] = wasmExports["ae"];
 
-var _emscripten_bind_btPairCachingGhostObject_setCollisionFlags_1 = Module["_emscripten_bind_btPairCachingGhostObject_setCollisionFlags_1"] = wasmExports["be"];
+var _emscripten_bind_btPairCachingGhostObject_getWorldTransform_0 = Module["_emscripten_bind_btPairCachingGhostObject_getWorldTransform_0"] = wasmExports["be"];
 
-var _emscripten_bind_btPairCachingGhostObject_setWorldTransform_1 = Module["_emscripten_bind_btPairCachingGhostObject_setWorldTransform_1"] = wasmExports["ce"];
+var _emscripten_bind_btPairCachingGhostObject_setCollisionFlags_1 = Module["_emscripten_bind_btPairCachingGhostObject_setCollisionFlags_1"] = wasmExports["ce"];
 
-var _emscripten_bind_btPairCachingGhostObject_setInterpolationLinearVelocity_1 = Module["_emscripten_bind_btPairCachingGhostObject_setInterpolationLinearVelocity_1"] = wasmExports["de"];
+var _emscripten_bind_btPairCachingGhostObject_setWorldTransform_1 = Module["_emscripten_bind_btPairCachingGhostObject_setWorldTransform_1"] = wasmExports["de"];
 
-var _emscripten_bind_btPairCachingGhostObject_setInterpolationAngularVelocity_1 = Module["_emscripten_bind_btPairCachingGhostObject_setInterpolationAngularVelocity_1"] = wasmExports["ee"];
+var _emscripten_bind_btPairCachingGhostObject_setInterpolationLinearVelocity_1 = Module["_emscripten_bind_btPairCachingGhostObject_setInterpolationLinearVelocity_1"] = wasmExports["ee"];
 
-var _emscripten_bind_btPairCachingGhostObject_setCollisionShape_1 = Module["_emscripten_bind_btPairCachingGhostObject_setCollisionShape_1"] = wasmExports["fe"];
+var _emscripten_bind_btPairCachingGhostObject_setInterpolationAngularVelocity_1 = Module["_emscripten_bind_btPairCachingGhostObject_setInterpolationAngularVelocity_1"] = wasmExports["fe"];
 
-var _emscripten_bind_btPairCachingGhostObject_setUserIndex_1 = Module["_emscripten_bind_btPairCachingGhostObject_setUserIndex_1"] = wasmExports["ge"];
+var _emscripten_bind_btPairCachingGhostObject_setCollisionShape_1 = Module["_emscripten_bind_btPairCachingGhostObject_setCollisionShape_1"] = wasmExports["ge"];
 
-var _emscripten_bind_btPairCachingGhostObject_getNumOverlappingObjects_0 = Module["_emscripten_bind_btPairCachingGhostObject_getNumOverlappingObjects_0"] = wasmExports["he"];
+var _emscripten_bind_btPairCachingGhostObject_setUserIndex_1 = Module["_emscripten_bind_btPairCachingGhostObject_setUserIndex_1"] = wasmExports["he"];
 
-var _emscripten_bind_btPairCachingGhostObject___destroy___0 = Module["_emscripten_bind_btPairCachingGhostObject___destroy___0"] = wasmExports["ie"];
+var _emscripten_bind_btPairCachingGhostObject_getNumOverlappingObjects_0 = Module["_emscripten_bind_btPairCachingGhostObject_getNumOverlappingObjects_0"] = wasmExports["ie"];
 
-var _emscripten_bind_btGhostPairCallback_btGhostPairCallback_0 = Module["_emscripten_bind_btGhostPairCallback_btGhostPairCallback_0"] = wasmExports["je"];
+var _emscripten_bind_btPairCachingGhostObject___destroy___0 = Module["_emscripten_bind_btPairCachingGhostObject___destroy___0"] = wasmExports["je"];
 
-var _emscripten_bind_btGhostPairCallback___destroy___0 = Module["_emscripten_bind_btGhostPairCallback___destroy___0"] = wasmExports["ke"];
+var _emscripten_bind_btGhostPairCallback_btGhostPairCallback_0 = Module["_emscripten_bind_btGhostPairCallback_btGhostPairCallback_0"] = wasmExports["ke"];
 
-var _emscripten_enum_PHY_ScalarType_PHY_FLOAT = Module["_emscripten_enum_PHY_ScalarType_PHY_FLOAT"] = wasmExports["le"];
+var _emscripten_bind_btGhostPairCallback___destroy___0 = Module["_emscripten_bind_btGhostPairCallback___destroy___0"] = wasmExports["le"];
 
-var _emscripten_enum_PHY_ScalarType_PHY_DOUBLE = Module["_emscripten_enum_PHY_ScalarType_PHY_DOUBLE"] = wasmExports["me"];
+var _emscripten_enum_PHY_ScalarType_PHY_FLOAT = Module["_emscripten_enum_PHY_ScalarType_PHY_FLOAT"] = wasmExports["me"];
 
-var _emscripten_enum_PHY_ScalarType_PHY_INTEGER = Module["_emscripten_enum_PHY_ScalarType_PHY_INTEGER"] = wasmExports["ne"];
+var _emscripten_enum_PHY_ScalarType_PHY_DOUBLE = Module["_emscripten_enum_PHY_ScalarType_PHY_DOUBLE"] = wasmExports["ne"];
 
-var _emscripten_enum_PHY_ScalarType_PHY_SHORT = Module["_emscripten_enum_PHY_ScalarType_PHY_SHORT"] = wasmExports["oe"];
+var _emscripten_enum_PHY_ScalarType_PHY_INTEGER = Module["_emscripten_enum_PHY_ScalarType_PHY_INTEGER"] = wasmExports["oe"];
 
-var _emscripten_enum_PHY_ScalarType_PHY_FIXEDPOINT88 = Module["_emscripten_enum_PHY_ScalarType_PHY_FIXEDPOINT88"] = wasmExports["pe"];
+var _emscripten_enum_PHY_ScalarType_PHY_SHORT = Module["_emscripten_enum_PHY_ScalarType_PHY_SHORT"] = wasmExports["pe"];
 
-var _emscripten_enum_PHY_ScalarType_PHY_UCHAR = Module["_emscripten_enum_PHY_ScalarType_PHY_UCHAR"] = wasmExports["qe"];
+var _emscripten_enum_PHY_ScalarType_PHY_FIXEDPOINT88 = Module["_emscripten_enum_PHY_ScalarType_PHY_FIXEDPOINT88"] = wasmExports["qe"];
 
-var __emscripten_timeout = wasmExports["re"];
+var _emscripten_enum_PHY_ScalarType_PHY_UCHAR = Module["_emscripten_enum_PHY_ScalarType_PHY_UCHAR"] = wasmExports["re"];
+
+var __emscripten_timeout = wasmExports["se"];
 
 // include: postamble.js
 // === Auto-generated postamble setup entry stuff ===
@@ -3654,6 +3656,18 @@ Module["btKinematicCharacterController"] = btKinematicCharacterController;
   _emscripten_bind_btKinematicCharacterController_clearPendingEvents_0(self);
 };
 
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btKinematicCharacterController.prototype["cameraRayTest"] = btKinematicCharacterController.prototype.cameraRayTest = function(world, fromX, fromY, fromZ, toX, toY, toZ) {
+  var self = this.ptr;
+  if (world && typeof world === "object") world = world.ptr;
+  if (fromX && typeof fromX === "object") fromX = fromX.ptr;
+  if (fromY && typeof fromY === "object") fromY = fromY.ptr;
+  if (fromZ && typeof fromZ === "object") fromZ = fromZ.ptr;
+  if (toX && typeof toX === "object") toX = toX.ptr;
+  if (toY && typeof toY === "object") toY = toY.ptr;
+  if (toZ && typeof toZ === "object") toZ = toZ.ptr;
+  return _emscripten_bind_btKinematicCharacterController_cameraRayTest_7(self, world, fromX, fromY, fromZ, toX, toY, toZ);
+};
+
 /** @suppress {undefinedVars, duplicate} @this{Object} */ btKinematicCharacterController.prototype["__destroy__"] = btKinematicCharacterController.prototype.__destroy__ = function() {
   var self = this.ptr;
   _emscripten_bind_btKinematicCharacterController___destroy___0(self);
@@ -3772,7 +3786,7 @@ Module["btGhostPairCallback"] = btGhostPairCallback;
 })();
 
 // end include: glue.js
-// include: /Users/casey/ammo.js/onload.js
+// include: /home/casey/ammo.js/onload.js
 Module["CONTACT_ADDED_CALLBACK_SIGNATURE"] = "iiiiiiii";
 
 Module["CONTACT_DESTROYED_CALLBACK_SIGNATURE"] = "ii";
@@ -3784,7 +3798,7 @@ Module["INTERNAL_TICK_CALLBACK_SIGNATURE"] = "vif";
 // Reassign global Ammo to the loaded module:
 this["Ammo"] = Module;
 
-// end include: /Users/casey/ammo.js/onload.js
+// end include: /home/casey/ammo.js/onload.js
 // include: postamble_modularize.js
 // In MODULARIZE mode we wrap the generated code in a factory function
 // and return either the Module itself, or a promise of the module.

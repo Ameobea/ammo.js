@@ -1113,6 +1113,10 @@ interface btKinematicCharacterController {
   long getPendingEventId(long index);
   long getPendingEventType(long index);
   void clearPendingEvents();
+
+  float cameraRayTest(btDiscreteDynamicsWorld world,
+                      float fromX, float fromY, float fromZ,
+                      float toX,   float toY,   float toZ);
 };
 btKinematicCharacterController implements btActionInterface;
 

@@ -924,3 +924,20 @@ btKinematicCharacterController::getRotation(btVector3& v0, btVector3& v1) const 
 
   return shortestArcQuatNormalize2(v0, v1);
 }
+
+float
+btKinematicCharacterController::cameraRayTest(
+    btCollisionWorld* world,
+    btScalar fromX, btScalar fromY, btScalar fromZ,
+    btScalar toX,   btScalar toY,   btScalar toZ)
+{
+  btVector3 from(fromX, fromY, fromZ);
+  btVector3 to(toX, toY, toZ);
+
+  btKinematicClosestNotMeRayResultCallback callback(m_ghostObject);
+  callback.m_collisionFilterMask =
+      btBroadphaseProxy::StaticFilter | btBroadphaseProxy::DefaultFilter;
+
+  world->rayTest(from, to, callback);
+  return callback.m_closestHitFraction;
+}

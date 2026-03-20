@@ -348,6 +348,10 @@ public:
   void clearPendingEvents() {
     m_pendingEvents.resize(0);
   }
+
+  float cameraRayTest(btCollisionWorld* world,
+                      btScalar fromX, btScalar fromY, btScalar fromZ,
+                      btScalar toX,   btScalar toY,   btScalar toZ);
 };
 
 #endif // BT_KINEMATIC_CHARACTER_CONTROLLER_H
