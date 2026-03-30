@@ -29,6 +29,7 @@ software.
 #include "LinearMath/btDefaultMotionState.h"
 #include "LinearMath/btIDebugDraw.h"
 #include <stdio.h>
+#include <cstring>
 
 static btVector3
 getNormalizedVector(const btVector3& v) {
@@ -940,4 +941,28 @@ btKinematicCharacterController::cameraRayTest(
 
   world->rayTest(from, to, callback);
   return callback.m_closestHitFraction;
+}
+
+int btKinematicCharacterController::packState(void* outPtr) const {
+    float* outBuffer = static_cast<float*>(outPtr);
+    outBuffer[0] = m_currentPosition.x();
+    outBuffer[1] = m_currentPosition.y();
+    outBuffer[2] = m_currentPosition.z();
+    outBuffer[3] = m_externalVelocity.x();
+    outBuffer[4] = m_externalVelocity.y();
+    outBuffer[5] = m_externalVelocity.z();
+    outBuffer[6] = m_verticalVelocity;
+    outBuffer[7] = m_verticalOffset;
+    // Pack boolean flags into a u32, then bitcast to float
+    unsigned int flags = 0;
+    if (m_onGround) flags |= 1;
+    if (m_isJumping) flags |= 2;
+    float flagsAsFloat;
+    memcpy(&flagsAsFloat, &flags, sizeof(float));
+    outBuffer[8] = flagsAsFloat;
+    // Pack floor user index (i32 -> float bitcast)
+    float floorIndexAsFloat;
+    memcpy(&floorIndexAsFloat, &m_floorUserIndex, sizeof(float));
+    outBuffer[9] = floorIndexAsFloat;
+    return 10;
 }

@@ -1117,6 +1117,8 @@ interface btKinematicCharacterController {
   float cameraRayTest(btDiscreteDynamicsWorld world,
                       float fromX, float fromY, float fromZ,
                       float toX,   float toY,   float toZ);
+
+  long packState(VoidPtr outBuffer);
 };
 btKinematicCharacterController implements btActionInterface;
 

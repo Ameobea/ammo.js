@@ -352,6 +352,8 @@ public:
   float cameraRayTest(btCollisionWorld* world,
                       btScalar fromX, btScalar fromY, btScalar fromZ,
                       btScalar toX,   btScalar toY,   btScalar toZ);
+
+  int packState(void* outBuffer) const;
 };
 
 #endif // BT_KINEMATIC_CHARACTER_CONTROLLER_H
