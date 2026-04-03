@@ -145,6 +145,11 @@ protected:
   btAlignedObjectArray<btZoneEvent> m_pendingEvents;
   btScalar m_totalElapsedTime = 0;
 
+  // Last hit normal from cameraRayTest — (0,0,0) when no hit.
+  btScalar m_cameraRayHitNX = 0;
+  btScalar m_cameraRayHitNY = 0;
+  btScalar m_cameraRayHitNZ = 0;
+
   void processJumpPads(btCollisionWorld* collisionWorld, btScalar dt);
   void processBoostZones(btCollisionWorld* collisionWorld, btScalar dt);
   void processSensors(btCollisionWorld* collisionWorld);
@@ -352,6 +357,10 @@ public:
   float cameraRayTest(btCollisionWorld* world,
                       btScalar fromX, btScalar fromY, btScalar fromZ,
                       btScalar toX,   btScalar toY,   btScalar toZ);
+
+  float getCameraRayHitNormalX() const { return m_cameraRayHitNX; }
+  float getCameraRayHitNormalY() const { return m_cameraRayHitNY; }
+  float getCameraRayHitNormalZ() const { return m_cameraRayHitNZ; }
 
   int packState(void* outBuffer) const;
 };

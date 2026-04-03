@@ -26,6 +26,7 @@ software.
 #include "BulletCollision/CollisionDispatch/btCollisionWorld.h"
 #include "BulletCollision/CollisionDispatch/btGhostObject.h"
 #include "BulletCollision/CollisionShapes/btMultiSphereShape.h"
+#include "BulletCollision/NarrowPhaseCollision/btRaycastCallback.h"
 #include "LinearMath/btDefaultMotionState.h"
 #include "LinearMath/btIDebugDraw.h"
 #include <stdio.h>
@@ -938,8 +939,20 @@ btKinematicCharacterController::cameraRayTest(
   btKinematicClosestNotMeRayResultCallback callback(m_ghostObject);
   callback.m_collisionFilterMask =
       btBroadphaseProxy::StaticFilter | btBroadphaseProxy::DefaultFilter;
+  // Preserve raw triangle normals so callers can distinguish front-face vs
+  // back-face hits (needed for camera-inside-geometry detection).
+  callback.m_flags |= btTriangleRaycastCallback::kF_KeepUnflippedNormal;
 
   world->rayTest(from, to, callback);
+  if (callback.hasHit()) {
+    m_cameraRayHitNX = callback.m_hitNormalWorld.x();
+    m_cameraRayHitNY = callback.m_hitNormalWorld.y();
+    m_cameraRayHitNZ = callback.m_hitNormalWorld.z();
+  } else {
+    m_cameraRayHitNX = 0;
+    m_cameraRayHitNY = 0;
+    m_cameraRayHitNZ = 0;
+  }
   return callback.m_closestHitFraction;
 }
 

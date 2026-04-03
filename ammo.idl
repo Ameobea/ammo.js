@@ -1118,6 +1118,10 @@ interface btKinematicCharacterController {
                       float fromX, float fromY, float fromZ,
                       float toX,   float toY,   float toZ);
 
+  float getCameraRayHitNormalX();
+  float getCameraRayHitNormalY();
+  float getCameraRayHitNormalZ();
+
   long packState(VoidPtr outBuffer);
 };
 btKinematicCharacterController implements btActionInterface;
