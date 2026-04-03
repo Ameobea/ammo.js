@@ -7,7 +7,6 @@ build:
 
 install:
   cp builds/ammo.wasm.* ~/dream/src/ammojs
-  cp builds/ammo.wasm.* ~/dream/static
 
 clean:
   rm -rf builds/*
