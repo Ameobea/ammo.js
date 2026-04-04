@@ -929,9 +929,10 @@ interface btDiscreteDynamicsWorld {
 
   long stepSimulation(float timeStep, optional long maxSubSteps, optional float fixedTimeStep);
 
-  // Split stepping API: call beginStepSimulation, then substepSimulation in a loop, then finishStepSimulation
+  // Split stepping API: JS computes substep count and calls substepSimulation(fixedTimeStep) per substep.
+  // beginStepSimulation/finishStepSimulation kept for backward compat but no longer needed.
   long beginStepSimulation(float timeStep, long maxSubSteps, float fixedTimeStep);
-  void substepSimulation();
+  void substepSimulation(float fixedTimeStep);
   void finishStepSimulation();
   void computeAndSetInterpolationVelocity(btCollisionObject body, [Const, Ref] btTransform from, [Const, Ref] btTransform to, float dt);
 
@@ -1123,6 +1124,15 @@ interface btKinematicCharacterController {
   float getCameraRayHitNormalZ();
 
   long packState(VoidPtr outBuffer);
+  long packFullState(VoidPtr outBuffer);
+
+  // Setters for restoring full state from replay
+  void setWasOnGround(boolean v);
+  void setJumpAxis([Const, Ref] btVector3 axis);
+  void setCurrentStepOffset(float offset);
+  void setTotalElapsedTime(float t);
+  void resetAllCooldowns();
+  void setIsJumping(boolean v);
 };
 btKinematicCharacterController implements btActionInterface;
 

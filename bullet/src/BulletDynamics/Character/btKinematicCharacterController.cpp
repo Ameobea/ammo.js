@@ -979,3 +979,45 @@ int btKinematicCharacterController::packState(void* outPtr) const {
     outBuffer[9] = floorIndexAsFloat;
     return 10;
 }
+
+int btKinematicCharacterController::packFullState(void* outPtr) const {
+    float* out = static_cast<float*>(outPtr);
+    // [0..3]: position
+    out[0] = m_currentPosition.x();
+    out[1] = m_currentPosition.y();
+    out[2] = m_currentPosition.z();
+    // [3..6]: external velocity
+    out[3] = m_externalVelocity.x();
+    out[4] = m_externalVelocity.y();
+    out[5] = m_externalVelocity.z();
+    // [6]: vertical velocity
+    out[6] = m_verticalVelocity;
+    // [7]: vertical offset
+    out[7] = m_verticalOffset;
+    // [8]: flags (u32 bitcast: bit0=onGround, bit1=isJumping, bit2=wasOnGround)
+    unsigned int flags = 0;
+    if (m_onGround) flags |= 1;
+    if (m_isJumping) flags |= 2;
+    if (m_wasOnGround) flags |= 4;
+    float flagsAsFloat;
+    memcpy(&flagsAsFloat, &flags, sizeof(float));
+    out[8] = flagsAsFloat;
+    // [9]: floor user index (i32 bitcast)
+    float floorIndexAsFloat;
+    memcpy(&floorIndexAsFloat, &m_floorUserIndex, sizeof(float));
+    out[9] = floorIndexAsFloat;
+    // [10..13]: jump axis
+    out[10] = m_jumpAxis.x();
+    out[11] = m_jumpAxis.y();
+    out[12] = m_jumpAxis.z();
+    // [13]: current step offset
+    out[13] = m_currentStepOffset;
+    // [14]: total elapsed time
+    out[14] = m_totalElapsedTime;
+    // [15..19]: forced rotation quaternion (x, y, z, w)
+    out[15] = m_forcedRotation.x();
+    out[16] = m_forcedRotation.y();
+    out[17] = m_forcedRotation.z();
+    out[18] = m_forcedRotation.w();
+    return 19;
+}

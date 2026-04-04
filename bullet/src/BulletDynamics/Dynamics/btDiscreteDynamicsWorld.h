@@ -242,9 +242,11 @@ public:
 	}
 
 	/// Split stepping API: allows JS to run per-substep logic between substeps.
-	/// Usage: numSubsteps = beginStepSimulation(...); for (i=0; i<numSubsteps; i++) { substepSimulation(); /* drain events */ } finishStepSimulation();
+	/// JS computes substep count and calls substepSimulation(fixedTimeStep) for each.
+	/// beginStepSimulation/finishStepSimulation are kept for backward compat but no longer needed.
 	int beginStepSimulation(btScalar timeStep, int maxSubSteps, btScalar fixedTimeStep);
-	void substepSimulation();
+	void substepSimulation(btScalar fixedTimeStep);
+	void substepSimulation(); // legacy overload, uses stored m_fixedTimeStep
 	void finishStepSimulation();
 
 	/// Compute interpolation velocities from two transforms and set them on a collision object.

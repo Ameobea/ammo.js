@@ -363,6 +363,35 @@ public:
   float getCameraRayHitNormalZ() const { return m_cameraRayHitNZ; }
 
   int packState(void* outBuffer) const;
+
+  /// Extended state export for deterministic replay validation.
+  /// Writes 22 floats to outBuffer. Layout:
+  ///   [0..3]:  position (x, y, z)
+  ///   [3..6]:  externalVelocity (x, y, z)
+  ///   [6]:     verticalVelocity
+  ///   [7]:     verticalOffset
+  ///   [8]:     flags (u32 bitcast: bit0=onGround, bit1=isJumping, bit2=wasOnGround)
+  ///   [9]:     floorUserIndex (i32 bitcast)
+  ///   [10..13]: jumpAxis (x, y, z)
+  ///   [13]:    currentStepOffset
+  ///   [14]:    totalElapsedTime
+  ///   [15..19]: forcedRotation quaternion (x, y, z, w)
+  int packFullState(void* outBuffer) const;
+
+  // Setters for restoring full state from replay initial-state block
+  void setWasOnGround(bool v) { m_wasOnGround = v; }
+  void setJumpAxis(const btVector3& axis) { m_jumpAxis = axis; }
+  void setCurrentStepOffset(btScalar offset) { m_currentStepOffset = offset; }
+  void setTotalElapsedTime(btScalar t) { m_totalElapsedTime = t; }
+
+  void resetAllCooldowns() {
+    m_totalElapsedTime = 0;
+    for (int i = 0; i < m_jumpPads.size(); i++) {
+      m_jumpPads[i]->m_lastTriggerTime = btScalar(-1000);
+    }
+  }
+
+  void setIsJumping(bool v) { m_isJumping = v; }
 };
 
 #endif // BT_KINEMATIC_CHARACTER_CONTROLLER_H

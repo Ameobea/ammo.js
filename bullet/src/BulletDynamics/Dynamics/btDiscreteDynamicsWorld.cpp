@@ -489,7 +489,10 @@ int btDiscreteDynamicsWorld::beginStepSimulation(btScalar timeStep, int maxSubSt
 
 	if (pendingSubsteps)
 	{
-		saveKinematicState(fixedTimeStep * pendingSubsteps);
+		// saveKinematicState moved to substepSimulation() so it runs per-substep
+		// with the fixed timestep rather than once per frame with a variable
+		// (fixedTimeStep * pendingSubsteps) denominator.  This makes kinematic
+		// body velocity computation frame-rate-independent and deterministic.
 		applyGravity();
 	} else
 	{
@@ -499,10 +502,27 @@ int btDiscreteDynamicsWorld::beginStepSimulation(btScalar timeStep, int maxSubSt
 	return pendingSubsteps;
 }
 
+void btDiscreteDynamicsWorld::substepSimulation(btScalar fixedTimeStep)
+{
+	// Fully self-contained per-substep execution.  The caller (JS side) is
+	// responsible for time accumulation and computing how many substeps to run.
+	// This keeps all Bullet calls per-substep and frame-rate-independent.
+	m_fixedTimeStep = fixedTimeStep;
+	// Set m_localTime so that synchronizeMotionStates computes an interpolation
+	// factor of zero (we're at an exact substep boundary, no interpolation needed).
+	// With latency interpolation enabled the factor is (m_localTime - m_fixedTimeStep),
+	// so setting m_localTime = fixedTimeStep yields factor 0.
+	m_localTime = fixedTimeStep;
+	applyGravity();
+	saveKinematicState(fixedTimeStep);
+	internalSingleStepSimulation(fixedTimeStep);
+	clearForces();
+	synchronizeMotionStates();
+}
+
 void btDiscreteDynamicsWorld::substepSimulation()
 {
-	internalSingleStepSimulation(m_fixedTimeStep);
-	synchronizeMotionStates();
+	substepSimulation(m_fixedTimeStep);
 }
 
 void btDiscreteDynamicsWorld::computeAndSetInterpolationVelocity(btCollisionObject* body, const btTransform& from, const btTransform& to, btScalar dt) {
