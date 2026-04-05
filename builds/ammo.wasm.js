@@ -1412,49 +1412,53 @@ var _emscripten_bind_btKinematicCharacterController_resetAllCooldowns_0 = Module
 
 var _emscripten_bind_btKinematicCharacterController_setIsJumping_1 = Module["_emscripten_bind_btKinematicCharacterController_setIsJumping_1"] = wasmExports["he"];
 
-var _emscripten_bind_btKinematicCharacterController___destroy___0 = Module["_emscripten_bind_btKinematicCharacterController___destroy___0"] = wasmExports["ie"];
+var _emscripten_bind_btKinematicCharacterController_resetForNewRun_0 = Module["_emscripten_bind_btKinematicCharacterController_resetForNewRun_0"] = wasmExports["ie"];
 
-var _emscripten_bind_btPairCachingGhostObject_btPairCachingGhostObject_0 = Module["_emscripten_bind_btPairCachingGhostObject_btPairCachingGhostObject_0"] = wasmExports["je"];
+var _emscripten_bind_btKinematicCharacterController_resetCollisionCache_3 = Module["_emscripten_bind_btKinematicCharacterController_resetCollisionCache_3"] = wasmExports["je"];
 
-var _emscripten_bind_btPairCachingGhostObject_getCollisionShape_0 = Module["_emscripten_bind_btPairCachingGhostObject_getCollisionShape_0"] = wasmExports["ke"];
+var _emscripten_bind_btKinematicCharacterController___destroy___0 = Module["_emscripten_bind_btKinematicCharacterController___destroy___0"] = wasmExports["ke"];
 
-var _emscripten_bind_btPairCachingGhostObject_setActivationState_1 = Module["_emscripten_bind_btPairCachingGhostObject_setActivationState_1"] = wasmExports["le"];
+var _emscripten_bind_btPairCachingGhostObject_btPairCachingGhostObject_0 = Module["_emscripten_bind_btPairCachingGhostObject_btPairCachingGhostObject_0"] = wasmExports["le"];
 
-var _emscripten_bind_btPairCachingGhostObject_getWorldTransform_0 = Module["_emscripten_bind_btPairCachingGhostObject_getWorldTransform_0"] = wasmExports["me"];
+var _emscripten_bind_btPairCachingGhostObject_getCollisionShape_0 = Module["_emscripten_bind_btPairCachingGhostObject_getCollisionShape_0"] = wasmExports["me"];
 
-var _emscripten_bind_btPairCachingGhostObject_setCollisionFlags_1 = Module["_emscripten_bind_btPairCachingGhostObject_setCollisionFlags_1"] = wasmExports["ne"];
+var _emscripten_bind_btPairCachingGhostObject_setActivationState_1 = Module["_emscripten_bind_btPairCachingGhostObject_setActivationState_1"] = wasmExports["ne"];
 
-var _emscripten_bind_btPairCachingGhostObject_setWorldTransform_1 = Module["_emscripten_bind_btPairCachingGhostObject_setWorldTransform_1"] = wasmExports["oe"];
+var _emscripten_bind_btPairCachingGhostObject_getWorldTransform_0 = Module["_emscripten_bind_btPairCachingGhostObject_getWorldTransform_0"] = wasmExports["oe"];
 
-var _emscripten_bind_btPairCachingGhostObject_setInterpolationLinearVelocity_1 = Module["_emscripten_bind_btPairCachingGhostObject_setInterpolationLinearVelocity_1"] = wasmExports["pe"];
+var _emscripten_bind_btPairCachingGhostObject_setCollisionFlags_1 = Module["_emscripten_bind_btPairCachingGhostObject_setCollisionFlags_1"] = wasmExports["pe"];
 
-var _emscripten_bind_btPairCachingGhostObject_setInterpolationAngularVelocity_1 = Module["_emscripten_bind_btPairCachingGhostObject_setInterpolationAngularVelocity_1"] = wasmExports["qe"];
+var _emscripten_bind_btPairCachingGhostObject_setWorldTransform_1 = Module["_emscripten_bind_btPairCachingGhostObject_setWorldTransform_1"] = wasmExports["qe"];
 
-var _emscripten_bind_btPairCachingGhostObject_setCollisionShape_1 = Module["_emscripten_bind_btPairCachingGhostObject_setCollisionShape_1"] = wasmExports["re"];
+var _emscripten_bind_btPairCachingGhostObject_setInterpolationLinearVelocity_1 = Module["_emscripten_bind_btPairCachingGhostObject_setInterpolationLinearVelocity_1"] = wasmExports["re"];
 
-var _emscripten_bind_btPairCachingGhostObject_setUserIndex_1 = Module["_emscripten_bind_btPairCachingGhostObject_setUserIndex_1"] = wasmExports["se"];
+var _emscripten_bind_btPairCachingGhostObject_setInterpolationAngularVelocity_1 = Module["_emscripten_bind_btPairCachingGhostObject_setInterpolationAngularVelocity_1"] = wasmExports["se"];
 
-var _emscripten_bind_btPairCachingGhostObject_getNumOverlappingObjects_0 = Module["_emscripten_bind_btPairCachingGhostObject_getNumOverlappingObjects_0"] = wasmExports["te"];
+var _emscripten_bind_btPairCachingGhostObject_setCollisionShape_1 = Module["_emscripten_bind_btPairCachingGhostObject_setCollisionShape_1"] = wasmExports["te"];
 
-var _emscripten_bind_btPairCachingGhostObject___destroy___0 = Module["_emscripten_bind_btPairCachingGhostObject___destroy___0"] = wasmExports["ue"];
+var _emscripten_bind_btPairCachingGhostObject_setUserIndex_1 = Module["_emscripten_bind_btPairCachingGhostObject_setUserIndex_1"] = wasmExports["ue"];
 
-var _emscripten_bind_btGhostPairCallback_btGhostPairCallback_0 = Module["_emscripten_bind_btGhostPairCallback_btGhostPairCallback_0"] = wasmExports["ve"];
+var _emscripten_bind_btPairCachingGhostObject_getNumOverlappingObjects_0 = Module["_emscripten_bind_btPairCachingGhostObject_getNumOverlappingObjects_0"] = wasmExports["ve"];
 
-var _emscripten_bind_btGhostPairCallback___destroy___0 = Module["_emscripten_bind_btGhostPairCallback___destroy___0"] = wasmExports["we"];
+var _emscripten_bind_btPairCachingGhostObject___destroy___0 = Module["_emscripten_bind_btPairCachingGhostObject___destroy___0"] = wasmExports["we"];
 
-var _emscripten_enum_PHY_ScalarType_PHY_FLOAT = Module["_emscripten_enum_PHY_ScalarType_PHY_FLOAT"] = wasmExports["xe"];
+var _emscripten_bind_btGhostPairCallback_btGhostPairCallback_0 = Module["_emscripten_bind_btGhostPairCallback_btGhostPairCallback_0"] = wasmExports["xe"];
 
-var _emscripten_enum_PHY_ScalarType_PHY_DOUBLE = Module["_emscripten_enum_PHY_ScalarType_PHY_DOUBLE"] = wasmExports["ye"];
+var _emscripten_bind_btGhostPairCallback___destroy___0 = Module["_emscripten_bind_btGhostPairCallback___destroy___0"] = wasmExports["ye"];
 
-var _emscripten_enum_PHY_ScalarType_PHY_INTEGER = Module["_emscripten_enum_PHY_ScalarType_PHY_INTEGER"] = wasmExports["ze"];
+var _emscripten_enum_PHY_ScalarType_PHY_FLOAT = Module["_emscripten_enum_PHY_ScalarType_PHY_FLOAT"] = wasmExports["ze"];
 
-var _emscripten_enum_PHY_ScalarType_PHY_SHORT = Module["_emscripten_enum_PHY_ScalarType_PHY_SHORT"] = wasmExports["Ae"];
+var _emscripten_enum_PHY_ScalarType_PHY_DOUBLE = Module["_emscripten_enum_PHY_ScalarType_PHY_DOUBLE"] = wasmExports["Ae"];
 
-var _emscripten_enum_PHY_ScalarType_PHY_FIXEDPOINT88 = Module["_emscripten_enum_PHY_ScalarType_PHY_FIXEDPOINT88"] = wasmExports["Be"];
+var _emscripten_enum_PHY_ScalarType_PHY_INTEGER = Module["_emscripten_enum_PHY_ScalarType_PHY_INTEGER"] = wasmExports["Be"];
 
-var _emscripten_enum_PHY_ScalarType_PHY_UCHAR = Module["_emscripten_enum_PHY_ScalarType_PHY_UCHAR"] = wasmExports["Ce"];
+var _emscripten_enum_PHY_ScalarType_PHY_SHORT = Module["_emscripten_enum_PHY_ScalarType_PHY_SHORT"] = wasmExports["Ce"];
 
-var __emscripten_timeout = wasmExports["De"];
+var _emscripten_enum_PHY_ScalarType_PHY_FIXEDPOINT88 = Module["_emscripten_enum_PHY_ScalarType_PHY_FIXEDPOINT88"] = wasmExports["De"];
+
+var _emscripten_enum_PHY_ScalarType_PHY_UCHAR = Module["_emscripten_enum_PHY_ScalarType_PHY_UCHAR"] = wasmExports["Ee"];
+
+var __emscripten_timeout = wasmExports["Fe"];
 
 // include: postamble.js
 // === Auto-generated postamble setup entry stuff ===
@@ -3751,6 +3755,19 @@ Module["btKinematicCharacterController"] = btKinematicCharacterController;
   var self = this.ptr;
   if (v && typeof v === "object") v = v.ptr;
   _emscripten_bind_btKinematicCharacterController_setIsJumping_1(self, v);
+};
+
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btKinematicCharacterController.prototype["resetForNewRun"] = btKinematicCharacterController.prototype.resetForNewRun = function() {
+  var self = this.ptr;
+  _emscripten_bind_btKinematicCharacterController_resetForNewRun_0(self);
+};
+
+/** @suppress {undefinedVars, duplicate} @this{Object} */ btKinematicCharacterController.prototype["resetCollisionCache"] = btKinematicCharacterController.prototype.resetCollisionCache = function(world, filterGroup, filterMask) {
+  var self = this.ptr;
+  if (world && typeof world === "object") world = world.ptr;
+  if (filterGroup && typeof filterGroup === "object") filterGroup = filterGroup.ptr;
+  if (filterMask && typeof filterMask === "object") filterMask = filterMask.ptr;
+  _emscripten_bind_btKinematicCharacterController_resetCollisionCache_3(self, world, filterGroup, filterMask);
 };
 
 /** @suppress {undefinedVars, duplicate} @this{Object} */ btKinematicCharacterController.prototype["__destroy__"] = btKinematicCharacterController.prototype.__destroy__ = function() {

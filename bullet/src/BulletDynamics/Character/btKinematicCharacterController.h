@@ -34,6 +34,7 @@ class btCollisionShape;
 class btConvexShape;
 class btRigidBody;
 class btCollisionWorld;
+class btDiscreteDynamicsWorld;
 class btCollisionDispatcher;
 class btPairCachingGhostObject;
 
@@ -392,6 +393,40 @@ public:
   }
 
   void setIsJumping(bool v) { m_isJumping = v; }
+
+  /// Reset all dynamic gameplay state to match a freshly-constructed controller.
+  /// Does NOT touch configuration (gravity, step height, damping, collider shape, etc.)
+  /// or position (call warp() separately).
+  /// Remove and re-add the ghost object from the collision world to flush all
+  /// cached broadphase pairs, contact manifolds, and collision algorithms
+  /// involving the player.  Call after warp() so the fresh proxy gets the
+  /// correct AABB.
+  void resetCollisionCache(btDiscreteDynamicsWorld* world,
+                           short filterGroup, short filterMask);
+
+  void resetForNewRun() {
+    m_verticalVelocity = 0;
+    m_verticalOffset = 0;
+    m_externalVelocity.setValue(0, 0, 0);
+    m_walkDirection.setValue(0, 0, 0);
+    m_normalizedDirection.setValue(0, 0, 0);
+    m_currentStepOffset = 0;
+    m_wasOnGround = false;
+    m_onGround = false;
+    m_isJumping = false;
+    m_jumpAxis = m_up;
+    m_forcedRotation.setValue(0, 0, 0, 1);
+    m_floorObject = nullptr;
+    m_floorUserIndex = -1;
+    m_totalElapsedTime = 0;
+    m_cameraRayHitNX = 0;
+    m_cameraRayHitNY = 0;
+    m_cameraRayHitNZ = 0;
+    m_pendingEvents.clear();
+    for (int i = 0; i < m_jumpPads.size(); i++) {
+      m_jumpPads[i]->m_lastTriggerTime = btScalar(-1000);
+    }
+  }
 };
 
 #endif // BT_KINEMATIC_CHARACTER_CONTROLLER_H

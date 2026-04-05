@@ -1133,6 +1133,8 @@ interface btKinematicCharacterController {
   void setTotalElapsedTime(float t);
   void resetAllCooldowns();
   void setIsJumping(boolean v);
+  void resetForNewRun();
+  void resetCollisionCache(btDiscreteDynamicsWorld world, short filterGroup, short filterMask);
 };
 btKinematicCharacterController implements btActionInterface;
 

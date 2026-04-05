@@ -24,6 +24,7 @@ software.
 #include "BulletCollision/BroadphaseCollision/btCollisionAlgorithm.h"
 #include "BulletCollision/BroadphaseCollision/btOverlappingPairCache.h"
 #include "BulletCollision/CollisionDispatch/btCollisionWorld.h"
+#include "BulletDynamics/Dynamics/btDiscreteDynamicsWorld.h"
 #include "BulletCollision/CollisionDispatch/btGhostObject.h"
 #include "BulletCollision/CollisionShapes/btMultiSphereShape.h"
 #include "BulletCollision/NarrowPhaseCollision/btRaycastCallback.h"
@@ -304,7 +305,8 @@ btKinematicCharacterController::stepUp(btCollisionWorld* world) {
   m_targetPosition = m_currentPosition;
   m_targetPosition += m_up * stepHeight;
   if (m_verticalOffset > 0.) {
-    m_targetPosition += m_jumpAxis * m_verticalOffset;
+    const btVector3 jumpOffset = m_jumpAxis * m_verticalOffset;
+    m_targetPosition += parallelComponent(jumpOffset, m_up);
   }
 
   btTransform start, end;
@@ -325,11 +327,14 @@ btKinematicCharacterController::stepUp(btCollisionWorld* world) {
 
   if (callback.hasHit() && m_ghostObject->hasContactResponse() &&
       needsCollision(m_ghostObject, callback.m_hitCollisionObject)) {
+    const btScalar hitDotUp = callback.m_hitNormalWorld.dot(m_up);
     // Only modify the position if the hit was a slope and not a wall or ceiling.
-    if (callback.m_hitNormalWorld.dot(m_up) > 0.0) {
+    if (hitDotUp > 0.0) {
       // we moved up only a fraction of the step height
       m_currentStepOffset = stepHeight * callback.m_closestHitFraction;
       m_currentPosition.setInterpolate3(m_currentPosition, m_targetPosition, callback.m_closestHitFraction);
+    } else {
+      m_currentStepOffset = stepHeight;
     }
 
     btTransform& xform = m_ghostObject->getWorldTransform();
@@ -348,7 +353,9 @@ btKinematicCharacterController::stepUp(btCollisionWorld* world) {
     m_targetPosition = m_ghostObject->getWorldTransform().getOrigin();
     m_currentPosition = m_targetPosition;
 
-    if (m_verticalOffset > 0) {
+    // Preserve upward momentum when the sweep hit a wall. The jump vector can be tilted,
+    // so a lateral contact during stepUp should not behave like a ceiling and kill ascent.
+    if (m_verticalOffset > 0 && hitDotUp < 0.0) {
       m_verticalOffset = 0.0;
       m_verticalVelocity = 0.0;
       m_currentStepOffset = m_stepHeight;
@@ -402,6 +409,10 @@ btKinematicCharacterController::stepForwardAndStrafe(btCollisionWorld* collision
   m_targetPosition = m_currentPosition;
   m_targetPosition += m_walkDirection * dt;
   m_targetPosition += m_externalVelocity * dt;
+  if (m_verticalOffset > 0.0) {
+    const btVector3 jumpOffset = m_jumpAxis * m_verticalOffset;
+    m_targetPosition += perpindicularComponent(jumpOffset, m_up);
+  }
 
   btScalar fraction = 1.0;
   btScalar distanceSquared = (m_currentPosition - m_targetPosition).length2();
@@ -1020,4 +1031,13 @@ int btKinematicCharacterController::packFullState(void* outPtr) const {
     out[17] = m_forcedRotation.z();
     out[18] = m_forcedRotation.w();
     return 19;
+}
+
+void btKinematicCharacterController::resetCollisionCache(
+    btDiscreteDynamicsWorld* world,
+    short filterGroup, short filterMask) {
+    world->removeAction(this);
+    world->removeCollisionObject(m_ghostObject);
+    world->addCollisionObject(m_ghostObject, filterGroup, filterMask);
+    world->addAction(this);
 }
