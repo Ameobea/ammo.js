@@ -52,14 +52,11 @@ ATTRIBUTE_ALIGNED16(class)	btCollisionObject
 protected:
 
 	btTransform	m_worldTransform;
+	btTransform	m_previousWorldTransform;
 
 	///m_interpolationWorldTransform is used for CCD and interpolation
 	///it can be either previous or future (predicted) transform
 	btTransform	m_interpolationWorldTransform;
-	//those two are experimental: just added for bullet time effect, so you can still apply impulses (directly modifying velocities) 
-	//without destroying the continuous interpolated motion (which uses this interpolation velocities)
-	btVector3	m_interpolationLinearVelocity;
-	btVector3	m_interpolationAngularVelocity;
 	
 	btVector3	m_anisotropicFriction;
 	int			m_hasAnisotropicFriction;
@@ -299,6 +296,16 @@ public:
 		return m_worldTransform;
 	}
 
+	const btTransform& getPreviousWorldTransform() const
+	{
+		return m_previousWorldTransform;
+	}
+
+	void capturePreviousWorldTransform()
+	{
+		m_previousWorldTransform = m_worldTransform;
+	}
+
 	void	setWorldTransform(const btTransform& worldTrans)
 	{
 		m_updateRevision++;
@@ -336,28 +343,6 @@ public:
 	{
 		m_updateRevision++;
 		m_interpolationWorldTransform = trans;
-	}
-
-	void	setInterpolationLinearVelocity(const btVector3& linvel)
-	{
-		m_updateRevision++;
-		m_interpolationLinearVelocity = linvel;
-	}
-
-	void	setInterpolationAngularVelocity(const btVector3& angvel)
-	{
-		m_updateRevision++;
-		m_interpolationAngularVelocity = angvel;
-	}
-
-	const btVector3&	getInterpolationLinearVelocity() const
-	{
-		return m_interpolationLinearVelocity;
-	}
-
-	const btVector3&	getInterpolationAngularVelocity() const
-	{
-		return m_interpolationAngularVelocity;
 	}
 
 	SIMD_FORCE_INLINE int getIslandTag() const
@@ -473,8 +458,6 @@ struct	btCollisionObjectDoubleData
 
 	btTransformDoubleData	m_worldTransform;
 	btTransformDoubleData	m_interpolationWorldTransform;
-	btVector3DoubleData		m_interpolationLinearVelocity;
-	btVector3DoubleData		m_interpolationAngularVelocity;
 	btVector3DoubleData		m_anisotropicFriction;
 	double					m_contactProcessingThreshold;	
 	double					m_deactivationTime;
@@ -506,8 +489,6 @@ struct	btCollisionObjectFloatData
 
 	btTransformFloatData	m_worldTransform;
 	btTransformFloatData	m_interpolationWorldTransform;
-	btVector3FloatData		m_interpolationLinearVelocity;
-	btVector3FloatData		m_interpolationAngularVelocity;
 	btVector3FloatData		m_anisotropicFriction;
 	float					m_contactProcessingThreshold;	
 	float					m_deactivationTime;

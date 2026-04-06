@@ -26,9 +26,11 @@ software.
 #include "btJumpPad.h"
 #include "btBoostZone.h"
 #include "btSensor.h"
+#include "btDashToken.h"
 #include "btZoneEvent.h"
 
 #include "BulletCollision/BroadphaseCollision/btCollisionAlgorithm.h"
+#include <cmath>
 
 class btCollisionShape;
 class btConvexShape;
@@ -143,6 +145,7 @@ protected:
   btAlignedObjectArray<btJumpPad*> m_jumpPads;
   btAlignedObjectArray<btBoostZone*> m_boostZones;
   btAlignedObjectArray<btSensor*> m_sensors;
+  btAlignedObjectArray<btDashToken*> m_dashTokens;
   btAlignedObjectArray<btZoneEvent> m_pendingEvents;
   btScalar m_totalElapsedTime = 0;
 
@@ -151,9 +154,40 @@ protected:
   btScalar m_cameraRayHitNY = 0;
   btScalar m_cameraRayHitNZ = 0;
 
+  int m_inputKeyFlags = 0;       // bit 0=W, 1=S, 2=A, 3=D, 4=Space, 5=Shift
+  btScalar m_inputTheta = 0;     // camera azimuth (yaw) in radians
+  btScalar m_inputPhi = 0;       // camera elevation (polar from +Y) in radians
+  bool m_inputMovementEnabled = false;
+
+  // If true, WASD maps to world-axis movement (top-down camera).
+  // If false, forward/left are derived from m_inputTheta (first/third person).
+  bool m_topDownMode = false;
+
+  btScalar m_moveSpeedGround = btScalar(12);
+  btScalar m_moveSpeedInAir  = btScalar(12);
+  btScalar m_minJumpDelaySeconds = btScalar(0.25);
+  btScalar m_coyoteTimeDuration  = btScalar(0);
+
+  btScalar m_lastJumpTime    = btScalar(-1e30);
+  btScalar m_lastGroundedTime = btScalar(-1e30);
+
+  bool     m_dashEnabled             = false;
+  btScalar m_dashMagnitude           = btScalar(16);
+  btScalar m_minDashDelaySeconds     = btScalar(0.85);
+  bool     m_dashUseExternalVelocity = false;
+  btScalar m_dashCharges             = INFINITY;
+  btScalar m_initialDashCharges      = INFINITY;
+  btScalar m_checkpointDashCharges   = INFINITY;
+
+  btScalar m_lastDashTime       = btScalar(-1e30);
+  bool     m_dashNeedsGroundTouch = false;
+
+  void processInputPreamble(btScalar dt);
+
   void processJumpPads(btCollisionWorld* collisionWorld, btScalar dt);
   void processBoostZones(btCollisionWorld* collisionWorld, btScalar dt);
   void processSensors(btCollisionWorld* collisionWorld);
+  void processDashTokens(btCollisionWorld* collisionWorld);
   bool checkZoneOverlap(btCollisionWorld* world, btPairCachingGhostObject* zoneGhost);
   bool checkZoneOverlapWithPenetration(btCollisionWorld* world, btPairCachingGhostObject* zoneGhost, btScalar minPenetrationDepth);
 
@@ -195,7 +229,7 @@ public:
   /// btActionInterface interface
   void debugDraw(btIDebugDraw * debugDrawer) {}
 
-  void maybeApplyFloorLock(btCollisionWorld * collisionWorld, btScalar dt);
+  void maybeApplyFloorLock(btCollisionWorld * collisionWorld);
 
   void setUp(const btVector3& up);
 
@@ -287,6 +321,43 @@ public:
     m_externalVelocityGroundDampingFactor = v;
   }
 
+  void setInputState(int keyFlags, btScalar theta, btScalar phi, bool movementEnabled) {
+    m_inputKeyFlags = keyFlags;
+    m_inputTheta = theta;
+    m_inputPhi = phi;
+    m_inputMovementEnabled = movementEnabled;
+  }
+
+  void setMoveSpeed(btScalar ground, btScalar air) {
+    m_moveSpeedGround = ground;
+    m_moveSpeedInAir  = air;
+  }
+
+  void setTopDownMode(bool topDown) {
+    m_topDownMode = topDown;
+  }
+
+  void setMinJumpDelay(btScalar seconds) {
+    m_minJumpDelaySeconds = seconds;
+  }
+
+  void setCoyoteTime(btScalar seconds) {
+    m_coyoteTimeDuration = seconds;
+  }
+
+  void setDashConfig(bool enabled, btScalar magnitude, btScalar minDelay, bool useExternalVelocity) {
+    m_dashEnabled             = enabled;
+    m_dashMagnitude           = magnitude;
+    m_minDashDelaySeconds     = minDelay;
+    m_dashUseExternalVelocity = useExternalVelocity;
+  }
+
+  btScalar getLastJumpTime() const { return m_lastJumpTime; }
+  btScalar getLastDashTime() const { return m_lastDashTime; }
+  void setDashCharges(btScalar charges) { m_dashCharges = charges; }
+  btScalar getDashCharges() const { return m_dashCharges; }
+  btVector3& getWalkDirection() { return m_walkDirection; }
+
   void setGravityShapeRiseMultiplier(btScalar v) { m_gravityShapeRiseMultiplier = v; }
   void setGravityShapeApexMultiplier(btScalar v) { m_gravityShapeApexMultiplier = v; }
   void setGravityShapeFallMultiplier(btScalar v) { m_gravityShapeFallMultiplier = v; }
@@ -296,10 +367,6 @@ public:
 
   btVector3& getExternalVelocity() {
     return m_externalVelocity;
-  }
-
-  btQuaternion& getForcedRotation() {
-    return m_forcedRotation;
   }
 
   void resetForcedRotation() {
@@ -338,6 +405,50 @@ public:
     m_sensors.remove(sensor);
   }
 
+  void addDashToken(btDashToken* token) {
+    m_dashTokens.push_back(token);
+  }
+
+  void removeDashToken(btDashToken* token) {
+    m_dashTokens.remove(token);
+  }
+
+  void captureInitialDashState() {
+    m_initialDashCharges = m_dashCharges;
+    for (int i = 0; i < m_dashTokens.size(); i++) {
+      btDashToken* token = m_dashTokens[i];
+      token->m_initialActive = token->m_active;
+    }
+  }
+
+  void saveDashCheckpointState() {
+    m_checkpointDashCharges = m_dashCharges;
+    for (int i = 0; i < m_dashTokens.size(); i++) {
+      btDashToken* token = m_dashTokens[i];
+      token->m_checkpointActive = token->m_active;
+    }
+  }
+
+  void restoreDashCheckpointState() {
+    m_dashCharges = m_checkpointDashCharges;
+    for (int i = 0; i < m_dashTokens.size(); i++) {
+      btDashToken* token = m_dashTokens[i];
+      token->m_active = token->m_checkpointActive;
+      token->m_isOverlapping = false;
+    }
+  }
+
+  void resetDashStateForNewRun() {
+    m_dashCharges = m_initialDashCharges;
+    m_checkpointDashCharges = m_initialDashCharges;
+    for (int i = 0; i < m_dashTokens.size(); i++) {
+      btDashToken* token = m_dashTokens[i];
+      token->m_active = token->m_initialActive;
+      token->m_checkpointActive = token->m_initialActive;
+      token->m_isOverlapping = false;
+    }
+  }
+
   // Event queue access - read from JS after each substep
   int getNumPendingEvents() const {
     return m_pendingEvents.size();
@@ -364,35 +475,6 @@ public:
   float getCameraRayHitNormalZ() const { return m_cameraRayHitNZ; }
 
   int packState(void* outBuffer) const;
-
-  /// Extended state export for deterministic replay validation.
-  /// Writes 22 floats to outBuffer. Layout:
-  ///   [0..3]:  position (x, y, z)
-  ///   [3..6]:  externalVelocity (x, y, z)
-  ///   [6]:     verticalVelocity
-  ///   [7]:     verticalOffset
-  ///   [8]:     flags (u32 bitcast: bit0=onGround, bit1=isJumping, bit2=wasOnGround)
-  ///   [9]:     floorUserIndex (i32 bitcast)
-  ///   [10..13]: jumpAxis (x, y, z)
-  ///   [13]:    currentStepOffset
-  ///   [14]:    totalElapsedTime
-  ///   [15..19]: forcedRotation quaternion (x, y, z, w)
-  int packFullState(void* outBuffer) const;
-
-  // Setters for restoring full state from replay initial-state block
-  void setWasOnGround(bool v) { m_wasOnGround = v; }
-  void setJumpAxis(const btVector3& axis) { m_jumpAxis = axis; }
-  void setCurrentStepOffset(btScalar offset) { m_currentStepOffset = offset; }
-  void setTotalElapsedTime(btScalar t) { m_totalElapsedTime = t; }
-
-  void resetAllCooldowns() {
-    m_totalElapsedTime = 0;
-    for (int i = 0; i < m_jumpPads.size(); i++) {
-      m_jumpPads[i]->m_lastTriggerTime = btScalar(-1000);
-    }
-  }
-
-  void setIsJumping(bool v) { m_isJumping = v; }
 
   /// Reset all dynamic gameplay state to match a freshly-constructed controller.
   /// Does NOT touch configuration (gravity, step height, damping, collider shape, etc.)
@@ -425,6 +507,15 @@ public:
     m_pendingEvents.clear();
     for (int i = 0; i < m_jumpPads.size(); i++) {
       m_jumpPads[i]->m_lastTriggerTime = btScalar(-1000);
+    }
+    m_lastJumpTime     = btScalar(-1e30);
+    m_lastGroundedTime = btScalar(-1e30);
+    m_lastDashTime     = btScalar(-1e30);
+    m_dashNeedsGroundTouch = false;
+    m_inputKeyFlags = 0;
+    m_inputMovementEnabled = false;
+    for (int i = 0; i < m_dashTokens.size(); i++) {
+      m_dashTokens[i]->m_isOverlapping = false;
     }
   }
 };

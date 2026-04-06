@@ -211,8 +211,6 @@ public:
 	/// continuous collision detection needs prediction
 	void			predictIntegratedTransform(btScalar step, btTransform& predictedTransform) ;
 	
-	void			saveKinematicState(btScalar step);
-	
 	void			applyGravity();
 	
 	void			setGravity(const btVector3& acceleration);  

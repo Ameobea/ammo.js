@@ -42,6 +42,8 @@ btCollisionObject::btCollisionObject()
 		m_updateRevision(0)
 {
 	m_worldTransform.setIdentity();
+	m_previousWorldTransform = m_worldTransform;
+	m_interpolationWorldTransform = m_worldTransform;
 }
 
 btCollisionObject::~btCollisionObject() {}
@@ -69,8 +71,6 @@ const char* btCollisionObject::serialize(void* dataBuffer, btSerializer* seriali
 
 	m_worldTransform.serialize(dataOut->m_worldTransform);
 	m_interpolationWorldTransform.serialize(dataOut->m_interpolationWorldTransform);
-	m_interpolationLinearVelocity.serialize(dataOut->m_interpolationLinearVelocity);
-	m_interpolationAngularVelocity.serialize(dataOut->m_interpolationAngularVelocity);
 	m_anisotropicFriction.serialize(dataOut->m_anisotropicFriction);
 	dataOut->m_hasAnisotropicFriction = m_hasAnisotropicFriction;
 	dataOut->m_contactProcessingThreshold = m_contactProcessingThreshold;

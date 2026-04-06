@@ -143,8 +143,7 @@ interface btCollisionObject {
   // long getCollisionFlags();
   void setCollisionFlags(long flags);
   void setWorldTransform([Const,Ref] btTransform worldTrans);
-  void setInterpolationLinearVelocity([Const, Ref] btVector3 linvel);
-  void setInterpolationAngularVelocity([Const, Ref] btVector3 angvel);
+
   void setCollisionShape(btCollisionShape collisionShape);
   // void setCcdMotionThreshold (float ccdMotionThreshold);
   // void setCcdSweptSphereRadius (float radius);
@@ -929,12 +928,8 @@ interface btDiscreteDynamicsWorld {
 
   long stepSimulation(float timeStep, optional long maxSubSteps, optional float fixedTimeStep);
 
-  // Split stepping API: JS computes substep count and calls substepSimulation(fixedTimeStep) per substep.
-  // beginStepSimulation/finishStepSimulation kept for backward compat but no longer needed.
-  long beginStepSimulation(float timeStep, long maxSubSteps, float fixedTimeStep);
+  // Fixed-timestep stepping: JS computes substep count and calls once per substep.
   void substepSimulation(float fixedTimeStep);
-  void finishStepSimulation();
-  void computeAndSetInterpolationVelocity(btCollisionObject body, [Const, Ref] btTransform from, [Const, Ref] btTransform to, float dt);
 
 	// Contact callback support
   // void setContactAddedCallback(long funcpointer);
@@ -1060,47 +1055,50 @@ interface btSensor {
   void setEnabled(boolean enabled);
 };
 
+interface btDashToken {
+  void btDashToken(btPairCachingGhostObject ghostObject, long zoneId, long chargesGranted, float minPenetrationDepth);
+  long getZoneId();
+  void setEnabled(boolean enabled);
+  void setChargesGranted(long chargesGranted);
+  long getChargesGranted();
+  void setActive(boolean active);
+  boolean isActive();
+};
+
 interface btKinematicCharacterController {
   void btKinematicCharacterController(btPairCachingGhostObject ghostObject, btConvexShape convexShape, float stepHeight, [Const,Ref] optional btVector3 up);
 
-  // void setUp ([Const,Ref] btVector3 up);
-  void setWalkDirection ([Const,Ref] btVector3 walkDirection);
+  // ── Input-driven API ───────────────────────────────────────────────────
+  // Call setInputState() before each substepSimulation().  The controller
+  // computes walk direction and fires jumps/dashes internally.
+  void setInputState(long keyFlags, float theta, float phi, boolean movementEnabled);
+  void setMoveSpeed(float ground, float air);
+  void setTopDownMode(boolean topDown);
+  void setMinJumpDelay(float seconds);
+  void setCoyoteTime(float seconds);
+  void setDashConfig(boolean enabled, float magnitude, float minDelay, boolean useExternalVelocity);
+  void setDashCharges(float charges);
+  float getLastJumpTime();
+  float getLastDashTime();
+  float getDashCharges();
+  [Ref] btVector3 getWalkDirection();
+
+  // ── Position / teleport ────────────────────────────────────────────────
   void warp ([Const, Ref]btVector3 origin);
   [Ref] btVector3 getPosition ();
-  // void preStep (btCollisionWorld collisionWorld);
-  // void playerStep (btCollisionWorld collisionWorld, float dt);
+
+  // ── Physics configuration ─────────────────────────────────────────────
   void setFallSpeed (float fallSpeed);
   void setJumpSpeed (float jumpSpeed);
-  void jump ([Const,Ref] optional btVector3 up);
   void setGravity ([Const,Ref]btVector3 gravity);
   void setMaxSlope (float slopeRadians);
-  // float getMaxSlope ();
-  // btPairCachingGhostObject getGhostObject ();
-  // void setUseGhostSweepTest (boolean useGhostObjectSweepTest);
-  boolean onGround ();
-  void setOnGround (boolean onGround);
   void setMaxPenetrationDepth (float d);
   void setStepHeight (float h);
-  float getVerticalVelocity();
-  void setVerticalVelocity (float vel);
-  void resetFall ();
-  float getVerticalOffset();
-  [Ref] btVector3 getJumpAxis();
-  void addExternalVelocity ([Const,Ref] btVector3 velocity);
   void setExternalVelocity ([Const,Ref] btVector3 velocity);
   void setExternalVelocityAirDampingFactor ([Const,Ref] btVector3 damping);
   void setExternalVelocityGroundDampingFactor ([Const,Ref] btVector3 damping);
-  [Ref] btVector3 getExternalVelocity();
-  boolean isJumping();
-  long getFloorUserIndex();
-  [Ref] btQuaternion getForcedRotation();
-  void resetForcedRotation();
-  void addJumpPad(btJumpPad pad);
-  void removeJumpPad(btJumpPad pad);
-  void addBoostZone(btBoostZone zone);
-  void removeBoostZone(btBoostZone zone);
-  void addSensor(btSensor sensor);
-  void removeSensor(btSensor sensor);
+  void setOnGround (boolean onGround);
+  void setVerticalVelocity (float vel);
 
   void setGravityShapeRiseMultiplier(float v);
   void setGravityShapeApexMultiplier(float v);
@@ -1109,30 +1107,46 @@ interface btKinematicCharacterController {
   void setGravityShapeKneeWidth(float v);
   void setGravityShapeOnlyJumps(boolean v);
 
-  // Event queue - read after each substep
+  // ── State getters ──────────────────────────────────────────────────────
+  boolean onGround ();
+  float getVerticalVelocity();
+  float getVerticalOffset();
+  [Ref] btVector3 getJumpAxis();
+  [Ref] btVector3 getExternalVelocity();
+  boolean isJumping();
+  long getFloorUserIndex();
+  void resetForcedRotation();
+
+  // ── Zone management ────────────────────────────────────────────────────
+  void addJumpPad(btJumpPad pad);
+  void removeJumpPad(btJumpPad pad);
+  void addBoostZone(btBoostZone zone);
+  void removeBoostZone(btBoostZone zone);
+  void addSensor(btSensor sensor);
+  void removeSensor(btSensor sensor);
+  void addDashToken(btDashToken token);
+  void removeDashToken(btDashToken token);
+  void captureInitialDashState();
+  void saveDashCheckpointState();
+  void restoreDashCheckpointState();
+  void resetDashStateForNewRun();
+
+  // ── Event queue — read after each substep ─────────────────────────────
   long getNumPendingEvents();
   long getPendingEventId(long index);
   long getPendingEventType(long index);
   void clearPendingEvents();
 
+  // ── Camera ray test ───────────────────────────────────────────────────
   float cameraRayTest(btDiscreteDynamicsWorld world,
                       float fromX, float fromY, float fromZ,
                       float toX,   float toY,   float toZ);
-
   float getCameraRayHitNormalX();
   float getCameraRayHitNormalY();
   float getCameraRayHitNormalZ();
 
+  // ── State serialization (deterministic replay) ────────────────────────
   long packState(VoidPtr outBuffer);
-  long packFullState(VoidPtr outBuffer);
-
-  // Setters for restoring full state from replay
-  void setWasOnGround(boolean v);
-  void setJumpAxis([Const, Ref] btVector3 axis);
-  void setCurrentStepOffset(float offset);
-  void setTotalElapsedTime(float t);
-  void resetAllCooldowns();
-  void setIsJumping(boolean v);
   void resetForNewRun();
   void resetCollisionCache(btDiscreteDynamicsWorld world, short filterGroup, short filterMask);
 };

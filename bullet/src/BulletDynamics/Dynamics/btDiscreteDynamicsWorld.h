@@ -85,8 +85,7 @@ protected:
 	virtual void	internalSingleStepSimulation( btScalar timeStep);
 
 	void	createPredictiveContacts(btScalar timeStep);
-
-	virtual void	saveKinematicState(btScalar timeStep);
+	void	capturePreviousTransforms();
 
 	void	serializeRigidBodies(btSerializer* serializer);
 
@@ -241,17 +240,11 @@ public:
 		gContactDestroyedCallback = (ContactDestroyedCallback)callbackFunction;
 	}
 
-	/// Split stepping API: allows JS to run per-substep logic between substeps.
-	/// JS computes substep count and calls substepSimulation(fixedTimeStep) for each.
-	/// beginStepSimulation/finishStepSimulation are kept for backward compat but no longer needed.
-	int beginStepSimulation(btScalar timeStep, int maxSubSteps, btScalar fixedTimeStep);
+	/// Split stepping API: JS computes substep count and calls
+	/// substepSimulation(fixedTimeStep) for each fixed-timestep substep.
 	void substepSimulation(btScalar fixedTimeStep);
-	void substepSimulation(); // legacy overload, uses stored m_fixedTimeStep
-	void finishStepSimulation();
 
-	/// Compute interpolation velocities from two transforms and set them on a collision object.
-	/// Used by JS-driven per-substep animation to provide correct velocities for floor-lock.
-	void computeAndSetInterpolationVelocity(btCollisionObject* body, const btTransform& from, const btTransform& to, btScalar dt);
+
 };
 
 #endif //BT_DISCRETE_DYNAMICS_WORLD_H

@@ -21,6 +21,7 @@ software.
 #include "btKinematicCharacterController.h"
 #include "btJumpPad.h"
 #include "btBoostZone.h"
+#include "btDashToken.h"
 #include "BulletCollision/BroadphaseCollision/btCollisionAlgorithm.h"
 #include "BulletCollision/BroadphaseCollision/btOverlappingPairCache.h"
 #include "BulletCollision/CollisionDispatch/btCollisionWorld.h"
@@ -224,7 +225,7 @@ btKinematicCharacterController::recoverFromPenetration(btCollisionWorld* collisi
 //
 // This makes things like moving platforms work.
 void
-btKinematicCharacterController::maybeApplyFloorLock(btCollisionWorld* collisionWorld, btScalar dt) {
+btKinematicCharacterController::maybeApplyFloorLock(btCollisionWorld* collisionWorld) {
   if (!m_wasOnGround || !m_floorObject) {
     return;
   }
@@ -253,28 +254,29 @@ btKinematicCharacterController::maybeApplyFloorLock(btCollisionWorld* collisionW
     return;
   }
 
-  // if the floor object hasn't moved since the last step, nothing to be done
-  auto linearVelocity = m_floorObject->getInterpolationLinearVelocity();
-  auto angularVelocity = m_floorObject->getInterpolationAngularVelocity();
-  if (linearVelocity.length2() < SIMD_EPSILON && angularVelocity.length2() < SIMD_EPSILON) {
+  const btTransform& prevFloorTransform = m_floorObject->getPreviousWorldTransform();
+  const btTransform& currFloorTransform = m_floorObject->getWorldTransform();
+
+  const btVector3 prevOrigin = prevFloorTransform.getOrigin();
+  const btVector3 currOrigin = currFloorTransform.getOrigin();
+  btQuaternion prevRot = prevFloorTransform.getRotation();
+  btQuaternion currRot = currFloorTransform.getRotation();
+
+  btVector3 translationDelta = currOrigin - prevOrigin;
+  btQuaternion deltaRot = currRot * prevRot.inverse();
+  btScalar rotAngle = deltaRot.getAngle();
+
+  if (translationDelta.length2() < SIMD_EPSILON && rotAngle < SIMD_EPSILON) {
     return;
   }
 
-  // compute the change in position due to the rotation of the floor object
-  auto posRelativeToFloorObjectOrigin = m_currentPosition - m_floorObject->getWorldTransform().getOrigin();
-  btScalar angle = angularVelocity.length() * dt;
-  if (angle > SIMD_EPSILON) {
-    btVector3 rotationAxis = angularVelocity.normalized();
-    btQuaternion rotationQuat(rotationAxis, angle);
-    // accumulate the total forced rotation of the player over all substeps so that
-    // it can be applied to the camera before rendering
-    m_forcedRotation = m_forcedRotation * rotationQuat;
-    btVector3 newRelativePos = quatRotate(rotationQuat, posRelativeToFloorObjectOrigin);
-    m_currentPosition = m_floorObject->getWorldTransform().getOrigin() + newRelativePos;
-  }
+  // Apply the floor's delta transform to the player's position.
+  m_currentPosition = currOrigin + quatRotate(deltaRot, m_currentPosition - prevOrigin);
 
-  // apply the floor object's motion to the player
-  m_currentPosition += linearVelocity * dt;
+  if (rotAngle > SIMD_EPSILON) {
+    // accumulate total forced rotation over all substeps for camera application before rendering
+    m_forcedRotation = m_forcedRotation * deltaRot;
+  }
 
   // sync the new position to the ghost object
   btTransform& xform = m_ghostObject->getWorldTransform();
@@ -623,12 +625,144 @@ btKinematicCharacterController::computeShapedGravity() const {
 }
 
 void
+btKinematicCharacterController::processInputPreamble(btScalar dt) {
+  // Update coyote-time ground tracking using ground state from end of previous step.
+  if (m_onGround) {
+    m_lastGroundedTime = m_totalElapsedTime;
+  }
+
+  // Tick dash ground-touch requirement: clear once we've landed and the cooldown
+  // has expired since the last dash.
+  if (m_onGround && m_dashNeedsGroundTouch &&
+      (m_totalElapsedTime - m_lastDashTime > m_minDashDelaySeconds)) {
+    m_dashNeedsGroundTouch = false;
+  }
+
+  // ── Compute normalized move direction from input ──────────────────────
+  btVector3 moveDir(0, 0, 0);
+  if (m_inputMovementEnabled) {
+    if (m_topDownMode) {
+      btScalar dx = 0, dz = 0;
+      if (m_inputKeyFlags & 1) dz += btScalar(1);   // W
+      if (m_inputKeyFlags & 2) dz -= btScalar(1);   // S
+      if (m_inputKeyFlags & 4) dx += btScalar(1);   // A
+      if (m_inputKeyFlags & 8) dx -= btScalar(1);   // D
+      moveDir.setValue(dx, 0, dz);
+    } else {
+      // First/third-person: forward/left derived from camera azimuth (theta).
+      // forward = (-sin(theta), 0, -cos(theta)), left = (-cos(theta), 0, sin(theta))
+      btScalar sinTheta = btSin(m_inputTheta);
+      btScalar cosTheta = btCos(m_inputTheta);
+      btScalar dx = 0, dz = 0;
+      if (m_inputKeyFlags & 1)  { dx -= sinTheta; dz -= cosTheta; }  // W
+      if (m_inputKeyFlags & 2)  { dx += sinTheta; dz += cosTheta; }  // S
+      if (m_inputKeyFlags & 4)  { dx -= cosTheta; dz += sinTheta; }  // A
+      if (m_inputKeyFlags & 8)  { dx += cosTheta; dz -= sinTheta; }  // D
+      moveDir.setValue(dx, 0, dz);
+    }
+    // Normalize with sqrt(2) factor so diagonal and cardinal movement share
+    // the same target speed.
+    btScalar len = moveDir.length();
+    if (len > SIMD_EPSILON) {
+      moveDir *= btScalar(1.41421356237) / len;
+    }
+  }
+
+  // ── Jump ─────────────────────────────────────────────────────────────
+  bool jumpFired = false;
+  if (m_inputMovementEnabled && (m_inputKeyFlags & 16)) {  // Space
+    bool coyoteOk = m_coyoteTimeDuration > 0 &&
+                    (m_totalElapsedTime - m_lastGroundedTime <= m_coyoteTimeDuration) &&
+                    (m_totalElapsedTime - m_lastJumpTime > m_coyoteTimeDuration);
+    bool cooldownOk = (m_totalElapsedTime - m_lastJumpTime > m_minJumpDelaySeconds);
+
+    if ((m_onGround || coyoteOk) && cooldownOk) {
+      btVector3 jumpVec(
+        moveDir.x() * (m_defaultJumpSpeed * btScalar(0.18)),
+        m_defaultJumpSpeed,
+        moveDir.z() * (m_defaultJumpSpeed * btScalar(0.18))
+      );
+      jump(jumpVec);
+      m_lastJumpTime     = m_totalElapsedTime;
+      m_lastGroundedTime = btScalar(-1e30);
+      m_onGround         = false;
+      jumpFired          = true;
+
+      btZoneEvent evt;
+      evt.m_zoneId    = -1;
+      evt.m_eventType = ZONE_EVENT_JUMP_FIRED;
+      m_pendingEvents.push_back(evt);
+    }
+  }
+
+  // ── Dash ─────────────────────────────────────────────────────────────
+  if (m_dashEnabled && m_inputMovementEnabled && (m_inputKeyFlags & 32)) {  // Shift
+    bool hasCharges = !std::isfinite(m_dashCharges) || m_dashCharges > btScalar(0);
+    bool cooldownOk = (m_totalElapsedTime - m_lastDashTime > m_minDashDelaySeconds);
+    if (hasCharges && cooldownOk && !m_dashNeedsGroundTouch) {
+      btVector3 dashDir;
+      if (m_topDownMode) {
+        // Blend horizontal move direction with up for a slight upward arc.
+        btVector3 blended = moveDir * btScalar(0.5) + m_up * btScalar(0.5);
+        btScalar blen = blended.length();
+        dashDir = (blen > SIMD_EPSILON) ? blended / blen : m_up;
+      } else {
+        // 3D camera direction from spherical coordinates (phi = polar from +Y, theta = azimuth).
+        // Derived by rotating (0,0,-1) with Euler(phi-PI/2, theta, 0, YXZ):
+        //   dir = (-sin(phi)*sin(theta), -cos(phi), -sin(phi)*cos(theta))
+        btScalar sinPhi   = btSin(m_inputPhi);
+        btScalar cosPhi   = btCos(m_inputPhi);
+        btScalar sinTheta = btSin(m_inputTheta);
+        btScalar cosTheta = btCos(m_inputTheta);
+        dashDir.setValue(-sinPhi * sinTheta, -cosPhi, -sinPhi * cosTheta);
+        btScalar dlen = dashDir.length();
+        if (dlen > SIMD_EPSILON) {
+          dashDir /= dlen;
+        }
+      }
+
+      if (m_dashUseExternalVelocity) {
+        btScalar scale = m_dashMagnitude * btScalar(1.28);
+        m_externalVelocity = dashDir * scale;
+        resetFall();
+      } else {
+        jump(dashDir * m_dashMagnitude);
+      }
+
+      m_lastDashTime         = m_totalElapsedTime;
+      m_dashNeedsGroundTouch = true;
+      if (std::isfinite(m_dashCharges)) {
+        m_dashCharges = btMax(btScalar(0), m_dashCharges - btScalar(1));
+      }
+
+      btZoneEvent evt;
+      evt.m_zoneId    = -1;
+      evt.m_eventType = ZONE_EVENT_DASH_FIRED;
+      m_pendingEvents.push_back(evt);
+    }
+  }
+
+  // ── Apply move speed and set walk direction ───────────────────────────
+  btScalar moveSpeed = (m_onGround && !jumpFired) ? m_moveSpeedGround : m_moveSpeedInAir;
+  m_walkDirection     = moveDir * moveSpeed;
+  m_normalizedDirection = getNormalizedVector(m_walkDirection);
+}
+
+void
 btKinematicCharacterController::playerStep(btCollisionWorld* collisionWorld, btScalar dt) {
   m_totalElapsedTime += dt;
 
-  maybeApplyFloorLock(collisionWorld, dt);
+  // Process input: compute walk direction, validate and fire jumps/dashes.
+  // Must run before m_onGround is cleared so jump/coyote logic sees last step's
+  // ground state.
+  processInputPreamble(dt);
 
+  // Refresh the previous grounded state after input has had a chance to fire a
+  // jump. This preserves the prior JS behavior where takeoff skips floor-lock
+  // for the jump substep.
   m_wasOnGround = onGround();
+  maybeApplyFloorLock(collisionWorld);
+
   m_onGround = false;
 
   // Update fall velocity.
@@ -683,6 +817,7 @@ btKinematicCharacterController::playerStep(btCollisionWorld* collisionWorld, btS
   // Process movement zones and sensors after movement phases but before final penetration recovery
   processJumpPads(collisionWorld, dt);
   processBoostZones(collisionWorld, dt);
+  processDashTokens(collisionWorld);
   processSensors(collisionWorld);
 
   btTransform xform = m_ghostObject->getWorldTransform();
@@ -820,6 +955,9 @@ btKinematicCharacterController::processJumpPads(btCollisionWorld* collisionWorld
     }
 
     pad->m_lastTriggerTime = m_totalElapsedTime;
+    // Jump pad resets the dash ground-touch requirement so the player can
+    // chain dashes off of pads without needing a normal landing.
+    m_dashNeedsGroundTouch = false;
 
     btZoneEvent evt;
     evt.m_zoneId = pad->m_zoneId;
@@ -899,6 +1037,39 @@ btKinematicCharacterController::processSensors(btCollisionWorld* collisionWorld)
       evt.m_eventType = ZONE_EVENT_SENSOR_LEAVE;
       m_pendingEvents.push_back(evt);
     }
+  }
+}
+
+void
+btKinematicCharacterController::processDashTokens(btCollisionWorld* collisionWorld) {
+  for (int i = 0; i < m_dashTokens.size(); i++) {
+    btDashToken* token = m_dashTokens[i];
+
+    if (!token->m_enabled || !token->m_active) {
+      token->m_isOverlapping = false;
+      continue;
+    }
+
+    bool isOverlapping = checkZoneOverlapWithPenetration(
+      collisionWorld, token->m_ghostObject, token->m_minPenetrationDepth
+    );
+    bool wasOverlapping = token->m_isOverlapping;
+    token->m_isOverlapping = isOverlapping;
+
+    if (!isOverlapping || wasOverlapping) {
+      continue;
+    }
+
+    if (std::isfinite(m_dashCharges)) {
+      m_dashCharges += btScalar(token->m_chargesGranted);
+    }
+    token->m_active = false;
+    token->m_isOverlapping = false;
+
+    btZoneEvent evt;
+    evt.m_zoneId = token->m_zoneId;
+    evt.m_eventType = ZONE_EVENT_DASH_TOKEN_COLLECTED;
+    m_pendingEvents.push_back(evt);
   }
 }
 
@@ -989,48 +1160,6 @@ int btKinematicCharacterController::packState(void* outPtr) const {
     memcpy(&floorIndexAsFloat, &m_floorUserIndex, sizeof(float));
     outBuffer[9] = floorIndexAsFloat;
     return 10;
-}
-
-int btKinematicCharacterController::packFullState(void* outPtr) const {
-    float* out = static_cast<float*>(outPtr);
-    // [0..3]: position
-    out[0] = m_currentPosition.x();
-    out[1] = m_currentPosition.y();
-    out[2] = m_currentPosition.z();
-    // [3..6]: external velocity
-    out[3] = m_externalVelocity.x();
-    out[4] = m_externalVelocity.y();
-    out[5] = m_externalVelocity.z();
-    // [6]: vertical velocity
-    out[6] = m_verticalVelocity;
-    // [7]: vertical offset
-    out[7] = m_verticalOffset;
-    // [8]: flags (u32 bitcast: bit0=onGround, bit1=isJumping, bit2=wasOnGround)
-    unsigned int flags = 0;
-    if (m_onGround) flags |= 1;
-    if (m_isJumping) flags |= 2;
-    if (m_wasOnGround) flags |= 4;
-    float flagsAsFloat;
-    memcpy(&flagsAsFloat, &flags, sizeof(float));
-    out[8] = flagsAsFloat;
-    // [9]: floor user index (i32 bitcast)
-    float floorIndexAsFloat;
-    memcpy(&floorIndexAsFloat, &m_floorUserIndex, sizeof(float));
-    out[9] = floorIndexAsFloat;
-    // [10..13]: jump axis
-    out[10] = m_jumpAxis.x();
-    out[11] = m_jumpAxis.y();
-    out[12] = m_jumpAxis.z();
-    // [13]: current step offset
-    out[13] = m_currentStepOffset;
-    // [14]: total elapsed time
-    out[14] = m_totalElapsedTime;
-    // [15..19]: forced rotation quaternion (x, y, z, w)
-    out[15] = m_forcedRotation.x();
-    out[16] = m_forcedRotation.y();
-    out[17] = m_forcedRotation.z();
-    out[18] = m_forcedRotation.w();
-    return 19;
 }
 
 void btKinematicCharacterController::resetCollisionCache(

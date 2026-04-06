@@ -73,8 +73,7 @@ void	btRigidBody::setupRigidBody(const btRigidBody::btRigidBodyConstructionInfo&
 	}
 
 	m_interpolationWorldTransform = m_worldTransform;
-	m_interpolationLinearVelocity.setValue(0,0,0);
-	m_interpolationAngularVelocity.setValue(0,0,0);
+	m_previousWorldTransform = m_worldTransform;
 	
 	//moved to btCollisionObject
 	m_friction = constructionInfo.m_friction;
@@ -103,22 +102,8 @@ void btRigidBody::predictIntegratedTransform(btScalar timeStep,btTransform& pred
 	btTransformUtil::integrateTransform(m_worldTransform,m_linearVelocity,m_angularVelocity,timeStep,predictedTransform);
 }
 
-void btRigidBody::saveKinematicState(btScalar timeStep)
-{
-	//todo: clamp to some (user definable) safe minimum timestep, to limit maximum angular/linear velocities
-	if (timeStep != btScalar(0.))
-	{
-		//if we use motionstate to synchronize world transforms, get the new kinematic/animated world transform
-		if (getMotionState())
-			getMotionState()->getWorldTransform(m_worldTransform);
 
-		btTransformUtil::calculateVelocity(m_interpolationWorldTransform,m_worldTransform,timeStep,m_linearVelocity,m_angularVelocity);
-		m_interpolationLinearVelocity = m_linearVelocity;
-		m_interpolationAngularVelocity = m_angularVelocity;
-		m_interpolationWorldTransform = m_worldTransform;
-	}
-}
-	
+
 void btRigidBody::getAabb(btVector3& aabbMin,btVector3& aabbMax) const
 {
 	getCollisionShape()->getAabb(m_worldTransform,aabbMin,aabbMax);
@@ -302,9 +287,8 @@ void btRigidBody::setCenterOfMassTransform(const btTransform& xform)
 	{
 		m_interpolationWorldTransform = xform;
 	}
-	m_interpolationLinearVelocity = getLinearVelocity();
-	m_interpolationAngularVelocity = getAngularVelocity();
 	m_worldTransform = xform;
+	m_previousWorldTransform = xform;
 	updateInertiaTensor();
 }
 
@@ -388,4 +372,3 @@ void btRigidBody::serializeSingleObject(class btSerializer* serializer) const
 	const char* structType = serialize(chunk->m_oldPtr, serializer);
 	serializer->finalizeChunk(chunk,structType,BT_RIGIDBODY_CODE,(void*)this);
 }
-

@@ -258,25 +258,12 @@ btDiscreteDynamicsWorld::~btDiscreteDynamicsWorld()
 	}
 }
 
-void	btDiscreteDynamicsWorld::saveKinematicState(btScalar timeStep)
+void btDiscreteDynamicsWorld::capturePreviousTransforms()
 {
-///would like to iterate over m_nonStaticRigidBodies, but unfortunately old API allows
-///to switch status _after_ adding kinematic objects to the world
-///fix it for Bullet 3.x release
-	for (int i=0;i<m_collisionObjects.size();i++)
+	for (int i = 0; i < m_collisionObjects.size(); i++)
 	{
-		btCollisionObject* colObj = m_collisionObjects[i];
-		btRigidBody* body = btRigidBody::upcast(colObj);
-		if (body && body->getActivationState() != ISLAND_SLEEPING)
-		{
-			if (body->isKinematicObject())
-			{
-				//to calculate velocities next frame
-				body->saveKinematicState(timeStep);
-			}
-		}
+		m_collisionObjects[i]->capturePreviousWorldTransform();
 	}
-
 }
 
 void	btDiscreteDynamicsWorld::debugDrawWorld()
@@ -350,25 +337,10 @@ void	btDiscreteDynamicsWorld::applyGravity()
 void	btDiscreteDynamicsWorld::synchronizeSingleMotionState(btRigidBody* body)
 {
 	btAssert(body);
-
+	// Only dynamic bodies need motion state sync; kinematic bodies are driven externally.
 	if (body->getMotionState() && !body->isStaticOrKinematicObject())
 	{
-		//we need to call the update at least once, even for sleeping objects
-		//otherwise the 'graphics' transform never updates properly
-		///@todo: add 'dirty' flag
-		//if (body->getActivationState() != ISLAND_SLEEPING)
-		{
-			btTransform interpolatedTransform;
-			btTransformUtil::integrateTransform(
-        body->getInterpolationWorldTransform(),
-				body->getInterpolationLinearVelocity(),
-        body->getInterpolationAngularVelocity(),
-        (m_latencyMotionStateInterpolation && m_fixedTimeStep) ? m_localTime - m_fixedTimeStep
-                                                               : m_localTime * body->getHitFraction(),
-        interpolatedTransform
-      );
-			body->getMotionState()->setWorldTransform(interpolatedTransform);
-		}
+		body->getMotionState()->setWorldTransform(body->getWorldTransform());
 	}
 }
 
@@ -445,14 +417,13 @@ int	btDiscreteDynamicsWorld::stepSimulation( btScalar timeStep,int maxSubSteps, 
 		//clamp the number of substeps, to prevent simulation grinding spiralling down to a halt
 		int clampedSimulationSteps = (numSimulationSubSteps > maxSubSteps)? maxSubSteps : numSimulationSubSteps;
 
-		saveKinematicState(fixedTimeStep * clampedSimulationSteps);
-
 		applyGravity();
 
 		for (int i=0;i<clampedSimulationSteps;i++)
 		{
 			internalSingleStepSimulation(fixedTimeStep);
 			synchronizeMotionStates();
+			capturePreviousTransforms();
 		}
 
 	} else
@@ -469,38 +440,6 @@ int	btDiscreteDynamicsWorld::stepSimulation( btScalar timeStep,int maxSubSteps, 
 	return numSimulationSubSteps;
 }
 
-int btDiscreteDynamicsWorld::beginStepSimulation(btScalar timeStep, int maxSubSteps, btScalar fixedTimeStep)
-{
-	startProfiling(timeStep);
-
-	int pendingSubsteps = 0;
-
-	if (maxSubSteps)
-	{
-		m_fixedTimeStep = fixedTimeStep;
-		m_localTime += timeStep;
-		if (m_localTime >= fixedTimeStep)
-		{
-			int numSimulationSubSteps = int( m_localTime / fixedTimeStep);
-			m_localTime -= numSimulationSubSteps * fixedTimeStep;
-			pendingSubsteps = (numSimulationSubSteps > maxSubSteps) ? maxSubSteps : numSimulationSubSteps;
-		}
-	}
-
-	if (pendingSubsteps)
-	{
-		// saveKinematicState moved to substepSimulation() so it runs per-substep
-		// with the fixed timestep rather than once per frame with a variable
-		// (fixedTimeStep * pendingSubsteps) denominator.  This makes kinematic
-		// body velocity computation frame-rate-independent and deterministic.
-		applyGravity();
-	} else
-	{
-		synchronizeMotionStates();
-	}
-
-	return pendingSubsteps;
-}
 
 void btDiscreteDynamicsWorld::substepSimulation(btScalar fixedTimeStep)
 {
@@ -508,41 +447,16 @@ void btDiscreteDynamicsWorld::substepSimulation(btScalar fixedTimeStep)
 	// responsible for time accumulation and computing how many substeps to run.
 	// This keeps all Bullet calls per-substep and frame-rate-independent.
 	m_fixedTimeStep = fixedTimeStep;
-	// Set m_localTime so that synchronizeMotionStates computes an interpolation
-	// factor of zero (we're at an exact substep boundary, no interpolation needed).
-	// With latency interpolation enabled the factor is (m_localTime - m_fixedTimeStep),
-	// so setting m_localTime = fixedTimeStep yields factor 0.
 	m_localTime = fixedTimeStep;
 	applyGravity();
-	saveKinematicState(fixedTimeStep);
 	internalSingleStepSimulation(fixedTimeStep);
 	clearForces();
-	synchronizeMotionStates();
+	capturePreviousTransforms();
+	// synchronizeMotionStates() is intentionally omitted: this project uses only
+	// static and kinematic bodies (no dynamic rigid bodies), so there are no
+	// motion states to sync here.  Re-enable if dynamic bodies are ever added.
 }
 
-void btDiscreteDynamicsWorld::substepSimulation()
-{
-	substepSimulation(m_fixedTimeStep);
-}
-
-void btDiscreteDynamicsWorld::computeAndSetInterpolationVelocity(btCollisionObject* body, const btTransform& from, const btTransform& to, btScalar dt) {
-	if (dt <= btScalar(0.)) {
-		return;
-	}
-	btVector3 linVel, angVel;
-	btTransformUtil::calculateVelocity(from, to, dt, linVel, angVel);
-	body->setInterpolationLinearVelocity(linVel);
-	body->setInterpolationAngularVelocity(angVel);
-}
-
-void btDiscreteDynamicsWorld::finishStepSimulation()
-{
-	clearForces();
-
-#ifndef BT_NO_PROFILE
-	CProfileManager::Increment_Frame_Counter();
-#endif //BT_NO_PROFILE
-}
 
 void	btDiscreteDynamicsWorld::internalSingleStepSimulation(btScalar timeStep)
 {
