@@ -13,7 +13,6 @@ public:
   btScalar m_directionalBias;
   int m_zoneId;
   bool m_isOverlapping;
-  bool m_wasOverlapping;
   bool m_enabled;
 
   btBoostZone(
@@ -28,7 +27,6 @@ public:
     , m_directionalBias(directionalBias)
     , m_zoneId(zoneId)
     , m_isOverlapping(false)
-    , m_wasOverlapping(false)
     , m_enabled(true) {}
 
   void setDirection(const btVector3& direction) {

@@ -1,5 +1,7 @@
 {
   "C_Cpp.clang_format_fallbackStyle": "{ BasedOnStyle: Mozilla, ColumnLimit: 120, AlignAfterOpenBracket: BlockIndent, BinPackArguments: true, UseTab: Never, IndentWidth: 2, TabWidth: 1, BreakBeforeBraces: Attach, AllowShortIfStatementsOnASingleLine: true }",
   "cmake.configureOnOpen": true,
-  "clang-format.style": "{ BasedOnStyle: Mozilla, ColumnLimit: 120, AlignAfterOpenBracket: BlockIndent, BinPackArguments: true, UseTab: Never, IndentWidth: 2, TabWidth: 1, BreakBeforeBraces: Attach, AllowShortIfStatementsOnASingleLine: true }"
+  "clang-format.style": "{ BasedOnStyle: Mozilla, ColumnLimit: 120, AlignAfterOpenBracket: BlockIndent, BinPackArguments: true, UseTab: Never, IndentWidth: 2, TabWidth: 1, BreakBeforeBraces: Attach, AllowShortIfStatementsOnASingleLine: true }",
+  "python-envs.defaultEnvManager": "ms-python.python:system",
+  "python-envs.pythonProjects": []
 }

@@ -445,6 +445,14 @@ interface btTriangleMesh {
 };
 btTriangleMesh implements btStridingMeshInterface;
 
+///Indexes into external vertex/index arrays — no data copy, arrays must outlive the object.
+///Wrapper that accepts VoidPtr since WebIDL lacks raw pointer support for primitive types.
+interface btTriangleIndexVertexArrayWrapper {
+  void btTriangleIndexVertexArrayWrapper(long numTriangles, VoidPtr triangleIndexBase, long triangleIndexStride,
+                                         long numVertices, VoidPtr vertexBase, long vertexStride);
+};
+btTriangleIndexVertexArrayWrapper implements btStridingMeshInterface;
+
 enum PHY_ScalarType {
     "PHY_FLOAT",
     "PHY_DOUBLE",
@@ -1068,7 +1076,6 @@ interface btDashToken {
 interface btKinematicCharacterController {
   void btKinematicCharacterController(btPairCachingGhostObject ghostObject, btConvexShape convexShape, float stepHeight, [Const,Ref] optional btVector3 up);
 
-  // ── Input-driven API ───────────────────────────────────────────────────
   // Call setInputState() before each substepSimulation().  The controller
   // computes walk direction and fires jumps/dashes internally.
   void setInputState(long keyFlags, float theta, float phi, boolean movementEnabled);
@@ -1081,13 +1088,14 @@ interface btKinematicCharacterController {
   float getLastJumpTime();
   float getLastDashTime();
   float getDashCharges();
-  [Ref] btVector3 getWalkDirection();
+  [Const, Ref] btVector3 getLastMoveDir();
+  [Const, Ref] btVector3 getLastDashDir();
 
-  // ── Position / teleport ────────────────────────────────────────────────
+  // Position / teleport
   void warp ([Const, Ref]btVector3 origin);
   [Ref] btVector3 getPosition ();
 
-  // ── Physics configuration ─────────────────────────────────────────────
+  // Physics configuration
   void setFallSpeed (float fallSpeed);
   void setJumpSpeed (float jumpSpeed);
   void setGravity ([Const,Ref]btVector3 gravity);
@@ -1107,17 +1115,15 @@ interface btKinematicCharacterController {
   void setGravityShapeKneeWidth(float v);
   void setGravityShapeOnlyJumps(boolean v);
 
-  // ── State getters ──────────────────────────────────────────────────────
+  // State getters
   boolean onGround ();
   float getVerticalVelocity();
-  float getVerticalOffset();
   [Ref] btVector3 getJumpAxis();
   [Ref] btVector3 getExternalVelocity();
   boolean isJumping();
   long getFloorUserIndex();
-  void resetForcedRotation();
 
-  // ── Zone management ────────────────────────────────────────────────────
+  // Zone management
   void addJumpPad(btJumpPad pad);
   void removeJumpPad(btJumpPad pad);
   void addBoostZone(btBoostZone zone);
@@ -1131,13 +1137,13 @@ interface btKinematicCharacterController {
   void restoreDashCheckpointState();
   void resetDashStateForNewRun();
 
-  // ── Event queue — read after each substep ─────────────────────────────
+  // Event queue — read after each substep
   long getNumPendingEvents();
   long getPendingEventId(long index);
   long getPendingEventType(long index);
   void clearPendingEvents();
 
-  // ── Camera ray test ───────────────────────────────────────────────────
+  // Camera ray test
   float cameraRayTest(btDiscreteDynamicsWorld world,
                       float fromX, float fromY, float fromZ,
                       float toX,   float toY,   float toZ);
@@ -1145,7 +1151,7 @@ interface btKinematicCharacterController {
   float getCameraRayHitNormalY();
   float getCameraRayHitNormalZ();
 
-  // ── State serialization (deterministic replay) ────────────────────────
+  // State serialization (deterministic replay)
   long packState(VoidPtr outBuffer);
   void resetForNewRun();
   void resetCollisionCache(btDiscreteDynamicsWorld world, short filterGroup, short filterMask);

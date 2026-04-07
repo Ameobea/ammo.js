@@ -54,11 +54,7 @@ protected:
   btScalar m_maxPenetrationDepth;
 
   // current velocity along the jump axis.  This is 0 when standing on the ground.
-  // I want to remove this in favor of external velocity.
   btScalar m_verticalVelocity;
-  // distance along the jump axis that the player wants to move during this step
-  // I want to remove this in favor of external velocity.
-  btScalar m_verticalOffset;
 
   // velocity that is applied to the player from external sources like jumping, dashing, boosts, etc.
   btVector3 m_externalVelocity;
@@ -73,12 +69,9 @@ protected:
   // A value of 0.2 means that the external velocity will be reduced by 20% every second.
   btVector3 m_externalVelocityGroundDampingFactor;
 
-  // max fall speed
   btScalar m_terminalVelocity;
   btScalar m_defaultJumpSpeed;
-  // Slope angle that is set (used for returning the exact value)
-  btScalar m_maxSlopeRadians;
-  // Cosine equivalent of m_maxSlopeRadians (calculated once when set, for optimization)
+  // cos(the maximum slope angle that the player can walk up in radians)
   btScalar m_maxSlopeCosine;
   btScalar m_gravity;
 
@@ -90,12 +83,10 @@ protected:
   btVector3 m_walkDirection;
   btVector3 m_normalizedDirection;
 
-  // some internal variables
   btVector3 m_currentPosition;
   btScalar m_currentStepOffset;
   btVector3 m_targetPosition;
 
-  /// keep track of the contact manifolds
   btManifoldArray m_manifoldArray;
 
   // if the player was on the ground at the start of the current step
@@ -104,10 +95,6 @@ protected:
   bool m_isJumping;
   btVector3 m_up;
   btVector3 m_jumpAxis;
-
-  // this keeps track of the total rotation that has been applied to the player over the course
-  // of a full step (possibly including multiple substeps)
-  btQuaternion m_forcedRotation;
 
   /// Stores the collision object that the player is standing on.
   ///
@@ -136,7 +123,7 @@ protected:
   btScalar m_gravityShapeFallMultiplier = 1.0;
   btScalar m_gravityShapeApexThreshold = 3.0;
   btScalar m_gravityShapeKneeWidth = 2.0;
-  // If true, gravity shaping only applies when the player is in a jump (m_isJumping == true).
+  // If true, gravity shaping only applies when the player is in a jump (`m_isJumping == true`).
   // Walking off a ledge or other non-jump airborne states will use flat gravity.
   bool m_gravityShapeOnlyJumps = false;
 
@@ -154,13 +141,19 @@ protected:
   btScalar m_cameraRayHitNY = 0;
   btScalar m_cameraRayHitNZ = 0;
 
-  int m_inputKeyFlags = 0;       // bit 0=W, 1=S, 2=A, 3=D, 4=Space, 5=Shift
-  btScalar m_inputTheta = 0;     // camera azimuth (yaw) in radians
-  btScalar m_inputPhi = 0;       // camera elevation (polar from +Y) in radians
+  int m_inputKeyFlags = 0; // bit 0=W, 1=S, 2=A, 3=D, 4=Space, 5=Shift
+  btScalar m_inputTheta = 0; // camera azimuth (yaw) in radians
+  btScalar m_inputPhi = 0; // camera elevation (polar from +Y) in radians
   bool m_inputMovementEnabled = false;
 
+  // Last move direction computed by processInputPreamble (normalized, pre-speed-scale).
+  // Zero vector when no movement input.
+  btVector3 m_lastMoveDir = btVector3(0, 0, 0);
+  // Last dash direction computed when a dash fired.  Undefined until first dash.
+  btVector3 m_lastDashDir = btVector3(0, 0, 0);
+
   // If true, WASD maps to world-axis movement (top-down camera).
-  // If false, forward/left are derived from m_inputTheta (first/third person).
+  // If false, forward/left are derived from `m_inputTheta` (first/third person).
   bool m_topDownMode = false;
 
   btScalar m_moveSpeedGround = btScalar(12);
@@ -171,16 +164,15 @@ protected:
   btScalar m_lastJumpTime    = btScalar(-1e30);
   btScalar m_lastGroundedTime = btScalar(-1e30);
 
-  bool     m_dashEnabled             = false;
-  btScalar m_dashMagnitude           = btScalar(16);
-  btScalar m_minDashDelaySeconds     = btScalar(0.85);
-  bool     m_dashUseExternalVelocity = false;
-  btScalar m_dashCharges             = INFINITY;
-  btScalar m_initialDashCharges      = INFINITY;
-  btScalar m_checkpointDashCharges   = INFINITY;
-
+  bool m_dashEnabled = false;
+  btScalar m_dashMagnitude = btScalar(16);
+  btScalar m_minDashDelaySeconds = btScalar(0.85);
+  bool m_dashUseExternalVelocity = false;
+  btScalar m_dashCharges = INFINITY;
+  btScalar m_initialDashCharges = INFINITY;
+  btScalar m_checkpointDashCharges = INFINITY;
   btScalar m_lastDashTime       = btScalar(-1e30);
-  bool     m_dashNeedsGroundTouch = false;
+  bool m_dashNeedsGroundTouch = false;
 
   void processInputPreamble(btScalar dt);
 
@@ -197,12 +189,12 @@ protected:
 
   bool recoverFromPenetration(btCollisionWorld * collisionWorld);
   void recoverPreExistingPenetration(btCollisionWorld * collisionWorld);
-  void stepUp(btCollisionWorld * collisionWorld);
+  void stepUp(btCollisionWorld* collisionWorld, btScalar& verticalOffset);
   void updateTargetPositionBasedOnCollision(
     const btVector3& hit_normal, btScalar tangentMag = btScalar(0.0), btScalar normalMag = btScalar(1.0)
   );
-  void stepForwardAndStrafe(btCollisionWorld * collisionWorld, btScalar dt);
-  void stepDown(btCollisionWorld * collisionWorld, btScalar dt);
+  void stepForwardAndStrafe(btCollisionWorld* collisionWorld, btScalar dt, btScalar verticalOffset);
+  void stepDown(btCollisionWorld* collisionWorld, btScalar dt);
 
   virtual bool needsCollision(const btCollisionObject* body0, const btCollisionObject* body1);
 
@@ -233,9 +225,7 @@ public:
 
   void setUp(const btVector3& up);
 
-  const btVector3& getUp() {
-    return m_up;
-  }
+  const btVector3& getUp() { return m_up; }
 
   /// This should probably be called setPositionIncrementPerSimulatorStep.
   /// This is neither a direction nor a velocity, but the amount to increment the position each simulation iteration,
@@ -251,7 +241,7 @@ public:
   void preStep(btCollisionWorld * collisionWorld);
   void playerStep(btCollisionWorld * collisionWorld, btScalar dt);
 
-  void setStepHeight(btScalar h);
+  void setStepHeight(btScalar h) { m_stepHeight = h; }
 
   void setFallSpeed(btScalar fallSpeed) {
     m_terminalVelocity = fallSpeed;
@@ -261,26 +251,18 @@ public:
 
   void jump(const btVector3& v = btVector3(0, 0, 0));
 
-  void applyImpulse(const btVector3& v) {
-    jump(v);
-  }
+  void applyImpulse(const btVector3& v) { jump(v); }
 
   void setGravity(const btVector3& gravity);
 
-  /// The max slope determines the maximum angle that the controller can walk up.
-  ///
-  /// The slope angle is measured in radians.
-  void setMaxSlope(btScalar slopeRadians);
+  /// Max angle that the controller can walk up in radians
+  void setMaxSlope(btScalar slopeRadians) { m_maxSlopeCosine = btCos(slopeRadians); }
 
-  void setMaxPenetrationDepth(btScalar d);
+  void setMaxPenetrationDepth(btScalar d) { m_maxPenetrationDepth = d; }
 
-  bool onGround() const {
-    return m_onGround;
-  }
+  bool onGround() const { return m_onGround; }
 
-  btScalar getVerticalVelocity() const {
-    return m_verticalVelocity;
-  }
+  btScalar getVerticalVelocity() const { return m_verticalVelocity; }
 
   void setVerticalVelocity(btScalar v) {
     m_verticalVelocity = v;
@@ -297,29 +279,15 @@ public:
     }
   }
 
-  btScalar getVerticalOffset() const {
-    return m_verticalOffset;
-  }
+  btVector3& getJumpAxis() { return m_jumpAxis; }
 
-  btVector3& getJumpAxis() {
-    return m_jumpAxis;
-  }
+  void addExternalVelocity(const btVector3& v) { m_externalVelocity += v; }
 
-  void addExternalVelocity(const btVector3& v) {
-    m_externalVelocity += v;
-  }
+  void setExternalVelocity(const btVector3& v) { m_externalVelocity = v; }
 
-  void setExternalVelocity(const btVector3& v) {
-    m_externalVelocity = v;
-  }
+  void setExternalVelocityAirDampingFactor(const btVector3& v) { m_externalVelocityAirDampingFactor = v; }
 
-  void setExternalVelocityAirDampingFactor(const btVector3& v) {
-    m_externalVelocityAirDampingFactor = v;
-  }
-
-  void setExternalVelocityGroundDampingFactor(const btVector3& v) {
-    m_externalVelocityGroundDampingFactor = v;
-  }
+  void setExternalVelocityGroundDampingFactor(const btVector3& v) { m_externalVelocityGroundDampingFactor = v; }
 
   void setInputState(int keyFlags, btScalar theta, btScalar phi, bool movementEnabled) {
     m_inputKeyFlags = keyFlags;
@@ -333,17 +301,11 @@ public:
     m_moveSpeedInAir  = air;
   }
 
-  void setTopDownMode(bool topDown) {
-    m_topDownMode = topDown;
-  }
+  void setTopDownMode(bool topDown) { m_topDownMode = topDown; }
 
-  void setMinJumpDelay(btScalar seconds) {
-    m_minJumpDelaySeconds = seconds;
-  }
+  void setMinJumpDelay(btScalar seconds) { m_minJumpDelaySeconds = seconds; }
 
-  void setCoyoteTime(btScalar seconds) {
-    m_coyoteTimeDuration = seconds;
-  }
+  void setCoyoteTime(btScalar seconds) { m_coyoteTimeDuration = seconds; }
 
   void setDashConfig(bool enabled, btScalar magnitude, btScalar minDelay, bool useExternalVelocity) {
     m_dashEnabled             = enabled;
@@ -356,7 +318,11 @@ public:
   btScalar getLastDashTime() const { return m_lastDashTime; }
   void setDashCharges(btScalar charges) { m_dashCharges = charges; }
   btScalar getDashCharges() const { return m_dashCharges; }
-  btVector3& getWalkDirection() { return m_walkDirection; }
+  // Returns the normalized horizontal move direction from the last subtick (pre-speed-scale).
+  // Zero when no movement keys are held.
+  const btVector3& getLastMoveDir() const { return m_lastMoveDir; }
+  // Returns the dash direction from the last dash that fired
+  const btVector3& getLastDashDir() const { return m_lastDashDir; }
 
   void setGravityShapeRiseMultiplier(btScalar v) { m_gravityShapeRiseMultiplier = v; }
   void setGravityShapeApexMultiplier(btScalar v) { m_gravityShapeApexMultiplier = v; }
@@ -365,53 +331,27 @@ public:
   void setGravityShapeKneeWidth(btScalar v) { m_gravityShapeKneeWidth = v; }
   void setGravityShapeOnlyJumps(bool v) { m_gravityShapeOnlyJumps = v; }
 
-  btVector3& getExternalVelocity() {
-    return m_externalVelocity;
-  }
+  btVector3& getExternalVelocity() { return m_externalVelocity; }
 
-  void resetForcedRotation() {
-    m_forcedRotation.setValue(0., 0., 0., 1.);
-  }
+  bool isJumping() const { return m_isJumping; }
 
-  bool isJumping() const {
-    return m_isJumping;
-  }
+  int getFloorUserIndex() const { return m_floorUserIndex; }
 
-  int getFloorUserIndex() const {
-    return m_floorUserIndex;
-  }
+  void addJumpPad(btJumpPad* pad) { m_jumpPads.push_back(pad); }
 
-  void addJumpPad(btJumpPad* pad) {
-    m_jumpPads.push_back(pad);
-  }
+  void removeJumpPad(btJumpPad* pad) { m_jumpPads.remove(pad); }
 
-  void removeJumpPad(btJumpPad* pad) {
-    m_jumpPads.remove(pad);
-  }
+  void addBoostZone(btBoostZone* zone) { m_boostZones.push_back(zone); }
 
-  void addBoostZone(btBoostZone* zone) {
-    m_boostZones.push_back(zone);
-  }
+  void removeBoostZone(btBoostZone* zone) { m_boostZones.remove(zone); }
 
-  void removeBoostZone(btBoostZone* zone) {
-    m_boostZones.remove(zone);
-  }
+  void addSensor(btSensor* sensor) { m_sensors.push_back(sensor); }
 
-  void addSensor(btSensor* sensor) {
-    m_sensors.push_back(sensor);
-  }
+  void removeSensor(btSensor* sensor) { m_sensors.remove(sensor); }
 
-  void removeSensor(btSensor* sensor) {
-    m_sensors.remove(sensor);
-  }
+  void addDashToken(btDashToken* token) { m_dashTokens.push_back(token); }
 
-  void addDashToken(btDashToken* token) {
-    m_dashTokens.push_back(token);
-  }
-
-  void removeDashToken(btDashToken* token) {
-    m_dashTokens.remove(token);
-  }
+  void removeDashToken(btDashToken* token) { m_dashTokens.remove(token); }
 
   void captureInitialDashState() {
     m_initialDashCharges = m_dashCharges;
@@ -449,22 +389,13 @@ public:
     }
   }
 
-  // Event queue access - read from JS after each substep
-  int getNumPendingEvents() const {
-    return m_pendingEvents.size();
-  }
+  int getNumPendingEvents() const { return m_pendingEvents.size(); }
 
-  int getPendingEventId(int index) const {
-    return m_pendingEvents[index].m_zoneId;
-  }
+  int getPendingEventId(int index) const { return m_pendingEvents[index].m_zoneId; }
 
-  int getPendingEventType(int index) const {
-    return m_pendingEvents[index].m_eventType;
-  }
+  int getPendingEventType(int index) const { return m_pendingEvents[index].m_eventType; }
 
-  void clearPendingEvents() {
-    m_pendingEvents.resize(0);
-  }
+  void clearPendingEvents() { m_pendingEvents.resize(0); }
 
   float cameraRayTest(btCollisionWorld* world,
                       btScalar fromX, btScalar fromY, btScalar fromZ,
@@ -478,17 +409,10 @@ public:
 
   /// Reset all dynamic gameplay state to match a freshly-constructed controller.
   /// Does NOT touch configuration (gravity, step height, damping, collider shape, etc.)
-  /// or position (call warp() separately).
-  /// Remove and re-add the ghost object from the collision world to flush all
-  /// cached broadphase pairs, contact manifolds, and collision algorithms
-  /// involving the player.  Call after warp() so the fresh proxy gets the
-  /// correct AABB.
-  void resetCollisionCache(btDiscreteDynamicsWorld* world,
-                           short filterGroup, short filterMask);
+  void resetCollisionCache(btDiscreteDynamicsWorld* world, short filterGroup, short filterMask);
 
   void resetForNewRun() {
     m_verticalVelocity = 0;
-    m_verticalOffset = 0;
     m_externalVelocity.setValue(0, 0, 0);
     m_walkDirection.setValue(0, 0, 0);
     m_normalizedDirection.setValue(0, 0, 0);
@@ -497,7 +421,6 @@ public:
     m_onGround = false;
     m_isJumping = false;
     m_jumpAxis = m_up;
-    m_forcedRotation.setValue(0, 0, 0, 1);
     m_floorObject = nullptr;
     m_floorUserIndex = -1;
     m_totalElapsedTime = 0;

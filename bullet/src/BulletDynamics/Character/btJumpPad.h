@@ -14,7 +14,7 @@ public:
   btScalar m_cooldownSeconds;
   btScalar m_lastTriggerTime;
   int m_zoneId;
-  bool m_wasOverlapping;
+  bool m_isOverlapping;
   bool m_enabled;
 
   btJumpPad(
@@ -31,7 +31,7 @@ public:
     , m_cooldownSeconds(cooldownSeconds)
     , m_lastTriggerTime(-1000)
     , m_zoneId(zoneId)
-    , m_wasOverlapping(false)
+    , m_isOverlapping(false)
     , m_enabled(true) {}
 
   void setDirection(const btVector3& direction) {
