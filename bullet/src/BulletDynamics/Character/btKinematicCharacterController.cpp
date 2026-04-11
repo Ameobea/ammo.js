@@ -29,6 +29,8 @@ software.
 #include "BulletCollision/CollisionDispatch/btGhostObject.h"
 #include "BulletCollision/CollisionShapes/btMultiSphereShape.h"
 #include "BulletCollision/NarrowPhaseCollision/btRaycastCallback.h"
+#include "BulletCollision/CollisionDispatch/btInternalEdgeUtility.h"
+#include "BulletCollision/CollisionDispatch/btCollisionObjectWrapper.h"
 #include "LinearMath/btDefaultMotionState.h"
 #include "LinearMath/btIDebugDraw.h"
 #include <stdio.h>
@@ -82,15 +84,35 @@ public:
       return 1.;
     }
 
-    btVector3 hitNormalWorld = normalInWorldSpace ? convexResult.m_hitNormalLocal
-                                                  : convexResult.m_hitNormalLocal * convexResult.m_hitCollisionObject->getWorldTransform().getBasis();
+    btVector3 hitNormalWorld;
+    if (normalInWorldSpace) {
+      hitNormalWorld = convexResult.m_hitNormalLocal;
+    } else {
+      hitNormalWorld = convexResult.m_hitCollisionObject->getWorldTransform().getBasis() * convexResult.m_hitNormalLocal;
+    }
+
+    if (convexResult.m_localShapeInfo) {
+      btCollisionObjectWrapper obj0Wrap(0, convexResult.m_hitCollisionObject->getCollisionShape(), convexResult.m_hitCollisionObject, convexResult.m_hitCollisionObject->getWorldTransform(), -1, -1);
+      btCollisionObjectWrapper obj1Wrap(0, m_me->getCollisionShape(), m_me, m_me->getWorldTransform(), -1, -1);
+
+      btManifoldPoint dummyPt;
+      dummyPt.m_normalWorldOnB = hitNormalWorld;
+      dummyPt.m_localPointB = convexResult.m_hitCollisionObject->getWorldTransform().invXform(convexResult.m_hitPointLocal);
+
+      btAdjustInternalEdgeContacts(dummyPt, &obj0Wrap, &obj1Wrap, convexResult.m_localShapeInfo->m_shapePart, convexResult.m_localShapeInfo->m_triangleIndex);
+      hitNormalWorld = dummyPt.m_normalWorldOnB;
+    }
 
     btScalar dotUp = m_up.dot(hitNormalWorld);
     if (dotUp < m_minSlopeDot) {
       return 1.0;
     }
 
-    return ClosestConvexResultCallback::addSingleResult(convexResult, normalInWorldSpace);
+    // Update the result with the (possibly adjusted) normal
+    btScalar fraction = ClosestConvexResultCallback::addSingleResult(convexResult, normalInWorldSpace);
+    m_hitNormalWorld = hitNormalWorld;
+
+    return fraction;
   }
 
 protected:
@@ -188,7 +210,18 @@ bool btKinematicCharacterController::recoverFromPenetration(btCollisionWorld* co
       btPersistentManifold* manifold = m_manifoldArray[j];
       btScalar directionSign = manifold->getBody0() == m_ghostObject ? btScalar(-1.0) : btScalar(1.0);
       for (int p = 0; p < manifold->getNumContacts(); p++) {
-        const btManifoldPoint& pt = manifold->getContactPoint(p);
+        btManifoldPoint& pt = manifold->getContactPoint(p);
+
+        if (pt.m_distance1 < 0) {
+          btCollisionObjectWrapper obj0Wrap(0, manifold->getBody0()->getCollisionShape(), manifold->getBody0(), manifold->getBody0()->getWorldTransform(), -1, -1);
+          btCollisionObjectWrapper obj1Wrap(0, manifold->getBody1()->getCollisionShape(), manifold->getBody1(), manifold->getBody1()->getWorldTransform(), -1, -1);
+
+          if (manifold->getBody0() == m_ghostObject) {
+            btAdjustInternalEdgeContacts(pt, &obj1Wrap, &obj0Wrap, pt.m_partId1, pt.m_index1);
+          } else {
+            btAdjustInternalEdgeContacts(pt, &obj0Wrap, &obj1Wrap, pt.m_partId0, pt.m_index0);
+          }
+        }
 
         btScalar dist = pt.getDistance();
 

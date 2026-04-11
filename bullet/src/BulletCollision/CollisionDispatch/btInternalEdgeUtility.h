@@ -26,8 +26,11 @@ enum btInternalEdgeAdjustFlags
 };
 
 
-///Call btGenerateInternalEdgeInfo to create triangle info, store in the shape 'userInfo'
-void	btGenerateInternalEdgeInfo (btBvhTriangleMeshShape*trimeshShape, btTriangleInfoMap* triangleInfoMap);
+class btInternalEdgeUtility
+{
+public:
+	static void	btGenerateInternalEdgeInfo (btBvhTriangleMeshShape*trimeshShape, btTriangleInfoMap* triangleInfoMap);
+};
 
 
 ///Call the btFixMeshNormal to adjust the collision normal, using the triangle info map (generated using btGenerateInternalEdgeInfo)

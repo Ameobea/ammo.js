@@ -480,10 +480,26 @@ btConcaveShape implements btCollisionShape;
 // };
 // btTriangleMeshShape implements btConcaveShape;
 
+interface btTriangleInfoMap {
+  void btTriangleInfoMap();
+  attribute float m_convexEpsilon;
+  attribute float m_planarEpsilon;
+  attribute float m_equalVertexThreshold;
+  attribute float m_edgeDistanceThreshold;
+  attribute float m_maxEdgeAngleThreshold;
+  attribute float m_zeroAreaThreshold;
+};
+
 interface btBvhTriangleMeshShape {
   void btBvhTriangleMeshShape(btStridingMeshInterface meshInterface, boolean useQuantizedAabbCompression, optional boolean buildBvh);
+  void setTriangleInfoMap(btTriangleInfoMap triangleInfoMap);
+  btTriangleInfoMap getTriangleInfoMap();
 };
 // btBvhTriangleMeshShape implements btTriangleMeshShape;
+
+interface btInternalEdgeUtility {
+  static void btGenerateInternalEdgeInfo(btBvhTriangleMeshShape trimeshShape, btTriangleInfoMap triangleInfoMap);
+};
 
 interface btHeightfieldTerrainShape {
     void btHeightfieldTerrainShape(long heightStickWidth, long heightStickLength, VoidPtr heightfieldData, float heightScale, float minHeight, float maxHeight, long upAxis, PHY_ScalarType hdt, boolean flipQuadEdges);

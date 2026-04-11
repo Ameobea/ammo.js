@@ -312,7 +312,7 @@ struct btConnectivityProcessor : public btTriangleCallback
 /////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////
 
-void btGenerateInternalEdgeInfo (btBvhTriangleMeshShape*trimeshShape, btTriangleInfoMap* triangleInfoMap)
+void btInternalEdgeUtility::btGenerateInternalEdgeInfo (btBvhTriangleMeshShape*trimeshShape, btTriangleInfoMap* triangleInfoMap)
 {
 	//the user pointer shouldn't already be used for other purposes, we intend to store connectivity info there!
 	if (trimeshShape->getTriangleInfoMap())
