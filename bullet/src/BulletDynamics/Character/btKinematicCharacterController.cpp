@@ -28,12 +28,14 @@ software.
 #include "BulletDynamics/Dynamics/btDiscreteDynamicsWorld.h"
 #include "BulletCollision/CollisionDispatch/btGhostObject.h"
 #include "BulletCollision/CollisionShapes/btMultiSphereShape.h"
+#include "BulletCollision/CollisionShapes/btBvhTriangleMeshShape.h"
+#include "BulletCollision/CollisionShapes/btScaledBvhTriangleMeshShape.h"
+#include "BulletCollision/CollisionShapes/btTriangleShape.h"
 #include "BulletCollision/NarrowPhaseCollision/btRaycastCallback.h"
 #include "BulletCollision/CollisionDispatch/btInternalEdgeUtility.h"
 #include "BulletCollision/CollisionDispatch/btCollisionObjectWrapper.h"
 #include "LinearMath/btDefaultMotionState.h"
 #include "LinearMath/btIDebugDraw.h"
-#include <stdio.h>
 #include <cstring>
 
 static btVector3 getNormalizedVector(const btVector3& v) {
@@ -51,6 +53,112 @@ static btVector3 getNormalizedVector(const btVector3& v) {
 //
 // setting to higher values may reduce or prevent some cases where penetration cannot be recovered from
 #define PENETRATION_RECOVERY_PER_ITER 3.
+
+static bool btBuildInternalEdgeTriangleShape(
+  const btCollisionObject* collisionObject,
+  int partId,
+  int triangleIndex,
+  btTriangleShape& triangleShape
+) {
+  if (!collisionObject || partId < 0 || triangleIndex < 0) {
+    return false;
+  }
+
+  const btCollisionShape* collisionShape = collisionObject->getCollisionShape();
+  if (!collisionShape) {
+    return false;
+  }
+
+  const btBvhTriangleMeshShape* trimesh = 0;
+  btVector3 shapeScaling(1, 1, 1);
+
+  switch (collisionShape->getShapeType()) {
+    case TRIANGLE_MESH_SHAPE_PROXYTYPE:
+      trimesh = static_cast<const btBvhTriangleMeshShape*>(collisionShape);
+      break;
+    case SCALED_TRIANGLE_MESH_SHAPE_PROXYTYPE: {
+      const btScaledBvhTriangleMeshShape* scaledShape =
+        static_cast<const btScaledBvhTriangleMeshShape*>(collisionShape);
+      trimesh = scaledShape->getChildShape();
+      shapeScaling = scaledShape->getLocalScaling();
+      break;
+    }
+    default:
+      return false;
+  }
+
+  if (!trimesh) {
+    return false;
+  }
+
+  const btStridingMeshInterface* meshInterface = trimesh->getMeshInterface();
+  if (!meshInterface || partId >= meshInterface->getNumSubParts()) {
+    return false;
+  }
+
+  const unsigned char* vertexbase = 0;
+  int numverts = 0;
+  PHY_ScalarType type = PHY_INTEGER;
+  int stride = 0;
+  const unsigned char* indexbase = 0;
+  int indexstride = 0;
+  int numfaces = 0;
+  PHY_ScalarType indicestype = PHY_INTEGER;
+
+  meshInterface->getLockedReadOnlyVertexIndexBase(
+    &vertexbase,
+    numverts,
+    type,
+    stride,
+    &indexbase,
+    indexstride,
+    numfaces,
+    indicestype,
+    partId
+  );
+
+  if (triangleIndex >= numfaces) {
+    meshInterface->unLockReadOnlyVertexBase(partId);
+    return false;
+  }
+
+  unsigned int* gfxbase = (unsigned int*)(indexbase + triangleIndex * indexstride);
+  btAssert(indicestype == PHY_INTEGER || indicestype == PHY_SHORT || indicestype == PHY_UCHAR);
+
+  const btVector3& meshScaling = meshInterface->getScaling();
+  const btVector3 totalScaling(
+    meshScaling.getX() * shapeScaling.getX(),
+    meshScaling.getY() * shapeScaling.getY(),
+    meshScaling.getZ() * shapeScaling.getZ()
+  );
+
+  for (int j = 2; j >= 0; --j) {
+    const int graphicsindex =
+      indicestype == PHY_SHORT
+        ? ((unsigned short*)gfxbase)[j]
+        : indicestype == PHY_INTEGER ? gfxbase[j] : ((unsigned char*)gfxbase)[j];
+
+    if (type == PHY_FLOAT) {
+      const float* graphicsbase = (const float*)(vertexbase + graphicsindex * stride);
+      triangleShape.getVertexPtr(j).setValue(
+        graphicsbase[0] * totalScaling.getX(),
+        graphicsbase[1] * totalScaling.getY(),
+        graphicsbase[2] * totalScaling.getZ()
+      );
+    } else {
+      const double* graphicsbase = (const double*)(vertexbase + graphicsindex * stride);
+      triangleShape.getVertexPtr(j).setValue(
+        btScalar(graphicsbase[0]) * totalScaling.getX(),
+        btScalar(graphicsbase[1]) * totalScaling.getY(),
+        btScalar(graphicsbase[2]) * totalScaling.getZ()
+      );
+    }
+  }
+
+  meshInterface->unLockReadOnlyVertexBase(partId);
+  triangleShape.setMargin(collisionShape->getMargin());
+  return true;
+}
 
 class btKinematicClosestNotMeRayResultCallback : public btCollisionWorld::ClosestRayResultCallback {
 public:
@@ -95,12 +203,35 @@ public:
       btCollisionObjectWrapper obj0Wrap(0, convexResult.m_hitCollisionObject->getCollisionShape(), convexResult.m_hitCollisionObject, convexResult.m_hitCollisionObject->getWorldTransform(), -1, -1);
       btCollisionObjectWrapper obj1Wrap(0, m_me->getCollisionShape(), m_me, m_me->getWorldTransform(), -1, -1);
 
-      btManifoldPoint dummyPt;
-      dummyPt.m_normalWorldOnB = hitNormalWorld;
-      dummyPt.m_localPointB = convexResult.m_hitCollisionObject->getWorldTransform().invXform(convexResult.m_hitPointLocal);
+      btTriangleShape triShape;
+      if (btBuildInternalEdgeTriangleShape(
+            convexResult.m_hitCollisionObject,
+            convexResult.m_localShapeInfo->m_shapePart,
+            convexResult.m_localShapeInfo->m_triangleIndex,
+            triShape
+          )) {
+        btCollisionObjectWrapper triObj0Wrap(
+          &obj0Wrap,
+          &triShape,
+          convexResult.m_hitCollisionObject,
+          convexResult.m_hitCollisionObject->getWorldTransform(),
+          convexResult.m_localShapeInfo->m_shapePart,
+          convexResult.m_localShapeInfo->m_triangleIndex
+        );
 
-      btAdjustInternalEdgeContacts(dummyPt, &obj0Wrap, &obj1Wrap, convexResult.m_localShapeInfo->m_shapePart, convexResult.m_localShapeInfo->m_triangleIndex);
-      hitNormalWorld = dummyPt.m_normalWorldOnB;
+        btManifoldPoint dummyPt;
+        dummyPt.m_normalWorldOnB = hitNormalWorld;
+        dummyPt.m_localPointB = convexResult.m_hitCollisionObject->getWorldTransform().invXform(convexResult.m_hitPointLocal);
+
+        btAdjustInternalEdgeContacts(
+          dummyPt,
+          &triObj0Wrap,
+          &obj1Wrap,
+          convexResult.m_localShapeInfo->m_shapePart,
+          convexResult.m_localShapeInfo->m_triangleIndex
+        );
+        hitNormalWorld = dummyPt.m_normalWorldOnB;
+      }
     }
 
     btScalar dotUp = m_up.dot(hitNormalWorld);
@@ -217,9 +348,31 @@ bool btKinematicCharacterController::recoverFromPenetration(btCollisionWorld* co
           btCollisionObjectWrapper obj1Wrap(0, manifold->getBody1()->getCollisionShape(), manifold->getBody1(), manifold->getBody1()->getWorldTransform(), -1, -1);
 
           if (manifold->getBody0() == m_ghostObject) {
-            btAdjustInternalEdgeContacts(pt, &obj1Wrap, &obj0Wrap, pt.m_partId1, pt.m_index1);
+            btTriangleShape triShape;
+            if (btBuildInternalEdgeTriangleShape(manifold->getBody1(), pt.m_partId1, pt.m_index1, triShape)) {
+              btCollisionObjectWrapper triObj1Wrap(
+                &obj1Wrap,
+                &triShape,
+                manifold->getBody1(),
+                manifold->getBody1()->getWorldTransform(),
+                pt.m_partId1,
+                pt.m_index1
+              );
+              btAdjustInternalEdgeContacts(pt, &triObj1Wrap, &obj0Wrap, pt.m_partId1, pt.m_index1);
+            }
           } else {
-            btAdjustInternalEdgeContacts(pt, &obj0Wrap, &obj1Wrap, pt.m_partId0, pt.m_index0);
+            btTriangleShape triShape;
+            if (btBuildInternalEdgeTriangleShape(manifold->getBody0(), pt.m_partId0, pt.m_index0, triShape)) {
+              btCollisionObjectWrapper triObj0Wrap(
+                &obj0Wrap,
+                &triShape,
+                manifold->getBody0(),
+                manifold->getBody0()->getWorldTransform(),
+                pt.m_partId0,
+                pt.m_index0
+              );
+              btAdjustInternalEdgeContacts(pt, &triObj0Wrap, &obj1Wrap, pt.m_partId0, pt.m_index0);
+            }
           }
         }
 

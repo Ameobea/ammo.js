@@ -7,6 +7,7 @@
 #include "BulletCollision/NarrowPhaseCollision/btManifoldPoint.h"
 #include "LinearMath/btIDebugDraw.h"
 #include "BulletCollision/CollisionDispatch/btCollisionObjectWrapper.h"
+#include <stdio.h>
 
 //#define DEBUG_INTERNAL_EDGE
 
@@ -378,7 +379,6 @@ void btInternalEdgeUtility::btGenerateInternalEdgeInfo (btBvhTriangleMeshShape*t
 
 			trimeshShape->processAllTriangles(&connectivityProcessor,aabbMin,aabbMax);
 		}
-
 	}
 
 }
@@ -462,6 +462,10 @@ void btAdjustInternalEdgeContacts(btManifoldPoint& cp, const btCollisionObjectWr
 	   trimesh = ((btScaledBvhTriangleMeshShape*)colObj0Wrap->getCollisionObject()->getCollisionShape())->getChildShape();
    else	   
 	   trimesh = (btBvhTriangleMeshShape*)colObj0Wrap->getCollisionObject()->getCollisionShape();
+
+	if (!trimesh) {
+		return;
+	}
 	   
    	btTriangleInfoMap* triangleInfoMapPtr = (btTriangleInfoMap*) trimesh->getTriangleInfoMap();
 	if (!triangleInfoMapPtr)
@@ -475,6 +479,7 @@ void btAdjustInternalEdgeContacts(btManifoldPoint& cp, const btCollisionObjectWr
 		return;
 
 	btScalar frontFacing = (normalAdjustFlags & BT_TRIANGLE_CONVEX_BACKFACE_MODE)==0? 1.f : -1.f;
+	const btVector3 originalNormalWorldOnB = cp.m_normalWorldOnB;
 	
 	const btTriangleShape* tri_shape = static_cast<const btTriangleShape*>(colObj0Wrap->getCollisionShape());
 	btVector3 v0,v1,v2;
