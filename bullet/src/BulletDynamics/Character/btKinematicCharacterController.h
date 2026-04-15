@@ -129,6 +129,21 @@ protected:
 
   btScalar computeShapedGravity() const;
 
+  // Slope sliding: when standing on a walkable surface steeper than m_slopeSlideMinAngle,
+  // the player slides downhill.  Disabled by default (minAngle = 0 means off).
+  //
+  // m_slopeSlideMinAngle: minimum surface angle (radians from horizontal) at which sliding begins.
+  //   0 = disabled.  e.g. 0.17 (~10 degrees) means any surface tilted ≥10° causes sliding.
+  // m_slopeSlideMaxSpeed: maximum downhill slide speed (units/sec) reached at m_maxSlope.
+  //   The actual speed is interpolated linearly between 0 (at minAngle) and this value (at maxSlope).
+  btScalar m_slopeSlideMinAngle = 0;
+  btScalar m_slopeSlideMaxSpeed = btScalar(5.0);
+  // Cached cos of m_slopeSlideMinAngle for comparison with dot products.
+  btScalar m_slopeSlideMinAngleCosine = 1.0;
+
+  // Stores the floor contact normal from stepDown, used for slope sliding.
+  btVector3 m_floorNormal = btVector3(0, 1, 0);
+
   btAlignedObjectArray<btJumpPad*> m_jumpPads;
   btAlignedObjectArray<btBoostZone*> m_boostZones;
   btAlignedObjectArray<btSensor*> m_sensors;
@@ -140,6 +155,8 @@ protected:
   btScalar m_cameraRayHitNX = 0;
   btScalar m_cameraRayHitNY = 0;
   btScalar m_cameraRayHitNZ = 0;
+  // True when the last cameraRayTest hit an object tagged non-permeable (userIndex2 > 0).
+  bool m_cameraRayHitNonPermeable = false;
 
   int m_inputKeyFlags = 0; // bit 0=W, 1=S, 2=A, 3=D, 4=Space, 5=Shift
   btScalar m_inputTheta = 0; // camera azimuth (yaw) in radians
@@ -259,6 +276,14 @@ public:
   void setMaxSlope(btScalar slopeRadians) { m_maxSlopeCosine = btCos(slopeRadians); }
 
   void setMaxPenetrationDepth(btScalar d) { m_maxPenetrationDepth = d; }
+
+  /// Configure slope sliding.  Surfaces steeper than minAngle (radians) cause the
+  /// player to slide downhill at up to maxSpeed (units/sec).  Set minAngle to 0 to disable.
+  void setSlopeSlide(btScalar minAngle, btScalar maxSpeed) {
+    m_slopeSlideMinAngle = minAngle;
+    m_slopeSlideMaxSpeed = maxSpeed;
+    m_slopeSlideMinAngleCosine = btCos(minAngle);
+  }
 
   bool onGround() const { return m_onGround; }
 
@@ -404,6 +429,7 @@ public:
   float getCameraRayHitNormalX() const { return m_cameraRayHitNX; }
   float getCameraRayHitNormalY() const { return m_cameraRayHitNY; }
   float getCameraRayHitNormalZ() const { return m_cameraRayHitNZ; }
+  bool getCameraRayHitNonPermeable() const { return m_cameraRayHitNonPermeable; }
 
   int packState(void* outBuffer) const;
 

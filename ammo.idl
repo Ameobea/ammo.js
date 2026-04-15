@@ -149,6 +149,7 @@ interface btCollisionObject {
   // void setCcdSweptSphereRadius (float radius);
   // long getUserIndex();
   void setUserIndex(long index);
+  void setUserIndex2(long index);
   // VoidPtr getUserPointer();
   // void setUserPointer(VoidPtr userPointer);
   // [Const] btBroadphaseProxy getBroadphaseHandle();
@@ -1121,6 +1122,7 @@ interface btKinematicCharacterController {
   void setExternalVelocity ([Const,Ref] btVector3 velocity);
   void setExternalVelocityAirDampingFactor ([Const,Ref] btVector3 damping);
   void setExternalVelocityGroundDampingFactor ([Const,Ref] btVector3 damping);
+  void setSlopeSlide (float minAngle, float maxSpeed);
   void setOnGround (boolean onGround);
   void setVerticalVelocity (float vel);
 
@@ -1166,6 +1168,7 @@ interface btKinematicCharacterController {
   float getCameraRayHitNormalX();
   float getCameraRayHitNormalY();
   float getCameraRayHitNormalZ();
+  boolean getCameraRayHitNonPermeable();
 
   // State serialization (deterministic replay)
   long packState(VoidPtr outBuffer);

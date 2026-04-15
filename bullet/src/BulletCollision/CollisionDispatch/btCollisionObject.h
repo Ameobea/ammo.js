@@ -94,6 +94,9 @@ protected:
 		int	m_userIndex;
 	};
 
+	/// Secondary user index, unused by Bullet.  Applications may use this for per-object tags.
+	int m_userIndex2;
+
 	/// time of impact calculation
 	btScalar		m_hitFraction; 
 	
@@ -418,6 +421,10 @@ public:
 		return m_userIndex;
 	}
 
+	int	getUserIndex2() const {
+		return m_userIndex2;
+	}
+
 	/// users can point to their objects, userPointer is not used by Bullet
 	void setUserPointer(void* userPointer) {
 		m_userObjectPointer = userPointer;
@@ -426,6 +433,10 @@ public:
 	/// users can point to their objects, userPointer is not used by Bullet
 	void setUserIndex(int index) {
 		m_userIndex = index;
+	}
+
+	void setUserIndex2(int index) {
+		m_userIndex2 = index;
 	}
 
 	int	getUpdateRevisionInternal() const {

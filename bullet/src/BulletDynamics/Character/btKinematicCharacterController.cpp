@@ -379,8 +379,24 @@ bool btKinematicCharacterController::recoverFromPenetration(btCollisionWorld* co
         btScalar dist = pt.getDistance();
 
         if (dist < -m_maxPenetrationDepth) {
+          btVector3 recovery = pt.m_normalWorldOnB * directionSign * dist *
+                               btScalar(1. / (btScalar(MAX_PENETRATION_LOOPS) / PENETRATION_RECOVERY_PER_ITER));
+
+          // For walkable surfaces, only recover vertically to prevent slope sliding.
+          // Without this, the recovery push along the surface normal has a horizontal
+          // component that causes the player to slide on inclines and slip off edges.
+          btScalar normalDotUp = (pt.m_normalWorldOnB * directionSign).dot(m_up);
+          if (m_onGround && btFabs(normalDotUp) > m_maxSlopeCosine) {
+            btScalar verticalAmount = recovery.dot(m_up);
+            recovery = m_up * verticalAmount;
+          }
+
+          m_currentPosition += recovery;
+
+          /* old code: unconditional push along contact normal
           m_currentPosition += pt.m_normalWorldOnB * directionSign * dist *
                                btScalar(1. / (btScalar(MAX_PENETRATION_LOOPS) / PENETRATION_RECOVERY_PER_ITER));
+          */
           penetration = true;
         }
       }
@@ -520,7 +536,7 @@ void btKinematicCharacterController::stepUp(btCollisionWorld* world, btScalar& v
 
     // Preserve upward momentum when the sweep hit a wall. The jump vector can be tilted,
     // so a lateral contact during stepUp should not behave like a ceiling and kill ascent.
-    if (verticalOffset > 0 && hitDotUp < 0.0) {
+    if (verticalOffset > 0 && hitDotUp < -0.3) {
       verticalOffset = 0.0;
       m_verticalVelocity = 0.0;
       m_currentStepOffset = m_stepHeight;
@@ -560,6 +576,11 @@ void btKinematicCharacterController::updateTargetPositionBasedOnCollision(
   }
 }
 
+// When enabled, hitting two different planes in a single tick projects the remaining
+// movement along the crease (intersection) of those planes instead of stopping dead.
+// This eliminates oscillation and jank when sliding into V-shaped corners.
+#define ENABLE_CREASE_PROJECTION 1
+
 void btKinematicCharacterController::stepForwardAndStrafe(btCollisionWorld* collisionWorld, btScalar dt, btScalar verticalOffset) {
   btTransform start, end;
   start.setIdentity();
@@ -573,10 +594,17 @@ void btKinematicCharacterController::stepForwardAndStrafe(btCollisionWorld* coll
     m_targetPosition += perpindicularComponent(jumpOffset, m_up);
   }
 
+  btVector3 originalTarget = m_targetPosition;
   btScalar fraction = 1.0;
   btScalar distanceSquared = (m_currentPosition - m_targetPosition).length2();
 
   int maxIters = 10;
+
+#if ENABLE_CREASE_PROJECTION
+  // Track the first hit normal so we can detect two-plane (crease) contacts.
+  btVector3 firstHitNormal(0, 0, 0);
+  bool hasFirstHit = false;
+#endif
 
   while (fraction > btScalar(0.01) && maxIters-- > 0) {
     start.setOrigin(m_currentPosition);
@@ -601,8 +629,47 @@ void btKinematicCharacterController::stepForwardAndStrafe(btCollisionWorld* coll
 
     if (callback.hasHit() && m_ghostObject->hasContactResponse() &&
         needsCollision(m_ghostObject, callback.m_hitCollisionObject)) {
-      // we moved only a fraction
+
+      // Advance m_currentPosition to the hit point before adjusting the target.
+      // This ensures progress is preserved even if we break out of the loop.
+      btVector3 hitPosition;
+      hitPosition.setInterpolate3(m_currentPosition, m_targetPosition, callback.m_closestHitFraction);
+      m_currentPosition = hitPosition;
+
+#if ENABLE_CREASE_PROJECTION
+      if (!hasFirstHit) {
+        // First plane hit: wall-slide as normal
+        firstHitNormal = callback.m_hitNormalWorld;
+        hasFirstHit = true;
+        updateTargetPositionBasedOnCollision(callback.m_hitNormalWorld);
+      } else {
+        // Second (or later) plane hit: check if this is a different plane
+        btScalar normalDot = firstHitNormal.dot(callback.m_hitNormalWorld);
+        if (normalDot < btScalar(0.999)) {
+          // Two distinct planes — compute the crease direction
+          btVector3 crease = firstHitNormal.cross(callback.m_hitNormalWorld);
+          btScalar creaseLen = crease.length();
+          if (creaseLen > SIMD_EPSILON) {
+            crease /= creaseLen;
+            // Project remaining movement onto the crease
+            btVector3 remaining = originalTarget - m_currentPosition;
+            btScalar alongCrease = remaining.dot(crease);
+            m_targetPosition = m_currentPosition + crease * alongCrease;
+          } else {
+            // Degenerate: near-parallel planes, just stop
+            m_targetPosition = m_currentPosition;
+            break;
+          }
+        } else {
+          // Same plane again (e.g. curved surface) — normal wall-slide
+          updateTargetPositionBasedOnCollision(callback.m_hitNormalWorld);
+        }
+      }
+#else
+      // Old behavior: wall-slide off the single plane
       updateTargetPositionBasedOnCollision(callback.m_hitNormalWorld);
+#endif
+
       btVector3 currentDir = m_targetPosition - m_currentPosition;
       distanceSquared = currentDir.length2();
       if (distanceSquared <= SIMD_EPSILON) {
@@ -610,7 +677,7 @@ void btKinematicCharacterController::stepForwardAndStrafe(btCollisionWorld* coll
       }
 
       currentDir.normalize();
-      // See Quake2: "If velocity is against original velocity, stop ead to avoid tiny oscilations in sloping corners."
+      // See Quake2: "If velocity is against original velocity, stop dead to avoid tiny oscillations in sloping corners."
       if (currentDir.dot(m_normalizedDirection) <= btScalar(0.)) {
         break;
       }
@@ -706,6 +773,7 @@ void btKinematicCharacterController::stepDown(btCollisionWorld* collisionWorld, 
 
     m_floorObject = callback.m_hitCollisionObject;
     m_floorUserIndex = callback.m_hitCollisionObject->getUserIndex();
+    m_floorNormal = callback.m_hitNormalWorld;
   } else {
     m_currentPosition = m_targetPosition;
   }
@@ -943,6 +1011,26 @@ void btKinematicCharacterController::playerStep(btCollisionWorld* collisionWorld
 
   stepDown(collisionWorld, dt);
 
+  // Slope sliding: when on ground and the floor is steeper than the slide threshold,
+  // push the player downhill.  Speed scales linearly from 0 at minAngle to maxSpeed at maxSlope.
+  if (m_onGround && m_slopeSlideMinAngle > 0) {
+    btScalar floorDotUp = m_floorNormal.dot(m_up);
+    // floorDotUp < slopeSlideMinAngleCosine means the surface is steeper than minAngle
+    if (floorDotUp < m_slopeSlideMinAngleCosine && floorDotUp > m_maxSlopeCosine) {
+      // Compute downhill direction: project gravity onto the surface plane
+      btVector3 downhill = -m_up - m_floorNormal * (-m_up).dot(m_floorNormal);
+      btScalar downhillLen = downhill.length();
+      if (downhillLen > SIMD_EPSILON) {
+        downhill /= downhillLen;
+        // Interpolate speed: 0 at minAngle, maxSpeed at maxSlope
+        btScalar t = (m_slopeSlideMinAngleCosine - floorDotUp) /
+                     (m_slopeSlideMinAngleCosine - m_maxSlopeCosine);
+        btScalar speed = m_slopeSlideMaxSpeed * t;
+        m_currentPosition += downhill * speed * dt;
+      }
+    }
+  }
+
   processJumpPads(collisionWorld, dt);
   processBoostZones(collisionWorld, dt);
   processDashTokens(collisionWorld);
@@ -960,6 +1048,7 @@ void btKinematicCharacterController::playerStep(btCollisionWorld* collisionWorld
       break;
     }
   }
+
 }
 
 void btKinematicCharacterController::setJumpSpeed(btScalar jumpSpeed) {
@@ -1222,10 +1311,12 @@ float btKinematicCharacterController::cameraRayTest(
     m_cameraRayHitNX = callback.m_hitNormalWorld.x();
     m_cameraRayHitNY = callback.m_hitNormalWorld.y();
     m_cameraRayHitNZ = callback.m_hitNormalWorld.z();
+    m_cameraRayHitNonPermeable = callback.m_collisionObject->getUserIndex2() > 0;
   } else {
     m_cameraRayHitNX = 0;
     m_cameraRayHitNY = 0;
     m_cameraRayHitNZ = 0;
+    m_cameraRayHitNonPermeable = false;
   }
   return callback.m_closestHitFraction;
 }
