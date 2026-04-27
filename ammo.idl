@@ -147,7 +147,7 @@ interface btCollisionObject {
   void setCollisionShape(btCollisionShape collisionShape);
   // void setCcdMotionThreshold (float ccdMotionThreshold);
   // void setCcdSweptSphereRadius (float radius);
-  // long getUserIndex();
+  long getUserIndex();
   void setUserIndex(long index);
   void setUserIndex2(long index);
   // VoidPtr getUserPointer();

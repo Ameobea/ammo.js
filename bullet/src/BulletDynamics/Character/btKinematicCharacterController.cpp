@@ -774,6 +774,30 @@ void btKinematicCharacterController::stepDown(btCollisionWorld* collisionWorld, 
     m_floorObject = callback.m_hitCollisionObject;
     m_floorUserIndex = callback.m_hitCollisionObject->getUserIndex();
     m_floorNormal = callback.m_hitNormalWorld;
+  } else if (callback2.hasHit() && m_ghostObject->hasContactResponse() &&
+             needsCollision(m_ghostObject, callback2.m_hitCollisionObject)) {
+    // The single-step sweep (callback) missed but the double-step probe
+    // (callback2) found floor.  This happens when GJK fails to converge on the
+    // shorter sweep against a numerically awkward triangle (e.g. extreme
+    // aspect ratio from CSG output).  Without this branch we'd fall straight
+    // through the floor to m_targetPosition, and subsequent ticks would be
+    // stuck inside the geometry because convexSweepTest doesn't report
+    // initial overlap.  Use callback2's hit position to land at the actual
+    // surface.
+    //
+    // callback2 swept from m_currentPosition to (m_targetPosition - stepDrop),
+    // so the world hit position is interpolated along that longer segment.
+    btVector3 endDoublePos = m_targetPosition - stepDrop;
+    m_currentPosition.setInterpolate3(m_currentPosition, endDoublePos, callback2.m_closestHitFraction);
+
+    m_verticalVelocity = 0.0;
+    m_externalVelocity -= parallelComponent(m_externalVelocity, m_up);
+    m_isJumping = false;
+    m_onGround = true;
+
+    m_floorObject = callback2.m_hitCollisionObject;
+    m_floorUserIndex = callback2.m_hitCollisionObject->getUserIndex();
+    m_floorNormal = callback2.m_hitNormalWorld;
   } else {
     m_currentPosition = m_targetPosition;
   }
