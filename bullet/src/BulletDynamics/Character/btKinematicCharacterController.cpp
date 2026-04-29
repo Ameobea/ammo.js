@@ -804,6 +804,13 @@ void btKinematicCharacterController::stepForwardAndStrafe(btCollisionWorld* coll
   bool hasFirstHit = false;
 #endif
 
+  // Defer hit-fraction progress: committing to m_currentPosition inside the
+  // loop breaks the wall-slide and crease-projection math (both assume
+  // currentPosition is pinned), producing snagging on walls and spider-
+  // climbing of overhangs. Capture per-hit, commit only on early loop-exit.
+  btVector3 pendingHitTarget;
+  bool havePendingProgress = false;
+
   while (fraction > btScalar(0.01) && maxIters-- > 0) {
     start.setOrigin(m_currentPosition);
     end.setOrigin(m_targetPosition);
@@ -828,11 +835,9 @@ void btKinematicCharacterController::stepForwardAndStrafe(btCollisionWorld* coll
     if (callback.hasHit() && m_ghostObject->hasContactResponse() &&
         needsCollision(m_ghostObject, callback.m_hitCollisionObject)) {
 
-      // Advance m_currentPosition to the hit point before adjusting the target.
-      // This ensures progress is preserved even if we break out of the loop.
-      btVector3 hitPosition;
-      hitPosition.setInterpolate3(m_currentPosition, m_targetPosition, callback.m_closestHitFraction);
-      m_currentPosition = hitPosition;
+      // Capture hit-fraction position as pending; do not commit yet.
+      pendingHitTarget.setInterpolate3(m_currentPosition, m_targetPosition, callback.m_closestHitFraction);
+      havePendingProgress = true;
 
 #if ENABLE_CREASE_PROJECTION
       if (!hasFirstHit) {
@@ -881,7 +886,15 @@ void btKinematicCharacterController::stepForwardAndStrafe(btCollisionWorld* coll
       }
     } else {
       m_currentPosition = m_targetPosition;
+      havePendingProgress = false;
     }
+  }
+
+  // If the loop exited with a hit still pending (maxIters / fraction budget /
+  // distanceSquared / anti-oscillation / degenerate crease), commit it so the
+  // tick still records partial forward motion.
+  if (havePendingProgress) {
+    m_currentPosition = pendingHitTarget;
   }
 }
 
