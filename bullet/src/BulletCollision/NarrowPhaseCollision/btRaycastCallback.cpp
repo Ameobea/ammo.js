@@ -17,10 +17,13 @@ subject to the following restrictions:
 
 #include "BulletCollision/CollisionShapes/btConvexShape.h"
 #include "BulletCollision/CollisionShapes/btTriangleShape.h"
+#include "BulletCollision/CollisionShapes/btCapsuleShape.h"
 #include "BulletCollision/NarrowPhaseCollision/btSubSimplexConvexCast.h"
 #include "BulletCollision/NarrowPhaseCollision/btGjkConvexCast.h"
 #include "BulletCollision/NarrowPhaseCollision/btContinuousConvexCollision.h"
 #include "BulletCollision/NarrowPhaseCollision/btGjkEpaPenetrationDepthSolver.h"
+#include "BulletCollision/NarrowPhaseCollision/btCapsuleTriangleSweep.h"
+#include "BulletCollision/BroadphaseCollision/btBroadphaseProxy.h"
 #include "btRaycastCallback.h"
 
 btTriangleRaycastCallback::btTriangleRaycastCallback(const btVector3& from,const btVector3& to, unsigned int flags)
@@ -130,9 +133,55 @@ btTriangleConvexcastCallback::btTriangleConvexcastCallback (const btConvexShape*
 	m_allowedPenetration = 0.f;
 }
 
+// Detect a pure-translation sweep (no rotation between from and to). The closed-form
+// capsule-vs-triangle solver assumes translational motion; rotational sweeps are rare
+// for character controllers and fall through to GJK.
+static SIMD_FORCE_INLINE bool sweepIsPureTranslation(const btTransform& from, const btTransform& to)
+{
+	const btMatrix3x3& a = from.getBasis();
+	const btMatrix3x3& b = to.getBasis();
+	const btScalar EPS = btScalar(1e-6);
+	for (int i = 0; i < 3; ++i)
+	{
+		btVector3 d = a[i] - b[i];
+		if (d.length2() > EPS) return false;
+	}
+	return true;
+}
+
 void
 btTriangleConvexcastCallback::processTriangle (btVector3* triangle, int partId, int triangleIndex)
 {
+	// Closed-form capsule-vs-triangle path. Avoids GJK precision loss on large triangles.
+	if (m_convexShape->getShapeType() == CAPSULE_SHAPE_PROXYTYPE
+		&& sweepIsPureTranslation(m_convexShapeFrom, m_convexShapeTo))
+	{
+		const btCapsuleShape* capsule = static_cast<const btCapsuleShape*>(m_convexShape);
+		// Triangle vertices are in mesh-local space; transform to world.
+		btVector3 vA = m_triangleToWorld * triangle[0];
+		btVector3 vB = m_triangleToWorld * triangle[1];
+		btVector3 vC = m_triangleToWorld * triangle[2];
+
+		btCapsuleTriangleSweepResult res;
+		res.m_fraction = btScalar(1);
+		if (btCapsuleTriangleSweepTOI(
+				capsule, m_convexShapeFrom, m_convexShapeTo,
+				vA, vB, vC,
+				m_triangleCollisionMargin,
+				m_allowedPenetration,
+				m_hitFraction,
+				res))
+		{
+			if (res.m_normalWorld.length2() > btScalar(0.0001) && res.m_fraction < m_hitFraction)
+			{
+				btVector3 n = res.m_normalWorld;
+				n.normalize();
+				reportHit(n, res.m_hitPointWorld, res.m_fraction, partId, triangleIndex);
+			}
+		}
+		return;
+	}
+
 	btTriangleShape triangleShape (triangle[0], triangle[1], triangle[2]);
     triangleShape.setMargin(m_triangleCollisionMargin);
 

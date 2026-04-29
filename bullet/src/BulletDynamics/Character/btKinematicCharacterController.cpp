@@ -19,6 +19,7 @@ software.
 */
 
 #include "btKinematicCharacterController.h"
+#include <cstdlib>
 #include "btJumpPad.h"
 #include "btBoostZone.h"
 #include "btDashToken.h"
@@ -31,6 +32,7 @@ software.
 #include "BulletCollision/CollisionShapes/btBvhTriangleMeshShape.h"
 #include "BulletCollision/CollisionShapes/btScaledBvhTriangleMeshShape.h"
 #include "BulletCollision/CollisionShapes/btTriangleShape.h"
+#include "BulletCollision/CollisionShapes/btCapsuleShape.h"
 #include "BulletCollision/NarrowPhaseCollision/btRaycastCallback.h"
 #include "BulletCollision/CollisionDispatch/btInternalEdgeUtility.h"
 #include "BulletCollision/CollisionDispatch/btCollisionObjectWrapper.h"
@@ -52,7 +54,24 @@ static btVector3 getNormalizedVector(const btVector3& v) {
 // if set to 1, then 1/MAX_PENETRATION_LOOPS of the penetration depth will be recovered per iteration
 //
 // setting to higher values may reduce or prevent some cases where penetration cannot be recovered from
-#define PENETRATION_RECOVERY_PER_ITER 3.
+#define PENETRATION_RECOVERY_PER_ITER 5.
+
+#define KCC_LOG_RECOVERY_FAIL 0
+#define KCC_LOG_GROUND_STATE 0
+
+// Master flag for the v1 stepDown 4-fix stack (see STEPDOWN_FLICKER.md):
+//   - Fix 1: useCb2 path in floorBlk when runOnce && cb1 missed but cb2 hit
+//   - Fix 2: cap cumulative vertical recovery at stepHeight - 0.001
+//   - Fix 3: extend runOnce when wasOG && both sweeps miss
+//   - Fix 4: tighten floorBlk gate to require an actual hit (not just runOnce)
+// Set to 0 to revert all four to pre-fix behavior for bisecting regressions.
+#define KCC_STEPDOWN_FIXES 1
+
+#if KCC_LOG_GROUND_STATE
+  #define KCC_GLOG(...) do { printf("[ground] " __VA_ARGS__); } while (0)
+#else
+  #define KCC_GLOG(...) ((void)0)
+#endif
 
 static bool btBuildInternalEdgeTriangleShape(
   const btCollisionObject* collisionObject,
@@ -466,12 +485,188 @@ void btKinematicCharacterController::maybeApplyFloorLock(btCollisionWorld* colli
   m_ghostObject->setWorldTransform(xform);
 }
 
+// Walk the broadphase pair list and the contact manifolds and dump everything we'd
+// need to reconstruct this state in a harness: world transforms, mesh extents (incl.
+// triangle vertices for the offending contacts), per-contact GJK distances/normals,
+// player kinematic state, input state. Single-line "[recover.fail]" prefix on each
+// line so a session log can be grep'd for one fire and the surrounding lines copied.
+void btKinematicCharacterController::dumpRecoveryFailureContext(
+  btCollisionWorld* world, const char* phase, int numLoops
+) {
+  #define RFAIL(...) do { printf("[recover.fail] " __VA_ARGS__); } while (0)
+
+  RFAIL("=== begin %s loops=%d t=%.4f ===\n", phase, numLoops, m_totalElapsedTime);
+
+  // Player kinematic + input state.
+  RFAIL("player.pos=(%.6f,%.6f,%.6f) target=(%.6f,%.6f,%.6f) vy=%.6f\n",
+        m_currentPosition.x(), m_currentPosition.y(), m_currentPosition.z(),
+        m_targetPosition.x(), m_targetPosition.y(), m_targetPosition.z(),
+        m_verticalVelocity);
+  RFAIL("player.walkDir=(%.6f,%.6f,%.6f) extVel=(%.6f,%.6f,%.6f)\n",
+        m_walkDirection.x(), m_walkDirection.y(), m_walkDirection.z(),
+        m_externalVelocity.x(), m_externalVelocity.y(), m_externalVelocity.z());
+  RFAIL("player.up=(%.4f,%.4f,%.4f) jumpAxis=(%.4f,%.4f,%.4f) stepOff=%.6f stepHeight=%.4f\n",
+        m_up.x(), m_up.y(), m_up.z(), m_jumpAxis.x(), m_jumpAxis.y(), m_jumpAxis.z(),
+        m_currentStepOffset, m_stepHeight);
+  RFAIL("player.flags onGround=%d wasOnGround=%d isJumping=%d\n",
+        m_onGround ? 1 : 0, m_wasOnGround ? 1 : 0, m_isJumping ? 1 : 0);
+  RFAIL("player.config maxPen=%.6f maxSlopeCos=%.6f gravity=%.4f terminal=%.4f\n",
+        m_maxPenetrationDepth, m_maxSlopeCosine, m_gravity, m_terminalVelocity);
+  RFAIL("player.input keys=%d theta=%.4f phi=%.4f movement=%d\n",
+        m_inputKeyFlags, m_inputTheta, m_inputPhi, m_inputMovementEnabled ? 1 : 0);
+
+  // Capsule shape parameters (so the harness can build an identical collider).
+  if (m_convexShape) {
+    int st = m_convexShape->getShapeType();
+    RFAIL("player.shape type=%d margin=%.6f\n", st, m_convexShape->getMargin());
+    if (st == CAPSULE_SHAPE_PROXYTYPE) {
+      const btCapsuleShape* cap = static_cast<const btCapsuleShape*>(m_convexShape);
+      RFAIL("player.capsule radius=%.6f halfHeight=%.6f upAxis=%d\n",
+            cap->getRadius(), cap->getHalfHeight(), cap->getUpAxis());
+    }
+  }
+
+  // Player ghost AABB (matches what the broadphase sees this tick).
+  btVector3 minA, maxA;
+  m_convexShape->getAabb(m_ghostObject->getWorldTransform(), minA, maxA);
+  RFAIL("player.aabb min=(%.4f,%.4f,%.4f) max=(%.4f,%.4f,%.4f)\n",
+        minA.x(), minA.y(), minA.z(), maxA.x(), maxA.y(), maxA.z());
+
+  // All overlapping pairs the ghost is touching this tick.
+  btHashedOverlappingPairCache* pairs = m_ghostObject->getOverlappingPairCache();
+  int numPairs = pairs->getNumOverlappingPairs();
+  RFAIL("scene.pairs=%d\n", numPairs);
+
+  for (int i = 0; i < numPairs; ++i) {
+    btBroadphasePair* pair = &pairs->getOverlappingPairArray()[i];
+    btCollisionObject* a = static_cast<btCollisionObject*>(pair->m_pProxy0->m_clientObject);
+    btCollisionObject* b = static_cast<btCollisionObject*>(pair->m_pProxy1->m_clientObject);
+    btCollisionObject* other = (a == m_ghostObject) ? b : a;
+    if (!other) {
+      RFAIL("pair[%d] OTHER=null\n", i);
+      continue;
+    }
+
+    const btCollisionShape* shape = other->getCollisionShape();
+    const btTransform& xf = other->getWorldTransform();
+    const btVector3& ori = xf.getOrigin();
+    btQuaternion rot = xf.getRotation();
+    btVector3 omin, omax;
+    if (shape) {
+      shape->getAabb(xf, omin, omax);
+    } else {
+      omin.setValue(0, 0, 0); omax.setValue(0, 0, 0);
+    }
+    int otherShapeType = shape ? shape->getShapeType() : -1;
+    RFAIL("pair[%d] obj=%p name=%s shapeType=%d static=%d hasResp=%d userIdx=%d userIdx2=%d\n",
+          i, (void*)other,
+          shape ? shape->getName() : "(null)",
+          otherShapeType,
+          other->isStaticObject() ? 1 : 0,
+          other->hasContactResponse() ? 1 : 0,
+          other->getUserIndex(), other->getUserIndex2());
+    RFAIL("pair[%d] xf.origin=(%.6f,%.6f,%.6f) xf.rot=(%.6f,%.6f,%.6f,%.6f)\n",
+          i, ori.x(), ori.y(), ori.z(), rot.x(), rot.y(), rot.z(), rot.w());
+    RFAIL("pair[%d] aabb min=(%.4f,%.4f,%.4f) max=(%.4f,%.4f,%.4f)\n",
+          i, omin.x(), omin.y(), omin.z(), omax.x(), omax.y(), omax.z());
+
+    // For trimesh shapes, pull the underlying mesh extents and scaling.
+    const btBvhTriangleMeshShape* trimesh = nullptr;
+    btVector3 extraScaling(1, 1, 1);
+    if (otherShapeType == TRIANGLE_MESH_SHAPE_PROXYTYPE) {
+      trimesh = static_cast<const btBvhTriangleMeshShape*>(shape);
+    } else if (otherShapeType == SCALED_TRIANGLE_MESH_SHAPE_PROXYTYPE) {
+      const btScaledBvhTriangleMeshShape* scaled =
+        static_cast<const btScaledBvhTriangleMeshShape*>(shape);
+      trimesh = scaled->getChildShape();
+      extraScaling = scaled->getLocalScaling();
+    }
+    if (trimesh && trimesh->getMeshInterface()) {
+      const btStridingMeshInterface* mi = trimesh->getMeshInterface();
+      btVector3 ms = mi->getScaling();
+      RFAIL("pair[%d] mesh scaling=(%.6f,%.6f,%.6f) outerScale=(%.6f,%.6f,%.6f) subParts=%d hasInfoMap=%d\n",
+            i, ms.x(), ms.y(), ms.z(),
+            extraScaling.x(), extraScaling.y(), extraScaling.z(),
+            mi->getNumSubParts(),
+            trimesh->getTriangleInfoMap() ? 1 : 0);
+    }
+
+    // Refresh manifolds for this pair and dump every contact (penetrating or not).
+    m_manifoldArray.resize(0);
+    if (pair->m_algorithm) {
+      pair->m_algorithm->getAllContactManifolds(m_manifoldArray);
+    }
+    int totalContacts = 0;
+    for (int j = 0; j < m_manifoldArray.size(); ++j) totalContacts += m_manifoldArray[j]->getNumContacts();
+    RFAIL("pair[%d] manifolds=%d totalContacts=%d\n", i, m_manifoldArray.size(), totalContacts);
+
+    for (int j = 0; j < m_manifoldArray.size(); ++j) {
+      btPersistentManifold* m = m_manifoldArray[j];
+      btScalar dirSign = (m->getBody0() == m_ghostObject) ? btScalar(-1) : btScalar(1);
+      RFAIL("pair[%d] manifold[%d] body0Ghost=%d numContacts=%d\n",
+            i, j, (m->getBody0() == m_ghostObject) ? 1 : 0, m->getNumContacts());
+
+      for (int p = 0; p < m->getNumContacts(); ++p) {
+        btManifoldPoint& pt = m->getContactPoint(p);
+        btVector3 nW = pt.m_normalWorldOnB * dirSign;
+        btScalar normalDotUp = nW.dot(m_up);
+        bool wouldBeRecovered = (pt.getDistance() < -m_maxPenetrationDepth);
+        bool walkable = m_onGround && btFabs(normalDotUp) > m_maxSlopeCosine;
+        RFAIL("pair[%d] cp[%d] dist=%.6f distance1=%.6f appliedImpulse=%.6f\n",
+              i, p, pt.getDistance(), pt.m_distance1, pt.m_appliedImpulse);
+        RFAIL("pair[%d] cp[%d] nWorldOnB=(%.6f,%.6f,%.6f) nWorldFromGhost=(%.6f,%.6f,%.6f) n.up=%.4f\n",
+              i, p,
+              pt.m_normalWorldOnB.x(), pt.m_normalWorldOnB.y(), pt.m_normalWorldOnB.z(),
+              nW.x(), nW.y(), nW.z(), normalDotUp);
+        RFAIL("pair[%d] cp[%d] posA=(%.4f,%.4f,%.4f) posB=(%.4f,%.4f,%.4f)\n",
+              i, p,
+              pt.m_positionWorldOnA.x(), pt.m_positionWorldOnA.y(), pt.m_positionWorldOnA.z(),
+              pt.m_positionWorldOnB.x(), pt.m_positionWorldOnB.y(), pt.m_positionWorldOnB.z());
+        RFAIL("pair[%d] cp[%d] partId0=%d index0=%d partId1=%d index1=%d wouldRecover=%d walkableSurf=%d\n",
+              i, p, pt.m_partId0, pt.m_index0, pt.m_partId1, pt.m_index1,
+              wouldBeRecovered ? 1 : 0, walkable ? 1 : 0);
+
+        // Dump triangle vertices in world space for the contact's triangle.
+        // The collision tri is on the body that isn't the ghost.
+        const btCollisionObject* triBody = (m->getBody0() == m_ghostObject) ? m->getBody1() : m->getBody0();
+        int partId = (m->getBody0() == m_ghostObject) ? pt.m_partId1 : pt.m_partId0;
+        int triIdx = (m->getBody0() == m_ghostObject) ? pt.m_index1 : pt.m_index0;
+        btTriangleShape triShape;
+        if (btBuildInternalEdgeTriangleShape(triBody, partId, triIdx, triShape)) {
+          const btTransform& triXf = triBody->getWorldTransform();
+          btVector3 v0 = triXf * triShape.getVertexPtr(0);
+          btVector3 v1 = triXf * triShape.getVertexPtr(1);
+          btVector3 v2 = triXf * triShape.getVertexPtr(2);
+          btVector3 e10 = v1 - v0, e20 = v2 - v0;
+          btVector3 triNormal = e10.cross(e20);
+          btScalar e0 = (v1 - v0).length();
+          btScalar e1 = (v2 - v1).length();
+          btScalar e2 = (v0 - v2).length();
+          btScalar maxEdge = btMax(e0, btMax(e1, e2));
+          if (triNormal.length2() > SIMD_EPSILON) triNormal.normalize();
+          RFAIL("pair[%d] cp[%d] tri.v0=(%.4f,%.4f,%.4f)\n", i, p, v0.x(), v0.y(), v0.z());
+          RFAIL("pair[%d] cp[%d] tri.v1=(%.4f,%.4f,%.4f)\n", i, p, v1.x(), v1.y(), v1.z());
+          RFAIL("pair[%d] cp[%d] tri.v2=(%.4f,%.4f,%.4f)\n", i, p, v2.x(), v2.y(), v2.z());
+          RFAIL("pair[%d] cp[%d] tri.normal=(%.4f,%.4f,%.4f) edges=(%.2f,%.2f,%.2f) maxEdge=%.2f\n",
+                i, p, triNormal.x(), triNormal.y(), triNormal.z(), e0, e1, e2, maxEdge);
+        }
+      }
+    }
+  }
+
+  RFAIL("=== end %s ===\n", phase);
+  #undef RFAIL
+}
+
 void btKinematicCharacterController::recoverPreExistingPenetration(btCollisionWorld* collisionWorld) {
   int numPenetrationLoops = 0;
   while (recoverFromPenetration(collisionWorld)) {
     numPenetrationLoops++;
     if (numPenetrationLoops > MAX_PENETRATION_LOOPS) {
+#if KCC_LOG_RECOVERY_FAIL
       printf("Character could not recover from pre-existing penetration after %d loops\n", numPenetrationLoops);
+      dumpRecoveryFailureContext(collisionWorld, "preExisting", numPenetrationLoops);
+#endif
       break;
     }
   }
@@ -527,7 +722,10 @@ void btKinematicCharacterController::stepUp(btCollisionWorld* world, btScalar& v
     while (recoverFromPenetration(world)) {
       numPenetrationLoops += 1;
       if (numPenetrationLoops > MAX_PENETRATION_LOOPS) {
+#if KCC_LOG_RECOVERY_FAIL
         printf("character could not recover from penetration in `stepUp` = %d\n", numPenetrationLoops);
+        dumpRecoveryFailureContext(world, "stepUp", numPenetrationLoops);
+#endif
         break;
       }
     }
@@ -689,6 +887,7 @@ void btKinematicCharacterController::stepForwardAndStrafe(btCollisionWorld* coll
 
 void btKinematicCharacterController::stepDown(btCollisionWorld* collisionWorld, btScalar dt) {
   if (m_verticalVelocity > 0.) {
+    KCC_GLOG("stepDn early-return (vy=%.3f > 0)\n", m_verticalVelocity);
     return;
   }
 
@@ -738,11 +937,35 @@ void btKinematicCharacterController::stepDown(btCollisionWorld* collisionWorld, 
     btScalar downVelocity2 = (m_verticalVelocity < 0.f ? -m_verticalVelocity : 0.f) * dt;
     bool hasHit = callback2.hasHit() && m_ghostObject->hasContactResponse() && needsCollision(m_ghostObject, callback2.m_hitCollisionObject);
 
-    if (!hasHit) {
-      break;
-    }
+    KCC_GLOG("stepDn sweep stepDrop=%.4f cb1.hit=%d cb1.frac=%.4f cb2.hit=%d cb2.frac=%.4f runOnce=%d\n",
+             m_currentStepOffset + downVelocity,
+             callback.hasHit() ? 1 : 0, callback.m_closestHitFraction,
+             callback2.hasHit() ? 1 : 0, callback2.m_closestHitFraction,
+             runOnce ? 1 : 0);
 
     btScalar stepHeight = m_verticalVelocity < 0.0 ? m_stepHeight : 0.0;
+
+    if (!hasHit) {
+#if KCC_STEPDOWN_FIXES
+      // Fix 3: neither the small nor double sweep found a floor. If the player
+      // was on ground last tick and the expected fall distance is small (i.e.
+      // we "should" still be on ground), the floor has likely moved further
+      // than 2*stepDrop in one tick — most often because floor-lock
+      // over-applies upward motion on fast-rotating platforms. Retry once with
+      // the fast-stairs range so cb2 reaches 2*stepHeight below; otherwise the
+      // player drops to og=0, then the next tick's wasOG=0 skips floor-lock,
+      // letting the floor catch up and deeply embed the capsule.
+      if (!runOnce && m_wasOnGround && downVelocity2 > 0.0 && downVelocity2 < stepHeight) {
+        m_targetPosition = origTargetPosition;
+        downVelocity = stepHeight;
+        stepDrop = m_up * (m_currentStepOffset + downVelocity);
+        m_targetPosition -= stepDrop;
+        runOnce = true;
+        continue;
+      }
+#endif
+      break;
+    }
 
     if (downVelocity2 > 0.0 && downVelocity2 < stepHeight && !runOnce && (m_wasOnGround || !m_isJumping)) {
       // redo the velocity calculation when falling a small amount, for fast stairs motion
@@ -759,11 +982,40 @@ void btKinematicCharacterController::stepDown(btCollisionWorld* collisionWorld, 
     break;
   }
 
-  if ((m_ghostObject->hasContactResponse() && callback.hasHit() &&
-       needsCollision(m_ghostObject, callback.m_hitCollisionObject)) ||
-      runOnce) {
+#if KCC_STEPDOWN_FIXES
+  // Fix 4: tightened gate — only enter floorBlk if a sweep actually hit. Pre-fix
+  // code accepted `runOnce` alone, which could enter with no real contact when
+  // both sweeps missed in the second iteration.
+  bool cb1Valid = m_ghostObject->hasContactResponse() && callback.hasHit() &&
+                  needsCollision(m_ghostObject, callback.m_hitCollisionObject);
+  bool cb2Valid = m_ghostObject->hasContactResponse() && callback2.hasHit() &&
+                  needsCollision(m_ghostObject, callback2.m_hitCollisionObject);
+  const bool enterFloorBlk = cb1Valid || (runOnce && cb2Valid);
+#else
+  const bool enterFloorBlk =
+    (m_ghostObject->hasContactResponse() && callback.hasHit() &&
+     needsCollision(m_ghostObject, callback.m_hitCollisionObject)) ||
+    runOnce;
+#endif
+
+  if (enterFloorBlk) {
     // we dropped a fraction of the height -> hit floor
+#if KCC_STEPDOWN_FIXES
+    // Fix 1: when runOnce activated because cb1 missed but cb2 hit, use cb2's
+    // hit data against the doubled endpoint. Pre-fix code used cb1's fraction
+    // (=1.0 since cb1 never hit), placing the player at the full target which
+    // is below the actual floor and forces recovery to push them up past
+    // stepHeight on the next tick.
+    bool useCb2 = runOnce && !cb1Valid && cb2Valid;
+    if (useCb2) {
+      btVector3 doubleEnd = m_targetPosition - stepDrop;
+      m_currentPosition.setInterpolate3(m_currentPosition, doubleEnd, callback2.m_closestHitFraction);
+    } else {
+      m_currentPosition.setInterpolate3(m_currentPosition, m_targetPosition, callback.m_closestHitFraction);
+    }
+#else
     m_currentPosition.setInterpolate3(m_currentPosition, m_targetPosition, callback.m_closestHitFraction);
+#endif
 
     m_verticalVelocity = 0.0;
     // Remove downward component of external velocity
@@ -771,19 +1023,42 @@ void btKinematicCharacterController::stepDown(btCollisionWorld* collisionWorld, 
     m_isJumping = false;
     m_onGround = true;
 
-    m_floorObject = callback.m_hitCollisionObject;
-    m_floorUserIndex = callback.m_hitCollisionObject->getUserIndex();
-    m_floorNormal = callback.m_hitNormalWorld;
+    // The block is also entered via `runOnce` after a fast-stairs retry, in
+    // which case the second sweep can leave callback with no recorded hit
+    // (m_hitCollisionObject = null). Guard the floor metadata writes so we
+    // don't crash walking off a real ledge.
+    if (callback.hasHit()) {
+      m_floorObject = callback.m_hitCollisionObject;
+      m_floorUserIndex = callback.m_hitCollisionObject->getUserIndex();
+      m_floorNormal = callback.m_hitNormalWorld;
+    }
+#if KCC_STEPDOWN_FIXES
+    else if (useCb2) {
+      m_floorObject = callback2.m_hitCollisionObject;
+      m_floorUserIndex = callback2.m_hitCollisionObject->getUserIndex();
+      m_floorNormal = callback2.m_hitNormalWorld;
+    }
+    KCC_GLOG("stepDn floorBlk entered (cb1.hit=%d cb2.hit=%d runOnce=%d useCb2=%d) -> og=1 vy=0 floorIdx=%d\n",
+             callback.hasHit() ? 1 : 0, callback2.hasHit() ? 1 : 0, runOnce ? 1 : 0, useCb2 ? 1 : 0,
+             callback.hasHit() ? callback.m_hitCollisionObject->getUserIndex()
+                               : (useCb2 ? callback2.m_hitCollisionObject->getUserIndex() : -1));
+#else
+    KCC_GLOG("stepDn floorBlk entered (cb1.hit=%d runOnce=%d) -> og=1 vy=0 floorIdx=%d\n",
+             callback.hasHit() ? 1 : 0, runOnce ? 1 : 0,
+             callback.hasHit() ? callback.m_hitCollisionObject->getUserIndex() : -1);
+#endif
   } else if (callback2.hasHit() && m_ghostObject->hasContactResponse() &&
              needsCollision(m_ghostObject, callback2.m_hitCollisionObject)) {
     // The single-step sweep (callback) missed but the double-step probe
     // (callback2) found floor.  This happens when GJK fails to converge on the
     // shorter sweep against a numerically awkward triangle (e.g. extreme
-    // aspect ratio from CSG output).  Without this branch we'd fall straight
-    // through the floor to m_targetPosition, and subsequent ticks would be
-    // stuck inside the geometry because convexSweepTest doesn't report
-    // initial overlap.  Use callback2's hit position to land at the actual
-    // surface.
+    // aspect ratio from CSG output), and the fast-stairs `runOnce` retry
+    // didn't fire (e.g. !m_wasOnGround or downVelocity2 >= stepHeight), so the
+    // floorBlk's `useCb2` path doesn't catch it. Without this branch we'd
+    // fall straight through the floor to m_targetPosition, and subsequent
+    // ticks would be stuck inside the geometry because convexSweepTest
+    // doesn't report initial overlap.  Use callback2's hit position to land
+    // at the actual surface.
     //
     // callback2 swept from m_currentPosition to (m_targetPosition - stepDrop),
     // so the world hit position is interpolated along that longer segment.
@@ -800,6 +1075,8 @@ void btKinematicCharacterController::stepDown(btCollisionWorld* collisionWorld, 
     m_floorNormal = callback2.m_hitNormalWorld;
   } else {
     m_currentPosition = m_targetPosition;
+    KCC_GLOG("stepDn floorBlk skipped -> og stays %d, posY=%.4f\n",
+             m_onGround ? 1 : 0, m_currentPosition.y());
   }
 }
 
@@ -980,10 +1257,21 @@ void btKinematicCharacterController::processInputPreamble(btScalar dt) {
 void btKinematicCharacterController::playerStep(btCollisionWorld* collisionWorld, btScalar dt) {
   m_totalElapsedTime += dt;
 
+  // Capture ground-state-evolution snapshots so the post-tick log line can
+  // show wasOnGround vs end-of-prev-tick m_onGround vs the value as seen by
+  // floor-lock and stepDown. Cheap stack locals; only consumed by KCC_GLOG.
+  KCC_GLOG("in t=%.4f og=%d posY=%.4f vy=%.3f currPosY=%.4f\n",
+           m_totalElapsedTime, m_onGround ? 1 : 0,
+           m_ghostObject->getWorldTransform().getOrigin().y(),
+           m_verticalVelocity, m_currentPosition.y());
+
   processInputPreamble(dt);
 
   m_wasOnGround = onGround();
   maybeApplyFloorLock(collisionWorld);
+
+  KCC_GLOG("post-floorLock wasOG=%d og=%d posY=%.4f\n",
+           m_wasOnGround ? 1 : 0, m_onGround ? 1 : 0, m_currentPosition.y());
 
   m_onGround = false;
 
@@ -1029,11 +1317,28 @@ void btKinematicCharacterController::playerStep(btCollisionWorld* collisionWorld
   recoverPreExistingPenetration(collisionWorld);
 #endif
 
+  const btScalar dbgPreStepUpY = m_currentPosition.y();
   stepUp(collisionWorld, verticalOffset);
 
+  KCC_GLOG("post-stepUp og=%d posY=%.4f dY=%+.4f\n",
+           m_onGround ? 1 : 0, m_currentPosition.y(),
+           m_currentPosition.y() - dbgPreStepUpY);
+
+  const btScalar dbgPreStepFwdY = m_currentPosition.y();
   stepForwardAndStrafe(collisionWorld, dt, verticalOffset);
 
+  KCC_GLOG("post-stepFwd og=%d posY=%.4f dY=%+.4f\n",
+           m_onGround ? 1 : 0, m_currentPosition.y(),
+           m_currentPosition.y() - dbgPreStepFwdY);
+
+  const btScalar dbgPreStepDownY = m_currentPosition.y();
   stepDown(collisionWorld, dt);
+
+  KCC_GLOG("post-stepDn og=%d posY=%.4f dY=%+.4f vy=%.3f floorIdx=%d\n",
+           m_onGround ? 1 : 0, m_currentPosition.y(),
+           m_currentPosition.y() - dbgPreStepDownY,
+           m_verticalVelocity,
+           m_floorObject ? m_floorObject->getUserIndex() : -1);
 
   // Slope sliding: when on ground and the floor is steeper than the slide threshold,
   // push the player downhill.  Speed scales linearly from 0 at minAngle to maxSpeed at maxSlope.
@@ -1064,15 +1369,48 @@ void btKinematicCharacterController::playerStep(btCollisionWorld* collisionWorld
   xform.setOrigin(m_currentPosition);
   m_ghostObject->setWorldTransform(xform);
 
+  const btScalar dbgPreRecoverY = m_currentPosition.y();
+#if KCC_STEPDOWN_FIXES
+  const btVector3 preRecoverPos = m_currentPosition;
+#endif
   int numPenetrationLoops = 0;
   while (recoverFromPenetration(collisionWorld)) {
     numPenetrationLoops++;
     if (numPenetrationLoops > MAX_PENETRATION_LOOPS) {
+#if KCC_LOG_RECOVERY_FAIL
       printf("character could not recover from penetration in `stepDown` = %d\n", numPenetrationLoops);
+      dumpRecoveryFailureContext(collisionWorld, "stepDown", numPenetrationLoops);
+#endif
       break;
     }
   }
 
+#if KCC_STEPDOWN_FIXES
+  // Fix 2: cap cumulative upward recovery at slightly less than stepHeight. If
+  // recovery pushes the player higher than that on a tick where they ended on
+  // ground, the next tick's stepDown sweep (range ≈ stepHeight + downVel for
+  // cb1, 2× for cb2) can no longer reach the floor — producing the og=1↔0
+  // flicker observed on rotating-platform surfaces. Any residual penetration
+  // left here is resolved by the next tick's recovery pass, so this cap defers
+  // rather than discards work.
+  btScalar verticalRecovery = (m_currentPosition - preRecoverPos).dot(m_up);
+  btScalar capRecovery = m_stepHeight - btScalar(0.001);
+  if (m_onGround && verticalRecovery > capRecovery && capRecovery > 0.) {
+    m_currentPosition -= m_up * (verticalRecovery - capRecovery);
+    btTransform xform = m_ghostObject->getWorldTransform();
+    xform.setOrigin(m_currentPosition);
+    m_ghostObject->setWorldTransform(xform);
+    KCC_GLOG("post-rec capped from dY=%+.4f to dY=%+.4f\n", verticalRecovery, capRecovery);
+  }
+#endif
+
+  KCC_GLOG("post-rec iters=%d og=%d posY=%.4f dY=%+.4f\n",
+           numPenetrationLoops, m_onGround ? 1 : 0, m_currentPosition.y(),
+           m_currentPosition.y() - dbgPreRecoverY);
+  KCC_GLOG("out og=%d posY=%.4f vy=%.3f floorIdx=%d wasOG=%d\n",
+           m_onGround ? 1 : 0, m_currentPosition.y(), m_verticalVelocity,
+           m_floorObject ? m_floorObject->getUserIndex() : -1,
+           m_wasOnGround ? 1 : 0);
 }
 
 void btKinematicCharacterController::setJumpSpeed(btScalar jumpSpeed) {

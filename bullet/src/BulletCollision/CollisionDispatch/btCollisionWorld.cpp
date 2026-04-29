@@ -64,7 +64,9 @@ subject to the following restrictions:
 #include "BulletCollision/CollisionShapes/btTriangleMeshShape.h"
 #include "BulletCollision/CollisionShapes/btStaticPlaneShape.h"
 
+#ifdef __wasm_simd128__
 #include <wasm_simd128.h>
+#endif
 
 btCollisionWorld::btCollisionWorld(btDispatcher* dispatcher,btBroadphaseInterface* pairCache, btCollisionConfiguration* collisionConfiguration)
 :m_dispatcher1(dispatcher),
@@ -72,7 +74,9 @@ m_broadphasePairCache(pairCache),
 m_debugDrawer(0),
 m_forceUpdateAllAabbs(true)
 {
+#ifdef __wasm_simd128__
 	v128_t x = wasm_f32x4_splat(0.0);
+#endif
 }
 
 

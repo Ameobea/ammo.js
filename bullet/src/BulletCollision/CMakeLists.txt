@@ -84,6 +84,7 @@ SET(BulletCollision_SRCS
 	Gimpact/gim_contact.cpp
 	Gimpact/gim_memory.cpp
 	Gimpact/gim_tri_collision.cpp
+	NarrowPhaseCollision/btCapsuleTriangleSweep.cpp
 	NarrowPhaseCollision/btContinuousConvexCollision.cpp
 	NarrowPhaseCollision/btConvexCast.cpp
 	NarrowPhaseCollision/btGjkConvexCast.cpp
@@ -216,6 +217,7 @@ SET(Gimpact_HDRS
 	Gimpact/gim_tri_collision.h
 )
 SET(NarrowPhaseCollision_HDRS
+	NarrowPhaseCollision/btCapsuleTriangleSweep.h
 	NarrowPhaseCollision/btContinuousConvexCollision.h
 	NarrowPhaseCollision/btConvexCast.h
 	NarrowPhaseCollision/btConvexPenetrationDepthSolver.h

@@ -206,6 +206,10 @@ protected:
 
   bool recoverFromPenetration(btCollisionWorld * collisionWorld);
   void recoverPreExistingPenetration(btCollisionWorld * collisionWorld);
+  /// Dump player + scene + manifold context to stdout when a penetration-recovery
+  /// loop blew past MAX_PENETRATION_LOOPS. Intended for one-off in-game debugging:
+  /// hit the failure, copy the dump, paste it into a harness to reproduce.
+  void dumpRecoveryFailureContext(btCollisionWorld* world, const char* phase, int numLoops);
   void stepUp(btCollisionWorld* collisionWorld, btScalar& verticalOffset);
   void updateTargetPositionBasedOnCollision(
     const btVector3& hit_normal, btScalar tangentMag = btScalar(0.0), btScalar normalMag = btScalar(1.0)
