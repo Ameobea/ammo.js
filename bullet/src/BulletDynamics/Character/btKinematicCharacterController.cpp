@@ -204,7 +204,14 @@ public:
     : btCollisionWorld::ClosestConvexResultCallback(btVector3(0.0, 0.0, 0.0), btVector3(0.0, 0.0, 0.0))
     , m_me(me)
     , m_up(up)
-    , m_minSlopeDot(minSlopeDot) {}
+    , m_minSlopeDot(minSlopeDot)
+    , m_hitRawNormalWorld(0., 0., 0.)
+    , m_hitTriangleValid(false)
+    , m_hitShapePart(-1)
+    , m_hitTriangleIndex(-1)
+    , m_hitTriangleV0(0., 0., 0.)
+    , m_hitTriangleV1(0., 0., 0.)
+    , m_hitTriangleV2(0., 0., 0.) {}
 
   virtual btScalar addSingleResult(btCollisionWorld::LocalConvexResult& convexResult, bool normalInWorldSpace) {
     if (convexResult.m_hitCollisionObject == m_me || !convexResult.m_hitCollisionObject->hasContactResponse()) {
@@ -217,18 +224,26 @@ public:
     } else {
       hitNormalWorld = convexResult.m_hitCollisionObject->getWorldTransform().getBasis() * convexResult.m_hitNormalLocal;
     }
+    btVector3 rawHitNormalWorld = hitNormalWorld;
 
+    bool triShapeBuilt = false;
+    btTriangleShape triShape;
+    int triShapePart = -1;
+    int triShapeIndex = -1;
     if (convexResult.m_localShapeInfo) {
       btCollisionObjectWrapper obj0Wrap(0, convexResult.m_hitCollisionObject->getCollisionShape(), convexResult.m_hitCollisionObject, convexResult.m_hitCollisionObject->getWorldTransform(), -1, -1);
       btCollisionObjectWrapper obj1Wrap(0, m_me->getCollisionShape(), m_me, m_me->getWorldTransform(), -1, -1);
 
-      btTriangleShape triShape;
       if (btBuildInternalEdgeTriangleShape(
             convexResult.m_hitCollisionObject,
             convexResult.m_localShapeInfo->m_shapePart,
             convexResult.m_localShapeInfo->m_triangleIndex,
             triShape
           )) {
+        triShapeBuilt = true;
+        triShapePart = convexResult.m_localShapeInfo->m_shapePart;
+        triShapeIndex = convexResult.m_localShapeInfo->m_triangleIndex;
+
         btCollisionObjectWrapper triObj0Wrap(
           &obj0Wrap,
           &triShape,
@@ -258,18 +273,104 @@ public:
       return 1.0;
     }
 
+    // Edge-contact safety: the contact normal returned by GJK (and by our
+    // closed-form swept-capsule-vs-triangle solver) for an edge-grazing
+    // contact is the closest-pair direction between capsule segment and
+    // triangle edge -- which can have a positive dotUp even when the actual
+    // triangle face is non-walkable (e.g. capsule's lower hemisphere catching
+    // the bottom corner edge of a box; the closest-pair direction points
+    // up-and-out from the edge to the capsule's lower endpoint).
+    //
+    // For triangle-mesh hits we have unambiguous face geometry, so reject the
+    // hit when the triangle's geometric face normal is not walkable, even if
+    // the contact normal alone would have passed.
+    if (triShapeBuilt) {
+      btVector3 e1 = triShape.m_vertices1[1] - triShape.m_vertices1[0];
+      btVector3 e2 = triShape.m_vertices1[2] - triShape.m_vertices1[0];
+      btVector3 faceLocal = e1.cross(e2);
+      btScalar faceLen2 = faceLocal.length2();
+      if (faceLen2 > SIMD_EPSILON * SIMD_EPSILON) {
+        btVector3 faceWorld =
+          convexResult.m_hitCollisionObject->getWorldTransform().getBasis() *
+          (faceLocal / btSqrt(faceLen2));
+        if (m_up.dot(faceWorld) < m_minSlopeDot) {
+          return 1.0;
+        }
+      }
+    }
+
     // Update the result with the (possibly adjusted) normal
     btScalar fraction = ClosestConvexResultCallback::addSingleResult(convexResult, normalInWorldSpace);
     m_hitNormalWorld = hitNormalWorld;
+    m_hitRawNormalWorld = rawHitNormalWorld;
+    m_hitTriangleValid = triShapeBuilt;
+    if (triShapeBuilt) {
+      const btTransform& triXform = convexResult.m_hitCollisionObject->getWorldTransform();
+      m_hitShapePart = triShapePart;
+      m_hitTriangleIndex = triShapeIndex;
+      m_hitTriangleV0 = triXform * triShape.m_vertices1[0];
+      m_hitTriangleV1 = triXform * triShape.m_vertices1[1];
+      m_hitTriangleV2 = triXform * triShape.m_vertices1[2];
+    } else {
+      m_hitShapePart = -1;
+      m_hitTriangleIndex = -1;
+    }
 
     return fraction;
   }
+
+  // Pre-internal-edge-adjustment normal as reported by GJK. Useful for
+  // diagnosing edge contacts where the raw normal differs from the adjusted
+  // (face-projected) normal.
+  btVector3 m_hitRawNormalWorld;
+  // Triangle data captured when the hit collision object is a triangle mesh.
+  bool m_hitTriangleValid;
+  int m_hitShapePart;
+  int m_hitTriangleIndex;
+  btVector3 m_hitTriangleV0;
+  btVector3 m_hitTriangleV1;
+  btVector3 m_hitTriangleV2;
 
 protected:
   btCollisionObject* m_me;
   const btVector3 m_up;
   btScalar m_minSlopeDot;
 };
+
+#if KCC_LOG_GROUND_STATE
+static void logSweepHitContact(const char* tag, const btKinematicClosestNotMeConvexResultCallback& cb) {
+  printf(
+    "[ground] %s contact: frac=%.4f normal=(%.3f,%.3f,%.3f) raw=(%.3f,%.3f,%.3f) point=(%.3f,%.3f,%.3f)\n",
+    tag, cb.m_closestHitFraction,
+    cb.m_hitNormalWorld.x(), cb.m_hitNormalWorld.y(), cb.m_hitNormalWorld.z(),
+    cb.m_hitRawNormalWorld.x(), cb.m_hitRawNormalWorld.y(), cb.m_hitRawNormalWorld.z(),
+    cb.m_hitPointWorld.x(), cb.m_hitPointWorld.y(), cb.m_hitPointWorld.z());
+  if (cb.m_hitTriangleValid) {
+    // Compute the triangle's geometric face normal so we can compare it to the
+    // GJK normal -- if the contact is on an edge, these will diverge.
+    btVector3 e1 = cb.m_hitTriangleV1 - cb.m_hitTriangleV0;
+    btVector3 e2 = cb.m_hitTriangleV2 - cb.m_hitTriangleV0;
+    btVector3 face = e1.cross(e2);
+    btScalar faceLen = face.length();
+    if (faceLen > SIMD_EPSILON) {
+      face /= faceLen;
+    } else {
+      face.setValue(0, 0, 0);
+    }
+    printf(
+      "[ground] %s tri: part=%d idx=%d v0=(%.3f,%.3f,%.3f) v1=(%.3f,%.3f,%.3f) v2=(%.3f,%.3f,%.3f) face=(%.3f,%.3f,%.3f)\n",
+      tag, cb.m_hitShapePart, cb.m_hitTriangleIndex,
+      cb.m_hitTriangleV0.x(), cb.m_hitTriangleV0.y(), cb.m_hitTriangleV0.z(),
+      cb.m_hitTriangleV1.x(), cb.m_hitTriangleV1.y(), cb.m_hitTriangleV1.z(),
+      cb.m_hitTriangleV2.x(), cb.m_hitTriangleV2.y(), cb.m_hitTriangleV2.z(),
+      face.x(), face.y(), face.z());
+  } else {
+    printf("[ground] %s tri: <not a triangle mesh hit>\n", tag);
+  }
+}
+#else
+static inline void logSweepHitContact(const char*, const btKinematicClosestNotMeConvexResultCallback&) {}
+#endif
 
 /*
  * Returns the reflection direction of a ray going 'direction' hitting a surface with normal 'normal'
@@ -1055,10 +1156,18 @@ void btKinematicCharacterController::stepDown(btCollisionWorld* collisionWorld, 
              callback.hasHit() ? 1 : 0, callback2.hasHit() ? 1 : 0, runOnce ? 1 : 0, useCb2 ? 1 : 0,
              callback.hasHit() ? callback.m_hitCollisionObject->getUserIndex()
                                : (useCb2 ? callback2.m_hitCollisionObject->getUserIndex() : -1));
+    if (useCb2) {
+      logSweepHitContact("floorBlk-useCb2", callback2);
+    } else if (callback.hasHit()) {
+      logSweepHitContact("floorBlk", callback);
+    }
 #else
     KCC_GLOG("stepDn floorBlk entered (cb1.hit=%d runOnce=%d) -> og=1 vy=0 floorIdx=%d\n",
              callback.hasHit() ? 1 : 0, runOnce ? 1 : 0,
              callback.hasHit() ? callback.m_hitCollisionObject->getUserIndex() : -1);
+    if (callback.hasHit()) {
+      logSweepHitContact("floorBlk", callback);
+    }
 #endif
   } else if (callback2.hasHit() && m_ghostObject->hasContactResponse() &&
              needsCollision(m_ghostObject, callback2.m_hitCollisionObject)) {
@@ -1086,6 +1195,10 @@ void btKinematicCharacterController::stepDown(btCollisionWorld* collisionWorld, 
     m_floorObject = callback2.m_hitCollisionObject;
     m_floorUserIndex = callback2.m_hitCollisionObject->getUserIndex();
     m_floorNormal = callback2.m_hitNormalWorld;
+
+    KCC_GLOG("stepDn cb2-rescue (cb1.hit=0 cb2.hit=1 runOnce=%d) -> og=1 vy=0 floorIdx=%d\n",
+             runOnce ? 1 : 0, callback2.m_hitCollisionObject->getUserIndex());
+    logSweepHitContact("cb2-rescue", callback2);
   } else {
     m_currentPosition = m_targetPosition;
     KCC_GLOG("stepDn floorBlk skipped -> og stays %d, posY=%.4f\n",
@@ -1197,6 +1310,9 @@ void btKinematicCharacterController::processInputPreamble(btScalar dt) {
                     (m_totalElapsedTime - m_lastGroundedTime <= m_coyoteTimeDuration) &&
                     (m_totalElapsedTime - m_lastJumpTime > m_coyoteTimeDuration);
     bool cooldownOk = (m_totalElapsedTime - m_lastJumpTime > m_minJumpDelaySeconds);
+#if KCC_LOG_GROUND_STATE
+    bool ogAtRequest = m_onGround;
+#endif
 
     if ((m_onGround || coyoteOk) && cooldownOk) {
       btVector3 jumpVec(
@@ -1214,6 +1330,14 @@ void btKinematicCharacterController::processInputPreamble(btScalar dt) {
       evt.m_zoneId    = -1;
       evt.m_eventType = ZONE_EVENT_JUMP_FIRED;
       m_pendingEvents.push_back(evt);
+
+      KCC_GLOG("jump fired og=%d coyote=%d vy=%.3f\n",
+               ogAtRequest ? 1 : 0, coyoteOk ? 1 : 0, jumpVec.y());
+    } else {
+      KCC_GLOG("jump pressed-denied og=%d coyote=%d cooldownOk=%d sinceGrounded=%.4f sinceJump=%.4f\n",
+               ogAtRequest ? 1 : 0, coyoteOk ? 1 : 0, cooldownOk ? 1 : 0,
+               m_totalElapsedTime - m_lastGroundedTime,
+               m_totalElapsedTime - m_lastJumpTime);
     }
   }
 

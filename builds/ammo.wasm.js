@@ -4228,4 +4228,3 @@ if (typeof exports === 'object' && typeof module === 'object') {
   module.exports.default = Ammo;
 } else if (typeof define === 'function' && define['amd'])
   define([], () => Ammo);
-export {Ammo};
