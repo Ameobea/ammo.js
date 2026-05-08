@@ -273,17 +273,11 @@ public:
       return 1.0;
     }
 
-    // Edge-contact safety: the contact normal returned by GJK (and by our
-    // closed-form swept-capsule-vs-triangle solver) for an edge-grazing
-    // contact is the closest-pair direction between capsule segment and
-    // triangle edge -- which can have a positive dotUp even when the actual
-    // triangle face is non-walkable (e.g. capsule's lower hemisphere catching
-    // the bottom corner edge of a box; the closest-pair direction points
-    // up-and-out from the edge to the capsule's lower endpoint).
-    //
-    // For triangle-mesh hits we have unambiguous face geometry, so reject the
-    // hit when the triangle's geometric face normal is not walkable, even if
-    // the contact normal alone would have passed.
+    // Edge-contact safety: GJK and our swept-capsule solver return the closest-pair direction
+    // for edge-grazing contacts, which can have a positive dotUp even when the underlying
+    // face is non-walkable (e.g. capsule lower hemisphere catching a box's bottom corner).
+    // For tri-mesh hits we have the actual face normal — reject if its geometric normal isn't
+    // walkable, even if the contact normal would have passed.
     if (triShapeBuilt) {
       btVector3 e1 = triShape.m_vertices1[1] - triShape.m_vertices1[0];
       btVector3 e2 = triShape.m_vertices1[2] - triShape.m_vertices1[0];
@@ -586,11 +580,9 @@ void btKinematicCharacterController::maybeApplyFloorLock(btCollisionWorld* colli
   m_ghostObject->setWorldTransform(xform);
 }
 
-// Walk the broadphase pair list and the contact manifolds and dump everything we'd
-// need to reconstruct this state in a harness: world transforms, mesh extents (incl.
-// triangle vertices for the offending contacts), per-contact GJK distances/normals,
-// player kinematic state, input state. Single-line "[recover.fail]" prefix on each
-// line so a session log can be grep'd for one fire and the surrounding lines copied.
+// Dump everything needed to reconstruct this state in a harness: world transforms,
+// mesh extents (incl. triangle verts), per-contact GJK distances/normals, kinematic +
+// input state. "[recover.fail]" prefix per line so logs can be grep'd around the fire.
 void btKinematicCharacterController::dumpRecoveryFailureContext(
   btCollisionWorld* world, const char* phase, int numLoops
 ) {
@@ -875,19 +867,106 @@ void btKinematicCharacterController::updateTargetPositionBasedOnCollision(
   }
 }
 
-// When enabled, hitting two different planes in a single tick projects the remaining
-// movement along the crease (intersection) of those planes instead of stopping dead.
-// This eliminates oscillation and jank when sliding into V-shaped corners.
+// Crease projection: on a second-plane sweep hit within one tick, redirect remaining motion
+// along the crease (intersection of the two planes) instead of stopping dead. Handles
+// new contacts that emerge mid-sweep; existing contacts at tick-start are handled by the
+// pre-projection pass below.
 #define ENABLE_CREASE_PROJECTION 1
+
+// Velocity projection: pre-strip walk/ext velocity against existing manifold contacts at the
+// top of stepForwardAndStrafe (Unity CharacterController / Godot move_and_slide pattern).
+// Without this, a capsule that starts the tick in mild overlap (penetration below
+// m_maxPenetrationDepth so recovery skips) gets stranded by hitFraction=0 sweep returns.
+// Skip walkable contacts: stepDown's floor-block / floor-lock pipeline owns floor handling.
+// Toggle to 0 to A/B-test projection's effect on floors/ramps.
+#define PROJECTION_SKIP_WALKABLE_CONTACTS 1
+// One iter handles single walls; corners need 2; cap is generous slack for odd geometry.
+#define PROJECTION_MAX_ITERS 4
+// Tolerance for "this sweep hit is one we already projected against" (cos(~3°)).
+#define PROJECTION_NORMAL_DUP_DOT (btScalar(0.999))
 
 void btKinematicCharacterController::stepForwardAndStrafe(btCollisionWorld* collisionWorld, btScalar dt, btScalar verticalOffset) {
   btTransform start, end;
   start.setIdentity();
   end.setIdentity();
 
+  // Strip velocity components pointing into existing manifold contacts.
+  btVector3 projWalk = m_walkDirection;
+  btVector3 projExt  = m_externalVelocity;
+  btAlignedObjectArray<btVector3> projectedNormals;
+
+  bool projectionExhausted = true;
+  for (int iter = 0; iter < PROJECTION_MAX_ITERS; iter++) {
+    bool didProjectThisIter = false;
+
+    int numPairs = m_ghostObject->getOverlappingPairCache()->getNumOverlappingPairs();
+    for (int i = 0; i < numPairs; i++) {
+      m_manifoldArray.resize(0);
+      btBroadphasePair* pair = &m_ghostObject->getOverlappingPairCache()->getOverlappingPairArray()[i];
+
+      btCollisionObject* obj0 = static_cast<btCollisionObject*>(pair->m_pProxy0->m_clientObject);
+      btCollisionObject* obj1 = static_cast<btCollisionObject*>(pair->m_pProxy1->m_clientObject);
+      if ((obj0 && !obj0->hasContactResponse()) || (obj1 && !obj1->hasContactResponse()) || !needsCollision(obj0, obj1)) continue;
+
+      if (pair->m_algorithm) {
+        pair->m_algorithm->getAllContactManifolds(m_manifoldArray);
+      }
+
+      for (int j = 0; j < m_manifoldArray.size(); j++) {
+        btPersistentManifold* manifold = m_manifoldArray[j];
+        // m_normalWorldOnB points OUT of body B. We want the normal pointing toward the
+        // player (out of the contact surface, into free space).
+        //   body0 == ghost: B = other body → normal already toward player.
+        //   body1 == ghost: B = ghost itself → flip.
+        // Opposite sign convention from recoverFromPenetration, which combines this with
+        // negative penetration depth to get a recovery vector.
+        btScalar outwardSign = manifold->getBody0() == m_ghostObject ? btScalar(1.0) : btScalar(-1.0);
+        for (int p = 0; p < manifold->getNumContacts(); p++) {
+          btManifoldPoint& pt = manifold->getContactPoint(p);
+          if (pt.m_distance1 >= 0) continue;  // not penetrating, ignore
+
+          // Normal pointing OUT of contact surface, toward player.
+          btVector3 normal = pt.m_normalWorldOnB * outwardSign;
+
+#if PROJECTION_SKIP_WALKABLE_CONTACTS
+          if (normal.dot(m_up) > m_maxSlopeCosine) continue;
+#endif
+
+          btScalar walkDotN = projWalk.dot(normal);
+          btScalar extDotN  = projExt.dot(normal);
+          if (walkDotN < btScalar(0.)) projWalk -= normal * walkDotN;
+          if (extDotN  < btScalar(0.)) projExt  -= normal * extDotN;
+
+          if (walkDotN < btScalar(0.) || extDotN < btScalar(0.)) {
+            didProjectThisIter = true;
+            // Track (deduped) so the sweep loop can recognize already-handled contacts.
+            bool dup = false;
+            for (int k = 0; k < projectedNormals.size(); k++) {
+              if (projectedNormals[k].dot(normal) > PROJECTION_NORMAL_DUP_DOT) { dup = true; break; }
+            }
+            if (!dup) projectedNormals.push_back(normal);
+          }
+        }
+      }
+    }
+
+    if (!didProjectThisIter) {
+      projectionExhausted = false;
+      break;
+    }
+  }
+
+  if (projectionExhausted) {
+    // Hit iter cap with projection still active — pathological geometry. Same logging gate
+    // as the recovery-failure path.
+#if KCC_LOG_RECOVERY_FAIL
+    printf("character velocity projection did not converge within %d iterations\n", PROJECTION_MAX_ITERS);
+#endif
+  }
+
   m_targetPosition = m_currentPosition;
-  m_targetPosition += m_walkDirection * dt;
-  m_targetPosition += m_externalVelocity * dt;
+  m_targetPosition += projWalk * dt;
+  m_targetPosition += projExt  * dt;
   if (verticalOffset > 0.0) {
     const btVector3 jumpOffset = m_jumpAxis * verticalOffset;
     m_targetPosition += perpindicularComponent(jumpOffset, m_up);
@@ -905,10 +984,9 @@ void btKinematicCharacterController::stepForwardAndStrafe(btCollisionWorld* coll
   bool hasFirstHit = false;
 #endif
 
-  // Defer hit-fraction progress: committing to m_currentPosition inside the
-  // loop breaks the wall-slide and crease-projection math (both assume
-  // currentPosition is pinned), producing snagging on walls and spider-
-  // climbing of overhangs. Capture per-hit, commit only on early loop-exit.
+  // Defer per-hit progress: committing to m_currentPosition mid-loop breaks the wall-slide
+  // and crease math (both assume currentPosition is pinned), causing wall snagging and
+  // overhang spider-climbing. Capture pending; commit only on loop exit.
   btVector3 pendingHitTarget;
   bool havePendingProgress = false;
 
@@ -935,6 +1013,24 @@ void btKinematicCharacterController::stepForwardAndStrafe(btCollisionWorld* coll
 
     if (callback.hasHit() && m_ghostObject->hasContactResponse() &&
         needsCollision(m_ghostObject, callback.m_hitCollisionObject)) {
+
+      // hitFraction~0 against an already-projected normal = pre-existing overlap with a
+      // surface our velocity is already tangent to. Commit the projected target instead of
+      // routing through wall-slide (which would do nothing and trip anti-oscillation).
+      if (callback.m_closestHitFraction < btScalar(0.001)) {
+        bool hitMatchesProjected = false;
+        for (int k = 0; k < projectedNormals.size(); k++) {
+          if (projectedNormals[k].dot(callback.m_hitNormalWorld) > PROJECTION_NORMAL_DUP_DOT) {
+            hitMatchesProjected = true;
+            break;
+          }
+        }
+        if (hitMatchesProjected) {
+          m_currentPosition = m_targetPosition;
+          havePendingProgress = false;
+          break;
+        }
+      }
 
       // Capture hit-fraction position as pending; do not commit yet.
       pendingHitTarget.setInterpolate3(m_currentPosition, m_targetPosition, callback.m_closestHitFraction);
@@ -1061,15 +1157,15 @@ void btKinematicCharacterController::stepDown(btCollisionWorld* collisionWorld, 
 
     if (!hasHit) {
 #if KCC_STEPDOWN_FIXES
-      // Fix 3: neither the small nor double sweep found a floor. If the player
-      // was on ground last tick and the expected fall distance is small (i.e.
-      // we "should" still be on ground), the floor has likely moved further
-      // than 2*stepDrop in one tick — most often because floor-lock
-      // over-applies upward motion on fast-rotating platforms. Retry once with
-      // the fast-stairs range so cb2 reaches 2*stepHeight below; otherwise the
-      // player drops to og=0, then the next tick's wasOG=0 skips floor-lock,
-      // letting the floor catch up and deeply embed the capsule.
-      if (!runOnce && m_wasOnGround && downVelocity2 > 0.0 && downVelocity2 < stepHeight) {
+      // Fix 3: neither sweep found floor. If we were grounded last tick and expected fall
+      // is small, the floor likely ran further than 2*stepDrop (floor-lock over-applies
+      // on fast-rotating platforms). Retry once at fast-stairs range — without this, og
+      // drops, next tick's wasOG=0 skips floor-lock, and the floor catches up by deeply
+      // embedding the capsule. Gate on no upward extVel: a dash/jumppad legitimately
+      // escapes the floor and the retry would falsely snap the launch back down.
+      btScalar extVelUp = m_externalVelocity.dot(m_up);
+      if (!runOnce && m_wasOnGround && downVelocity2 > 0.0 && downVelocity2 < stepHeight &&
+          extVelUp <= btScalar(0)) {
         m_targetPosition = origTargetPosition;
         downVelocity = stepHeight;
         stepDrop = m_up * (m_currentStepOffset + downVelocity);
@@ -1097,9 +1193,8 @@ void btKinematicCharacterController::stepDown(btCollisionWorld* collisionWorld, 
   }
 
 #if KCC_STEPDOWN_FIXES
-  // Fix 4: tightened gate — only enter floorBlk if a sweep actually hit. Pre-fix
-  // code accepted `runOnce` alone, which could enter with no real contact when
-  // both sweeps missed in the second iteration.
+  // Fix 4: require an actual sweep hit to enter floorBlk. Pre-fix accepted `runOnce`
+  // alone, which could enter with no real contact when both sweeps missed on retry.
   bool cb1Valid = m_ghostObject->hasContactResponse() && callback.hasHit() &&
                   needsCollision(m_ghostObject, callback.m_hitCollisionObject);
   bool cb2Valid = m_ghostObject->hasContactResponse() && callback2.hasHit() &&
@@ -1115,11 +1210,9 @@ void btKinematicCharacterController::stepDown(btCollisionWorld* collisionWorld, 
   if (enterFloorBlk) {
     // we dropped a fraction of the height -> hit floor
 #if KCC_STEPDOWN_FIXES
-    // Fix 1: when runOnce activated because cb1 missed but cb2 hit, use cb2's
-    // hit data against the doubled endpoint. Pre-fix code used cb1's fraction
-    // (=1.0 since cb1 never hit), placing the player at the full target which
-    // is below the actual floor and forces recovery to push them up past
-    // stepHeight on the next tick.
+    // Fix 1: if runOnce fired because cb1 missed but cb2 hit, interpolate against cb2's
+    // doubled endpoint. Pre-fix used cb1's fraction (=1.0), placing the player below the
+    // floor and forcing next tick's recovery to push them up past stepHeight.
     bool useCb2 = runOnce && !cb1Valid && cb2Valid;
     if (useCb2) {
       btVector3 doubleEnd = m_targetPosition - stepDrop;
@@ -1137,10 +1230,8 @@ void btKinematicCharacterController::stepDown(btCollisionWorld* collisionWorld, 
     m_isJumping = false;
     m_onGround = true;
 
-    // The block is also entered via `runOnce` after a fast-stairs retry, in
-    // which case the second sweep can leave callback with no recorded hit
-    // (m_hitCollisionObject = null). Guard the floor metadata writes so we
-    // don't crash walking off a real ledge.
+    // After a fast-stairs runOnce retry, callback can have no recorded hit
+    // (m_hitCollisionObject = null). Guard the metadata writes against ledge crashes.
     if (callback.hasHit()) {
       m_floorObject = callback.m_hitCollisionObject;
       m_floorUserIndex = callback.m_hitCollisionObject->getUserIndex();
@@ -1171,19 +1262,10 @@ void btKinematicCharacterController::stepDown(btCollisionWorld* collisionWorld, 
 #endif
   } else if (callback2.hasHit() && m_ghostObject->hasContactResponse() &&
              needsCollision(m_ghostObject, callback2.m_hitCollisionObject)) {
-    // The single-step sweep (callback) missed but the double-step probe
-    // (callback2) found floor.  This happens when GJK fails to converge on the
-    // shorter sweep against a numerically awkward triangle (e.g. extreme
-    // aspect ratio from CSG output), and the fast-stairs `runOnce` retry
-    // didn't fire (e.g. !m_wasOnGround or downVelocity2 >= stepHeight), so the
-    // floorBlk's `useCb2` path doesn't catch it. Without this branch we'd
-    // fall straight through the floor to m_targetPosition, and subsequent
-    // ticks would be stuck inside the geometry because convexSweepTest
-    // doesn't report initial overlap.  Use callback2's hit position to land
-    // at the actual surface.
-    //
-    // callback2 swept from m_currentPosition to (m_targetPosition - stepDrop),
-    // so the world hit position is interpolated along that longer segment.
+    // cb1 missed but cb2 hit, and floorBlk's useCb2 path didn't catch it (runOnce gate
+    // didn't fire). Happens when GJK fails on cb1 against numerically awkward triangles.
+    // Without this branch we fall through the floor and convexSweepTest can't recover
+    // because it doesn't report initial overlap. cb2's segment is current → target-stepDrop.
     btVector3 endDoublePos = m_targetPosition - stepDrop;
     m_currentPosition.setInterpolate3(m_currentPosition, endDoublePos, callback2.m_closestHitFraction);
 
@@ -1523,13 +1605,10 @@ void btKinematicCharacterController::playerStep(btCollisionWorld* collisionWorld
   }
 
 #if KCC_STEPDOWN_FIXES
-  // Fix 2: cap cumulative upward recovery at slightly less than stepHeight. If
-  // recovery pushes the player higher than that on a tick where they ended on
-  // ground, the next tick's stepDown sweep (range ≈ stepHeight + downVel for
-  // cb1, 2× for cb2) can no longer reach the floor — producing the og=1↔0
-  // flicker observed on rotating-platform surfaces. Any residual penetration
-  // left here is resolved by the next tick's recovery pass, so this cap defers
-  // rather than discards work.
+  // Fix 2: cap upward recovery at <stepHeight on grounded ticks. Without the cap, a deeper
+  // recovery puts the player out of reach of next tick's stepDown sweeps (range ~stepHeight
+  // for cb1, 2× for cb2), causing og=1↔0 flicker on rotating platforms. Residual penetration
+  // is resolved next tick — the cap defers, doesn't discard.
   btScalar verticalRecovery = (m_currentPosition - preRecoverPos).dot(m_up);
   btScalar capRecovery = m_stepHeight - btScalar(0.001);
   if (m_onGround && verticalRecovery > capRecovery && capRecovery > 0.) {
