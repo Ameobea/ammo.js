@@ -16,6 +16,7 @@ public:
   int m_zoneId;
   bool m_isOverlapping;
   bool m_enabled;
+  bool m_useExternalVelocity;
 
   btJumpPad(
     btPairCachingGhostObject* ghostObject,
@@ -32,7 +33,8 @@ public:
     , m_lastTriggerTime(-1000)
     , m_zoneId(zoneId)
     , m_isOverlapping(false)
-    , m_enabled(true) {}
+    , m_enabled(true)
+    , m_useExternalVelocity(false) {}
 
   void setDirection(const btVector3& direction) {
     m_direction = direction.normalized();
@@ -56,6 +58,10 @@ public:
 
   void setEnabled(bool enabled) {
     m_enabled = enabled;
+  }
+
+  void setUseExternalVelocity(bool useExternal) {
+    m_useExternalVelocity = useExternal;
   }
 };
 

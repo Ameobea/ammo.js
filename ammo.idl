@@ -1062,6 +1062,7 @@ interface btJumpPad {
   void setCooldownSeconds(float seconds);
   long getZoneId();
   void setEnabled(boolean enabled);
+  void setUseExternalVelocity(boolean useExternal);
 };
 
 interface btBoostZone {
@@ -1097,16 +1098,24 @@ interface btKinematicCharacterController {
   // computes walk direction and fires jumps/dashes internally.
   void setInputState(long keyFlags, float theta, float phi, boolean movementEnabled);
   void setMoveSpeed(float ground, float air);
+  void setCurrentFloorBoost(float targetSpeed, float jumpRetention, float rampSeconds, boolean followSlope);
+  boolean isBoostEffective();
+  void setCurrentFloorExtVelDamping(float gx, float gy, float gz, float ax, float ay, float az, boolean active);
   void setTopDownMode(boolean topDown);
   void setMinJumpDelay(float seconds);
   void setCoyoteTime(float seconds);
+  void setBoostArmLeniency(float seconds);
   void setDashConfig(boolean enabled, float magnitude, float minDelay, boolean useExternalVelocity);
+  void setDashDirectionMode(long mode);
+  void setDashVerticalUseJump(boolean useJump);
+  void setDashCancelFallVelocity(boolean cancel);
   void setDashCharges(float charges);
   float getLastJumpTime();
   float getLastDashTime();
   float getDashCharges();
   [Const, Ref] btVector3 getLastMoveDir();
   [Const, Ref] btVector3 getLastDashDir();
+  [Const, Ref] btVector3 getWalkDirection();
 
   // Position / teleport
   void warp ([Const, Ref]btVector3 origin);
@@ -1121,6 +1130,7 @@ interface btKinematicCharacterController {
   void setStepHeight (float h);
   void setExternalVelocity ([Const,Ref] btVector3 velocity);
   void setExternalVelocityAirDampingFactor ([Const,Ref] btVector3 damping);
+  void setExternalVelocityAirIdleDampingFactor ([Const,Ref] btVector3 damping);
   void setExternalVelocityGroundDampingFactor ([Const,Ref] btVector3 damping);
   void setSlopeSlide (float minAngle, float maxSpeed);
   void setOnGround (boolean onGround);

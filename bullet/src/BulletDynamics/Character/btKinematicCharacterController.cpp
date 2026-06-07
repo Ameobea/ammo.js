@@ -406,6 +406,7 @@ btKinematicCharacterController::btKinematicCharacterController(
   m_currentStepOffset = 0.0;
   m_maxPenetrationDepth = 0.2;
   m_externalVelocityAirDampingFactor = btVector3(0.82, 0.75, 0.82);
+  m_externalVelocityAirIdleDampingFactor = btVector3(0.82, 0.75, 0.82);
   m_externalVelocityGroundDampingFactor = btVector3(0.9992, 0.9992, 0.9992);
 
   setUp(up);
@@ -1386,6 +1387,114 @@ void btKinematicCharacterController::processInputPreamble(btScalar dt) {
   }
   m_lastMoveDir = moveDir;
 
+  // Aux key (bit 64): generic held-button input.  Used here for boost-surface activation;
+  // not semantically tied to any one feature.
+  const bool auxHeld = m_inputMovementEnabled && (m_inputKeyFlags & 64);
+  const int  floorIx = m_floorUserIndex;
+  const bool onBoostStrip = m_onGround && m_currentFloorBoostTargetSpeed > btScalar(0);
+
+  // Snapshot previous tick's strict boost-active before we mutate it — used by the
+  // leave-strip detection below.
+  const bool prevBoostActive = m_boostActive;
+
+  // Arm tracking.  Arm requires a rising edge of aux while standing on a boost strip.
+  // Arm persists across air time (so coyote works) but clears the moment the player lands
+  // on a different surface than the one they armed against.  Aux release always clears.
+  if (!auxHeld) {
+    m_boostArmed = false;
+    m_armSourceFloorIx = -1;
+  }
+  if (m_onGround && floorIx >= 0 && m_armSourceFloorIx >= 0 && floorIx != m_armSourceFloorIx) {
+    m_boostArmed = false;
+    m_armSourceFloorIx = -1;
+  }
+  if (auxHeld && !m_prevAuxHeld) {
+    m_lastAuxRisingEdgeTime = m_totalElapsedTime;
+  }
+  const bool risingEdge   = auxHeld && !m_prevAuxHeld;
+  const bool leniencyMatch =
+    auxHeld && m_boostArmLeniency > btScalar(0) &&
+    (m_totalElapsedTime - m_lastAuxRisingEdgeTime) < m_boostArmLeniency;
+  if ((risingEdge || leniencyMatch) && onBoostStrip) {
+    m_boostArmed = true;
+    m_armSourceFloorIx = floorIx;
+  }
+  m_prevAuxHeld = auxHeld;
+
+  // Leave-strip detection: m_wasOnGround=true & m_onGround=false at preamble entry means
+  // last tick's stepDown dropped us off the ground.  Jumps clear m_wasOnGround mid-preamble
+  // so this only catches the walked-off-edge case (jumps already consumed retention).
+  if (m_wasOnGround && !m_onGround && prevBoostActive &&
+      m_coyoteTimeDuration > btScalar(0)) {
+    m_boostCoyoteEndTime = m_totalElapsedTime + m_coyoteTimeDuration;
+    // m_last* fields were refreshed each on-strip tick below and hold the leave-moment values.
+  }
+
+  const bool boostActive = m_boostArmed && auxHeld && onBoostStrip;
+  if (boostActive && !m_boostActive) m_boostActivatedTime = m_totalElapsedTime;
+  m_boostActive = boostActive;
+
+  // Ramped boost speed (strict on-strip): lerp from ground walk speed → target across
+  // `rampSeconds` using a soft-knee curve (smoothstep²) that starts gentle, accelerates
+  // late, and settles softly at the top.  rampSeconds == 0 → snap on tick 0.
+  btScalar boostedGroundSpeed = m_moveSpeedGround;
+  if (boostActive) {
+    btScalar t = btScalar(1);
+    if (m_currentFloorBoostRampSeconds > btScalar(0)) {
+      const btScalar elapsed = m_totalElapsedTime - m_boostActivatedTime;
+      t = btMin(btScalar(1), btMax(btScalar(0), elapsed / m_currentFloorBoostRampSeconds));
+    }
+    const btScalar s = t * t * (btScalar(3) - btScalar(2) * t);
+    const btScalar curve = s * s;
+    boostedGroundSpeed = m_moveSpeedGround +
+      curve * (m_currentFloorBoostTargetSpeed - m_moveSpeedGround);
+    // Cache for use during coyote window after leaving.
+    m_lastBoostedGroundSpeed = boostedGroundSpeed;
+    m_lastBoostJumpRetention = m_currentFloorBoostJumpRetention;
+    m_lastBoostFloorNormal   = m_floorNormal;
+    m_lastBoostFollowSlope   = m_currentFloorBoostFollowSlope;
+  }
+
+  // Coyote-boost extension: mirror of the ramp curve — taper from cached boost speed back
+  // to in-air speed across the coyote window.  Active only while armed + aux-held + in air.
+  btScalar coyoteFactor = btScalar(0);
+  const bool inBoostCoyote =
+    !boostActive && m_boostArmed && auxHeld && !m_onGround &&
+    m_coyoteTimeDuration > btScalar(0) &&
+    m_totalElapsedTime < m_boostCoyoteEndTime;
+  if (inBoostCoyote) {
+    const btScalar elapsed =
+      m_totalElapsedTime - (m_boostCoyoteEndTime - m_coyoteTimeDuration);
+    const btScalar t = btMin(btScalar(1), btMax(btScalar(0), elapsed / m_coyoteTimeDuration));
+    const btScalar s = t * t * (btScalar(3) - btScalar(2) * t);
+    coyoteFactor = btScalar(1) - s * s;  // soft knees both ends, mass-of-falloff late
+  }
+
+  // Slope-tangent projection: project a horizontal moveDir onto the floor's tangent plane
+  // so retention on a ramped strip launches along the ramp (not horizontally).  Clamps the
+  // tilt to ±45° to avoid absurd verticals on steep slopes.  Preserves input magnitude.
+  auto projectOnSlope = [&](const btVector3& dir, const btVector3& normal, bool follow) {
+    if (!follow) return dir;
+    const btScalar dirLen = dir.length();
+    if (dirLen < SIMD_EPSILON) return dir;
+    btVector3 tan = dir - normal * dir.dot(normal);
+    const btScalar tanLen = tan.length();
+    if (tanLen < SIMD_EPSILON) return dir;
+    tan *= (dirLen / tanLen);
+    const btScalar vCap = btScalar(0.70710678) * dirLen;  // sin(45°) · |dir|
+    const btScalar vDot = tan.dot(m_up);
+    if (vDot > vCap || vDot < -vCap) {
+      const btScalar clampedV = vDot > btScalar(0) ? vCap : -vCap;
+      btVector3 horiz = tan - m_up * vDot;
+      const btScalar hLen = horiz.length();
+      if (hLen > SIMD_EPSILON) {
+        const btScalar hMag = btSqrt(dirLen * dirLen - clampedV * clampedV);
+        tan = horiz * (hMag / hLen) + m_up * clampedV;
+      }
+    }
+    return tan;
+  };
+
   bool jumpFired = false;
   if (m_inputMovementEnabled && (m_inputKeyFlags & 16)) { // Space
     bool coyoteOk = m_coyoteTimeDuration > 0 &&
@@ -1407,6 +1516,17 @@ void btKinematicCharacterController::processInputPreamble(btScalar dt) {
       m_lastGroundedTime = btScalar(-1e30);
       m_onGround         = false;
       jumpFired          = true;
+
+      // Boost-surface retention: snapshot the live boosted walk velocity (or its tapered
+      // coyote-window cache) into external velocity so it carries through the jump.  Direction
+      // is projected onto the floor's tangent plane so a ramped strip launches along the ramp.
+      if (boostActive && m_currentFloorBoostJumpRetention > btScalar(0)) {
+        const btVector3 dir = projectOnSlope(moveDir, m_floorNormal, m_currentFloorBoostFollowSlope);
+        m_externalVelocity += dir * (boostedGroundSpeed * m_currentFloorBoostJumpRetention);
+      } else if (inBoostCoyote && m_lastBoostJumpRetention > btScalar(0)) {
+        const btVector3 dir = projectOnSlope(moveDir, m_lastBoostFloorNormal, m_lastBoostFollowSlope);
+        m_externalVelocity += dir * (coyoteFactor * m_lastBoostedGroundSpeed * m_lastBoostJumpRetention);
+      }
 
       btZoneEvent evt;
       evt.m_zoneId    = -1;
@@ -1446,7 +1566,61 @@ void btKinematicCharacterController::processInputPreamble(btScalar dt) {
         }
       }
 
-      if (m_dashUseExternalVelocity) {
+      switch (m_dashDirectionMode) {
+        case DASH_DIR_HORIZONTAL: {
+          btVector3 vertComp = parallelComponent(dashDir, m_up);
+          btVector3 horiz = dashDir - vertComp;
+          btScalar hlen = horiz.length();
+          dashDir = (hlen > SIMD_EPSILON) ? horiz / hlen : btVector3(0, 0, 0);
+          break;
+        }
+        case DASH_DIR_VERTICAL_UP:
+          dashDir = m_up;
+          break;
+        case DASH_DIR_VERTICAL_DOWN:
+          dashDir = -m_up;
+          break;
+        case DASH_DIR_FREE:
+        default:
+          break;
+      }
+
+      // Pre-dash vertical-state clear.  Default direction: strip downward components so a
+      // dash extends a jump / recovers a fall.  Inverted for DASH_DIR_VERTICAL_DOWN: strip
+      // *upward* components so a down-dash hard-cancels rising momentum.
+      if (m_dashCancelFallVelocity) {
+        const bool invert = (m_dashDirectionMode == DASH_DIR_VERTICAL_DOWN);
+        const btScalar extDot = m_externalVelocity.dot(m_up);
+        const bool clearVy  = invert ? (m_verticalVelocity > btScalar(0)) : (m_verticalVelocity < btScalar(0));
+        const bool clearExt = invert ? (extDot > btScalar(0)) : (extDot < btScalar(0));
+        if (clearVy)  m_verticalVelocity = btScalar(0);
+        if (clearExt) m_externalVelocity -= parallelComponent(m_externalVelocity, m_up);
+      }
+
+      const bool isVertical =
+        m_dashDirectionMode == DASH_DIR_VERTICAL_UP ||
+        m_dashDirectionMode == DASH_DIR_VERTICAL_DOWN;
+
+      if (m_dashDirectionMode == DASH_DIR_HORIZONTAL) {
+        btScalar scale = m_dashMagnitude * btScalar(1.28);
+        m_externalVelocity = dashDir * scale;
+        resetFall();
+      } else if (isVertical) {
+        if (m_dashVerticalUseJump) {
+          // jump() always yields positive vy (uses |v|); handle the downward case manually.
+          if (m_dashDirectionMode == DASH_DIR_VERTICAL_UP) {
+            jump(m_up * m_dashMagnitude);
+          } else {
+            m_verticalVelocity = -m_dashMagnitude;
+            m_isJumping        = true;
+            m_jumpAxis         = -m_up;
+          }
+        } else {
+          btScalar scale = m_dashMagnitude * btScalar(1.28);
+          m_externalVelocity = dashDir * scale;
+          resetFall();
+        }
+      } else if (m_dashUseExternalVelocity) {
         btScalar scale = m_dashMagnitude * btScalar(1.28);
         m_externalVelocity = dashDir * scale;
         resetFall();
@@ -1468,7 +1642,15 @@ void btKinematicCharacterController::processInputPreamble(btScalar dt) {
     }
   }
 
-  btScalar moveSpeed = (m_onGround && !jumpFired) ? m_moveSpeedGround : m_moveSpeedInAir;
+  btScalar moveSpeed;
+  if (m_onGround && !jumpFired) {
+    moveSpeed = boostedGroundSpeed;
+  } else if (inBoostCoyote) {
+    moveSpeed = m_moveSpeedInAir +
+      coyoteFactor * (m_lastBoostedGroundSpeed - m_moveSpeedInAir);
+  } else {
+    moveSpeed = m_moveSpeedInAir;
+  }
   m_walkDirection = moveDir * moveSpeed;
   m_normalizedDirection = getNormalizedVector(m_walkDirection);
 }
@@ -1501,7 +1683,12 @@ void btKinematicCharacterController::playerStep(btCollisionWorld* collisionWorld
   btScalar verticalOffset = m_verticalVelocity * dt;
 
   // apply damping to external velocity
-  btVector3 dampingFactor = m_wasOnGround ? m_externalVelocityGroundDampingFactor : m_externalVelocityAirDampingFactor;
+  const bool airborneIdle = !m_wasOnGround && m_normalizedDirection.length2() <= btScalar(0);
+  btVector3 dampingFactor = m_hasCurrentFloorExtVelDamping
+    ? (m_wasOnGround ? m_currentFloorExtVelGroundDamping : m_currentFloorExtVelAirDamping)
+    : (m_wasOnGround
+         ? m_externalVelocityGroundDampingFactor
+         : (airborneIdle ? m_externalVelocityAirIdleDampingFactor : m_externalVelocityAirDampingFactor));
   btVector3 externalVelocityMultiplier = (btVector3(1., 1., 1.) - dampingFactor).pow(dt);
   m_externalVelocity *= externalVelocityMultiplier;
 
@@ -1697,32 +1884,30 @@ void btKinematicCharacterController::processJumpPads(btCollisionWorld* collision
       continue;
     }
 
-    // Compute approach speed
-    btVector3 playerVel = m_walkDirection + m_externalVelocity;
-    playerVel += m_up * m_verticalVelocity;
+    // Total player velocity from all sources, projected onto -padDir; clamped ≥ 0
+    // so moving with the pad doesn't penalize the launch (spring-like, additive).
+    btVector3 playerVel = m_walkDirection + m_externalVelocity + m_up * m_verticalVelocity;
     btScalar approachSpeed = btMax(btScalar(0), playerVel.dot(-pad->m_direction));
 
-    // Decompose pad direction into vertical and horizontal components
-    btScalar verticalComponent = pad->m_direction.dot(m_up);
-    btVector3 horizontalDir = pad->m_direction - m_up * verticalComponent;
-    if (horizontalDir.length2() > SIMD_EPSILON) {
-      horizontalDir.normalize();
-    }
+    btScalar launchMagnitude = pad->m_baseImpulse + approachSpeed * pad->m_speedScaling;
+    btVector3 launchVel = pad->m_direction * launchMagnitude;
 
-    // Set vertical velocity for upward launch
-    m_verticalVelocity = pad->m_baseImpulse * verticalComponent;
-    m_jumpAxis = m_up;
-    m_isJumping = true;
-
-    // Add horizontal boost via external velocity
-    btVector3 horizontalBoost = horizontalDir * (pad->m_baseImpulse * (btScalar(1) - btFabs(verticalComponent)));
-    horizontalBoost += horizontalDir * (approachSpeed * pad->m_speedScaling);
-    m_externalVelocity += horizontalBoost;
-
-    // Clear downward external velocity to prevent fighting the launch
+    // Strip any pre-existing downward external velocity so it can't fight the launch
+    // (in external-velocity mode it would otherwise cancel the boost arithmetically).
     btScalar vertExtVel = m_externalVelocity.dot(m_up);
     if (vertExtVel < 0) {
       m_externalVelocity -= m_up * vertExtVel;
+    }
+
+    if (pad->m_useExternalVelocity) {
+      m_externalVelocity += launchVel;
+    } else {
+      btScalar vertImpulse = launchVel.dot(m_up);
+      btVector3 horizImpulse = launchVel - m_up * vertImpulse;
+      m_verticalVelocity = vertImpulse;
+      m_externalVelocity += horizImpulse;
+      m_jumpAxis = m_up;
+      m_isJumping = true;
     }
 
     pad->m_lastTriggerTime = m_totalElapsedTime;

@@ -40,6 +40,13 @@ class btDiscreteDynamicsWorld;
 class btCollisionDispatcher;
 class btPairCachingGhostObject;
 
+enum DashDirectionMode {
+  DASH_DIR_FREE          = 0,
+  DASH_DIR_HORIZONTAL    = 1,
+  DASH_DIR_VERTICAL_UP   = 2,
+  DASH_DIR_VERTICAL_DOWN = 3,
+};
+
 /// btKinematicCharacterController is an object that supports a sliding motion in a world.
 /// It uses a ghost object and convex sweep test to test for upcoming collisions. This is combined with discrete
 /// collision detection to recover from penetrations. Interaction between btKinematicCharacterController and dynamic
@@ -63,6 +70,11 @@ protected:
   //
   // A value of 0.2 means that the external velocity will be reduced by 20% every second.
   btVector3 m_externalVelocityAirDampingFactor;
+  // Same as `m_externalVelocityAirDampingFactor`, but applied only while airborne AND no
+  // directional input is being applied (e.g. player let go of WASD mid-air).  Lets a scene opt
+  // into a heavier in-air bleed when the player is "coasting" so they don't overshoot platforms.
+  // Defaults to the same value as the regular air factor → no behavior change unless overridden.
+  btVector3 m_externalVelocityAirIdleDampingFactor;
   // acts as friction for the external velocity when the player is on the ground.  Every 1 second,
   // the external velocity will be reduced by this factor.
   //
@@ -190,6 +202,52 @@ protected:
   btScalar m_checkpointDashCharges = INFINITY;
   btScalar m_lastDashTime       = btScalar(-1e30);
   bool m_dashNeedsGroundTouch = false;
+  // Optional dash extensions (all default to no-op / current behavior).
+  int  m_dashDirectionMode      = DASH_DIR_FREE; // see DashDirectionMode enum
+  // For vertical-up/vertical-down only: true → apply as jump() (writes m_verticalVelocity,
+  // integrates with gravity shaping); false → apply as external velocity (damped push).
+  bool m_dashVerticalUseJump    = false;
+  // If true, the dash clears downward vertical state (m_verticalVelocity if < 0 AND the
+  // downward component of m_externalVelocity) BEFORE applying the dash effect.
+  bool m_dashCancelFallVelocity = false;
+
+  // Pushed from JS per-tick based on the entity under the player's feet (with a one-tick
+  // latency — uses the floor seen at the end of the previous step).  Zero means no boost.
+  btScalar m_currentFloorBoostTargetSpeed   = btScalar(0);
+  btScalar m_currentFloorBoostJumpRetention = btScalar(0);
+  btScalar m_currentFloorBoostRampSeconds   = btScalar(0);
+  bool     m_currentFloorBoostFollowSlope   = false;
+
+  // Boost arm/edge tracking.  Must observe a rising edge of aux while standing on a boost
+  // strip to engage; arm persists through air time so a coyote-jump still benefits, but
+  // clears when the player lands on a *different* surface than the one they armed against
+  // (or releases aux).
+  bool     m_boostArmed         = false;
+  bool     m_prevAuxHeld        = false;
+  int      m_armSourceFloorIx   = -1;  // floor index in effect when arm was last set
+  bool     m_boostActive        = false;
+  btScalar m_boostActivatedTime = btScalar(-1);
+  // Time of the most recent aux rising edge (held set after not-held), regardless of floor.
+  // Used by the arm-leniency check to credit a pre-contact press for arming on landing.
+  btScalar m_lastAuxRisingEdgeTime = btScalar(-1e30);
+  // Window in seconds; if > 0, a rising edge that landed within this many seconds before
+  // touching a boost strip still arms it.  0 disables the leniency (legacy behavior).
+  btScalar m_boostArmLeniency   = btScalar(0);
+
+  // Cached at the moment of walking off a boost strip while boost-active; used to extend the
+  // boost effect through the coyote window (tapered) and to inject momentum on coyote jumps.
+  btScalar  m_boostCoyoteEndTime          = btScalar(-1);
+  btScalar  m_lastBoostedGroundSpeed      = btScalar(0);
+  btScalar  m_lastBoostJumpRetention      = btScalar(0);
+  btVector3 m_lastBoostFloorNormal        = btVector3(0, 1, 0);
+  bool      m_lastBoostFollowSlope        = false;
+
+  // Per-surface external-velocity damping override.  Pushed from JS per-tick based on the
+  // floor entity; when m_hasCurrentFloorExtVelDamping is true, these replace the global
+  // m_externalVelocity{Ground,Air}DampingFactor for this step.
+  btVector3 m_currentFloorExtVelGroundDamping = btVector3(0, 0, 0);
+  btVector3 m_currentFloorExtVelAirDamping    = btVector3(0, 0, 0);
+  bool      m_hasCurrentFloorExtVelDamping    = false;
 
   void processInputPreamble(btScalar dt);
 
@@ -315,6 +373,7 @@ public:
   void setExternalVelocity(const btVector3& v) { m_externalVelocity = v; }
 
   void setExternalVelocityAirDampingFactor(const btVector3& v) { m_externalVelocityAirDampingFactor = v; }
+  void setExternalVelocityAirIdleDampingFactor(const btVector3& v) { m_externalVelocityAirIdleDampingFactor = v; }
 
   void setExternalVelocityGroundDampingFactor(const btVector3& v) { m_externalVelocityGroundDampingFactor = v; }
 
@@ -330,11 +389,34 @@ public:
     m_moveSpeedInAir  = air;
   }
 
+  void setCurrentFloorBoost(btScalar targetSpeed, btScalar jumpRetention, btScalar rampSeconds,
+                            bool followSlope) {
+    m_currentFloorBoostTargetSpeed   = targetSpeed;
+    m_currentFloorBoostJumpRetention = jumpRetention;
+    m_currentFloorBoostRampSeconds   = rampSeconds;
+    m_currentFloorBoostFollowSlope   = followSlope;
+  }
+
+  bool isBoostEffective() const {
+    return m_boostActive ||
+           (m_boostArmed && m_prevAuxHeld && m_totalElapsedTime < m_boostCoyoteEndTime);
+  }
+
+  void setCurrentFloorExtVelDamping(btScalar gx, btScalar gy, btScalar gz,
+                                    btScalar ax, btScalar ay, btScalar az,
+                                    bool active) {
+    m_currentFloorExtVelGroundDamping.setValue(gx, gy, gz);
+    m_currentFloorExtVelAirDamping.setValue(ax, ay, az);
+    m_hasCurrentFloorExtVelDamping = active;
+  }
+
   void setTopDownMode(bool topDown) { m_topDownMode = topDown; }
 
   void setMinJumpDelay(btScalar seconds) { m_minJumpDelaySeconds = seconds; }
 
   void setCoyoteTime(btScalar seconds) { m_coyoteTimeDuration = seconds; }
+
+  void setBoostArmLeniency(btScalar seconds) { m_boostArmLeniency = seconds; }
 
   void setDashConfig(bool enabled, btScalar magnitude, btScalar minDelay, bool useExternalVelocity) {
     m_dashEnabled             = enabled;
@@ -343,6 +425,10 @@ public:
     m_dashUseExternalVelocity = useExternalVelocity;
   }
 
+  void setDashDirectionMode(int mode)         { m_dashDirectionMode = mode; }
+  void setDashVerticalUseJump(bool useJump)   { m_dashVerticalUseJump = useJump; }
+  void setDashCancelFallVelocity(bool cancel) { m_dashCancelFallVelocity = cancel; }
+
   btScalar getLastJumpTime() const { return m_lastJumpTime; }
   btScalar getLastDashTime() const { return m_lastDashTime; }
   void setDashCharges(btScalar charges) { m_dashCharges = charges; }
@@ -350,6 +436,8 @@ public:
   // Returns the normalized horizontal move direction from the last subtick (pre-speed-scale).
   // Zero when no movement keys are held.
   const btVector3& getLastMoveDir() const { return m_lastMoveDir; }
+
+  const btVector3& getWalkDirection() const { return m_walkDirection; }
   // Returns the dash direction from the last dash that fired
   const btVector3& getLastDashDir() const { return m_lastDashDir; }
 
