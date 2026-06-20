@@ -1100,6 +1100,7 @@ interface btKinematicCharacterController {
   void setMoveSpeed(float ground, float air);
   void setCurrentFloorBoost(float targetSpeed, float jumpRetention, float rampSeconds, boolean followSlope);
   boolean isBoostEffective();
+  float getBoostChargeRatio();
   void setCurrentFloorExtVelDamping(float gx, float gy, float gz, float ax, float ay, float az, boolean active);
   void setTopDownMode(boolean topDown);
   void setMinJumpDelay(float seconds);

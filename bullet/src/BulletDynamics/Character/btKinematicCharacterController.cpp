@@ -1431,25 +1431,34 @@ void btKinematicCharacterController::processInputPreamble(btScalar dt) {
   }
 
   const bool boostActive = m_boostArmed && auxHeld && onBoostStrip;
-  if (boostActive && !m_boostActive) m_boostActivatedTime = m_totalElapsedTime;
+  if (boostActive && !m_boostActive) m_boostChargeSeconds = btScalar(0);
   m_boostActive = boostActive;
 
   // Ramped boost speed (strict on-strip): lerp from ground walk speed → target across
   // `rampSeconds` using a soft-knee curve (smoothstep²) that starts gentle, accelerates
   // late, and settles softly at the top.  rampSeconds == 0 → snap on tick 0.
+  // Charge builds only under active directional input and bleeds at the same rate while
+  // standing still, so camping the strip at full charge isn't free.
   btScalar boostedGroundSpeed = m_moveSpeedGround;
+  m_boostChargeRatio = btScalar(0);
   if (boostActive) {
     btScalar t = btScalar(1);
     if (m_currentFloorBoostRampSeconds > btScalar(0)) {
-      const btScalar elapsed = m_totalElapsedTime - m_boostActivatedTime;
-      t = btMin(btScalar(1), btMax(btScalar(0), elapsed / m_currentFloorBoostRampSeconds));
+      if (moveDir.length2() > SIMD_EPSILON) {
+        m_boostChargeSeconds = btMin(m_currentFloorBoostRampSeconds, m_boostChargeSeconds + dt);
+      } else {
+        m_boostChargeSeconds = btMax(btScalar(0), m_boostChargeSeconds - dt);
+      }
+      t = m_boostChargeSeconds / m_currentFloorBoostRampSeconds;
     }
     const btScalar s = t * t * (btScalar(3) - btScalar(2) * t);
     const btScalar curve = s * s;
     boostedGroundSpeed = m_moveSpeedGround +
       curve * (m_currentFloorBoostTargetSpeed - m_moveSpeedGround);
+    m_boostChargeRatio = curve;
     // Cache for use during coyote window after leaving.
     m_lastBoostedGroundSpeed = boostedGroundSpeed;
+    m_lastBoostCurve         = curve;
     m_lastBoostJumpRetention = m_currentFloorBoostJumpRetention;
     m_lastBoostFloorNormal   = m_floorNormal;
     m_lastBoostFollowSlope   = m_currentFloorBoostFollowSlope;
@@ -1468,6 +1477,7 @@ void btKinematicCharacterController::processInputPreamble(btScalar dt) {
     const btScalar t = btMin(btScalar(1), btMax(btScalar(0), elapsed / m_coyoteTimeDuration));
     const btScalar s = t * t * (btScalar(3) - btScalar(2) * t);
     coyoteFactor = btScalar(1) - s * s;  // soft knees both ends, mass-of-falloff late
+    m_boostChargeRatio = coyoteFactor * m_lastBoostCurve;
   }
 
   // Slope-tangent projection: project a horizontal moveDir onto the floor's tangent plane
@@ -1683,12 +1693,20 @@ void btKinematicCharacterController::playerStep(btCollisionWorld* collisionWorld
   btScalar verticalOffset = m_verticalVelocity * dt;
 
   // apply damping to external velocity
+  //
+  // The per-floor override is honored only while grounded: m_floorUserIndex (which JS uses
+  // to push the override) keeps the last-stood floor after going airborne, so applying the
+  // override in the air would let a surface's damping follow the player through jumps —
+  // and it bypassed the air-idle factor selection entirely.
   const bool airborneIdle = !m_wasOnGround && m_normalizedDirection.length2() <= btScalar(0);
-  btVector3 dampingFactor = m_hasCurrentFloorExtVelDamping
-    ? (m_wasOnGround ? m_currentFloorExtVelGroundDamping : m_currentFloorExtVelAirDamping)
-    : (m_wasOnGround
-         ? m_externalVelocityGroundDampingFactor
-         : (airborneIdle ? m_externalVelocityAirIdleDampingFactor : m_externalVelocityAirDampingFactor));
+  btVector3 dampingFactor;
+  if (m_wasOnGround) {
+    dampingFactor = m_hasCurrentFloorExtVelDamping ? m_currentFloorExtVelGroundDamping
+                                                   : m_externalVelocityGroundDampingFactor;
+  } else {
+    dampingFactor = airborneIdle ? m_externalVelocityAirIdleDampingFactor
+                                 : m_externalVelocityAirDampingFactor;
+  }
   btVector3 externalVelocityMultiplier = (btVector3(1., 1., 1.) - dampingFactor).pow(dt);
   m_externalVelocity *= externalVelocityMultiplier;
 

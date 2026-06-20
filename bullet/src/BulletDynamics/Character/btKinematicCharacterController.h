@@ -226,7 +226,13 @@ protected:
   bool     m_prevAuxHeld        = false;
   int      m_armSourceFloorIx   = -1;  // floor index in effect when arm was last set
   bool     m_boostActive        = false;
-  btScalar m_boostActivatedTime = btScalar(-1);
+  // Accumulated chargeup toward the ramp target.  Builds at 1 sec/sec while boost is active
+  // AND directional input is applied; decays at the same rate while active but standing
+  // still.  Reset on each boost activation rising edge.
+  btScalar m_boostChargeSeconds = btScalar(0);
+  // Blend factor [0, 1] actually applied to the walk speed this tick (post ramp curve,
+  // tapered through the coyote window).  Cached for the cheap getter.
+  btScalar m_boostChargeRatio   = btScalar(0);
   // Time of the most recent aux rising edge (held set after not-held), regardless of floor.
   // Used by the arm-leniency check to credit a pre-contact press for arming on landing.
   btScalar m_lastAuxRisingEdgeTime = btScalar(-1e30);
@@ -238,13 +244,16 @@ protected:
   // boost effect through the coyote window (tapered) and to inject momentum on coyote jumps.
   btScalar  m_boostCoyoteEndTime          = btScalar(-1);
   btScalar  m_lastBoostedGroundSpeed      = btScalar(0);
+  btScalar  m_lastBoostCurve              = btScalar(0);
   btScalar  m_lastBoostJumpRetention      = btScalar(0);
   btVector3 m_lastBoostFloorNormal        = btVector3(0, 1, 0);
   bool      m_lastBoostFollowSlope        = false;
 
   // Per-surface external-velocity damping override.  Pushed from JS per-tick based on the
-  // floor entity; when m_hasCurrentFloorExtVelDamping is true, these replace the global
-  // m_externalVelocity{Ground,Air}DampingFactor for this step.
+  // floor entity; when m_hasCurrentFloorExtVelDamping is true, the ground factor replaces
+  // the global m_externalVelocityGroundDampingFactor for grounded steps.  Airborne steps
+  // always use the global air/air-idle factors (the floor fields go stale once airborne).
+  // The air slot is retained only for IDL signature compatibility and is ignored.
   btVector3 m_currentFloorExtVelGroundDamping = btVector3(0, 0, 0);
   btVector3 m_currentFloorExtVelAirDamping    = btVector3(0, 0, 0);
   bool      m_hasCurrentFloorExtVelDamping    = false;
@@ -402,6 +411,8 @@ public:
            (m_boostArmed && m_prevAuxHeld && m_totalElapsedTime < m_boostCoyoteEndTime);
   }
 
+  btScalar getBoostChargeRatio() const { return m_boostChargeRatio; }
+
   void setCurrentFloorExtVelDamping(btScalar gx, btScalar gy, btScalar gz,
                                     btScalar ax, btScalar ay, btScalar az,
                                     bool active) {
@@ -553,6 +564,17 @@ public:
     m_lastGroundedTime = btScalar(-1e30);
     m_lastDashTime     = btScalar(-1e30);
     m_dashNeedsGroundTouch = false;
+    // Boost arm/charge state must clear with the clock reset: stale event times from the
+    // previous run would otherwise sit "in the future" relative to the restarted clock
+    // (e.g. arm leniency matching on a mere held aux).
+    m_boostArmed            = false;
+    m_prevAuxHeld           = false;
+    m_armSourceFloorIx      = -1;
+    m_boostActive           = false;
+    m_boostChargeSeconds    = 0;
+    m_boostChargeRatio      = 0;
+    m_lastAuxRisingEdgeTime = btScalar(-1e30);
+    m_boostCoyoteEndTime    = btScalar(-1);
     m_inputKeyFlags = 0;
     m_inputMovementEnabled = false;
     for (int i = 0; i < m_dashTokens.size(); i++) {
