@@ -4290,7 +4290,7 @@ Module["btGhostPairCallback"] = btGhostPairCallback;
 })();
 
 // end include: glue.js
-// include: /Users/casey/ammo.js/onload.js
+// include: /home/casey/ammo.js/onload.js
 Module["CONTACT_ADDED_CALLBACK_SIGNATURE"] = "iiiiiiii";
 
 Module["CONTACT_DESTROYED_CALLBACK_SIGNATURE"] = "ii";
@@ -4302,7 +4302,7 @@ Module["INTERNAL_TICK_CALLBACK_SIGNATURE"] = "vif";
 // Reassign global Ammo to the loaded module:
 this["Ammo"] = Module;
 
-// end include: /Users/casey/ammo.js/onload.js
+// end include: /home/casey/ammo.js/onload.js
 // include: postamble_modularize.js
 // In MODULARIZE mode we wrap the generated code in a factory function
 // and return either the Module itself, or a promise of the module.

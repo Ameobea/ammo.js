@@ -258,6 +258,11 @@ protected:
   btVector3 m_currentFloorExtVelAirDamping    = btVector3(0, 0, 0);
   bool      m_hasCurrentFloorExtVelDamping    = false;
 
+  // Set each tick when standing on a floor whose ground factor is a full (1,1,1) brick wall.
+  // Forces external velocity to zero in the damping step even when a same-tick re-jump flips
+  // m_wasOnGround false and would otherwise route damping through the airborne factor.
+  bool      m_extVelKillOnContact             = false;
+
   void processInputPreamble(btScalar dt);
 
   void processJumpPads(btCollisionWorld* collisionWorld, btScalar dt);

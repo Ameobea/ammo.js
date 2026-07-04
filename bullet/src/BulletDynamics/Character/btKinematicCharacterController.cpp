@@ -1346,6 +1346,11 @@ btScalar btKinematicCharacterController::computeShapedGravity() const {
 }
 
 void btKinematicCharacterController::processInputPreamble(btScalar dt) {
+  m_extVelKillOnContact = m_onGround && m_hasCurrentFloorExtVelDamping &&
+    m_currentFloorExtVelGroundDamping.x() >= btScalar(1) &&
+    m_currentFloorExtVelGroundDamping.y() >= btScalar(1) &&
+    m_currentFloorExtVelGroundDamping.z() >= btScalar(1);
+
   if (m_onGround) {
     m_lastGroundedTime = m_totalElapsedTime;
   }
@@ -1627,7 +1632,14 @@ void btKinematicCharacterController::processInputPreamble(btScalar dt) {
           }
         } else {
           btScalar scale = m_dashMagnitude * btScalar(1.28);
-          m_externalVelocity = dashDir * scale;
+          if (m_dashDirectionMode == DASH_DIR_VERTICAL_DOWN) {
+            m_externalVelocity = dashDir * scale;
+          } else {
+            // only clear the downward component of external velocity for an upward dash; leave any existing upward
+            // and horizontal components intact
+            m_externalVelocity -= parallelComponent(m_externalVelocity, m_up);
+            m_externalVelocity += dashDir * scale;
+          }
           resetFall();
         }
       } else if (m_dashUseExternalVelocity) {
@@ -1709,6 +1721,12 @@ void btKinematicCharacterController::playerStep(btCollisionWorld* collisionWorld
   }
   btVector3 externalVelocityMultiplier = (btVector3(1., 1., 1.) - dampingFactor).pow(dt);
   m_externalVelocity *= externalVelocityMultiplier;
+
+  // Brick-wall floor: kill external velocity outright even if a re-jump this tick flipped
+  // m_wasOnGround false and sent us through the airborne factor above.
+  if (m_extVelKillOnContact) {
+    m_externalVelocity.setValue(0., 0., 0.);
+  }
 
   // if in the air, use directional input to change the direction of external velocity while retaining its magnitude
   //
