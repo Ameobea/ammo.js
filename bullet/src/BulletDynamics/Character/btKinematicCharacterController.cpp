@@ -2120,6 +2120,30 @@ float btKinematicCharacterController::cameraRayTest(
   return callback.m_closestHitFraction;
 }
 
+float btKinematicCharacterController::castShadowProbeGrid(
+    btCollisionWorld* world,
+    btScalar centerX, btScalar originY, btScalar centerZ,
+    btScalar radius, btScalar maxDist, int n, void* outBuffer) {
+  float* out = static_cast<float*>(outBuffer);
+  const float missY = float(originY - maxDist);
+  const btScalar step = n > 1 ? radius * btScalar(2) / btScalar(n - 1) : btScalar(0);
+  float maxY = missY;
+
+  for (int iz = 0; iz < n; iz++) {
+    const btScalar z = centerZ - radius + step * iz;
+    for (int ix = 0; ix < n; ix++) {
+      const btScalar x = centerX - radius + step * ix;
+      btKinematicClosestNotMeRayResultCallback callback(m_ghostObject);
+      callback.m_collisionFilterMask = btBroadphaseProxy::StaticFilter | btBroadphaseProxy::DefaultFilter;
+      world->rayTest(btVector3(x, originY, z), btVector3(x, originY - maxDist, z), callback);
+      const float y = callback.hasHit() ? float(originY - callback.m_closestHitFraction * maxDist) : missY;
+      out[iz * n + ix] = y;
+      if (y > maxY) maxY = y;
+    }
+  }
+  return maxY;
+}
+
 int btKinematicCharacterController::packState(void* outPtr) const {
   float* outBuffer = static_cast<float*>(outPtr);
   outBuffer[0] = m_currentPosition.x();

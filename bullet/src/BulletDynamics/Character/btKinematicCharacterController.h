@@ -539,6 +539,13 @@ public:
   float getCameraRayHitNormalZ() const { return m_cameraRayHitNZ; }
   bool getCameraRayHitNonPermeable() const { return m_cameraRayHitNonPermeable; }
 
+  /// Casts an n×n grid of downward rays centered on (centerX, centerZ) spanning ±radius,
+  /// writing first-hit Y per cell (row-major, z rows) to outBuffer as floats; misses write
+  /// originY - maxDist. Returns the max written Y.
+  float castShadowProbeGrid(btCollisionWorld* world,
+                            btScalar centerX, btScalar originY, btScalar centerZ,
+                            btScalar radius, btScalar maxDist, int n, void* outBuffer);
+
   int packState(void* outBuffer) const;
 
   /// Reset all dynamic gameplay state to match a freshly-constructed controller.
