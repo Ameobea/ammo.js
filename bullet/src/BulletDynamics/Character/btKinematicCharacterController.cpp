@@ -543,8 +543,11 @@ bool btKinematicCharacterController::recoverFromPenetration(btCollisionWorld* co
 // object to the player's position to keep them standing at the same point on that object.
 //
 // This makes things like moving platforms work.
-void btKinematicCharacterController::maybeApplyFloorLock(btCollisionWorld* collisionWorld) {
-  if (!m_wasOnGround || !m_floorObject) {
+void btKinematicCharacterController::maybeApplyFloorLock(
+  btCollisionWorld* collisionWorld,
+  bool wasSupportedAtTickStart
+) {
+  if (!wasSupportedAtTickStart || !m_floorObject) {
     return;
   }
 
@@ -789,7 +792,8 @@ void btKinematicCharacterController::stepUp(btCollisionWorld* world, btScalar& v
     stepHeight = m_stepHeight;
   }
 
-  m_targetPosition = m_currentPosition;
+  const btVector3 startPosition = m_currentPosition;
+  m_targetPosition = startPosition;
   m_targetPosition += m_up * stepHeight;
   if (verticalOffset > 0.) {
     const btVector3 jumpOffset = m_jumpAxis * verticalOffset;
@@ -804,25 +808,24 @@ void btKinematicCharacterController::stepUp(btCollisionWorld* world, btScalar& v
   start.setOrigin(m_currentPosition);
   end.setOrigin(m_targetPosition);
 
-  m_currentPosition = m_targetPosition;
-
   btKinematicClosestNotMeConvexResultCallback callback(m_ghostObject, -m_up, m_maxSlopeCosine);
   callback.m_collisionFilterGroup = m_ghostObject->getBroadphaseHandle()->m_collisionFilterGroup;
   callback.m_collisionFilterMask = m_ghostObject->getBroadphaseHandle()->m_collisionFilterMask;
 
-  m_ghostObject->convexSweepTest(m_convexShape, start, end, callback, world->getDispatchInfo().m_allowedCcdPenetration);
+  // Sweep against the world's broadphase rather than only the ghost's current overlap
+  // cache. Objects that begin outside that cache can still lie anywhere along this
+  // tick's motion, especially for high-speed movement.
+  world->convexSweepTest(m_convexShape, start, end, callback, world->getDispatchInfo().m_allowedCcdPenetration);
 
   if (callback.hasHit() && m_ghostObject->hasContactResponse() &&
       needsCollision(m_ghostObject, callback.m_hitCollisionObject)) {
     const btScalar hitDotUp = callback.m_hitNormalWorld.dot(m_up);
-    // Only modify the position if the hit was a slope and not a wall or ceiling.
-    if (hitDotUp > 0.) {
-      // we moved up only a fraction of the step height
-      m_currentStepOffset = stepHeight * callback.m_closestHitFraction;
-      m_currentPosition.setInterpolate3(m_currentPosition, m_targetPosition, callback.m_closestHitFraction);
-    } else {
-      m_currentStepOffset = stepHeight;
-    }
+    // The callback is configured with -m_up, so accepted hits are ceiling-facing. Move
+    // only to the sweep's time of impact. The old code had already assigned current to
+    // target here, making its interpolation a no-op and forcing penetration recovery to
+    // undo the full upward move.
+    m_currentPosition.setInterpolate3(startPosition, m_targetPosition, callback.m_closestHitFraction);
+    m_currentStepOffset = stepHeight * callback.m_closestHitFraction;
 
     btTransform& xform = m_ghostObject->getWorldTransform();
     xform.setOrigin(m_currentPosition);
@@ -843,12 +846,12 @@ void btKinematicCharacterController::stepUp(btCollisionWorld* world, btScalar& v
     m_targetPosition = m_ghostObject->getWorldTransform().getOrigin();
     m_currentPosition = m_targetPosition;
 
-    // Preserve upward momentum when the sweep hit a wall. The jump vector can be tilted,
-    // so a lateral contact during stepUp should not behave like a ceiling and kill ascent.
+    // A sufficiently ceiling-facing hit ends ascent. The callback rejects walls, but keep
+    // the dot check explicit so future callback changes cannot turn lateral contact into a
+    // head bump.
     if (verticalOffset > 0 && hitDotUp < -0.3) {
       verticalOffset = 0.0;
       m_verticalVelocity = 0.0;
-      m_currentStepOffset = m_stepHeight;
     }
   } else {
     m_currentStepOffset = stepHeight;
@@ -1025,7 +1028,7 @@ void btKinematicCharacterController::stepForwardAndStrafe(btCollisionWorld* coll
     m_convexShape->setMargin(margin + m_addedMargin);
 
     if (!(start == end)) {
-      m_ghostObject->convexSweepTest(
+      collisionWorld->convexSweepTest(
         m_convexShape, start, end, callback, collisionWorld->getDispatchInfo().m_allowedCcdPenetration
       );
     }
@@ -1155,13 +1158,13 @@ void btKinematicCharacterController::stepDown(btCollisionWorld* collisionWorld, 
     // set double test for 2x the step drop, to check for a large drop vs small drop
     endDouble.setOrigin(m_targetPosition - stepDrop);
 
-    m_ghostObject->convexSweepTest(
+    collisionWorld->convexSweepTest(
       m_convexShape, start, end, callback, collisionWorld->getDispatchInfo().m_allowedCcdPenetration
     );
 
     if (!callback.hasHit() && m_ghostObject->hasContactResponse()) {
       // test a double fall height, to see if the character should interpolate its fall (full) or not (partial)
-      m_ghostObject->convexSweepTest(
+      collisionWorld->convexSweepTest(
         m_convexShape, start, endDouble, callback2, collisionWorld->getDispatchInfo().m_allowedCcdPenetration
       );
     }
@@ -1730,10 +1733,15 @@ void btKinematicCharacterController::playerStep(btCollisionWorld* collisionWorld
            m_ghostObject->getWorldTransform().getOrigin().y(),
            m_verticalVelocity, m_currentPosition.y());
 
+  // Apply support motion before input can turn a grounded launch into an airborne state.
+  // Keep m_wasOnGround's existing gameplay semantics: processInputPreamble still sees the
+  // previous tick's snapshot, and we refresh it after input exactly as before.
+  const bool wasSupportedAtTickStart = onGround();
+  maybeApplyFloorLock(collisionWorld, wasSupportedAtTickStart);
+
   processInputPreamble(dt);
 
   m_wasOnGround = onGround();
-  maybeApplyFloorLock(collisionWorld);
 
   KCC_GLOG("post-floorLock wasOG=%d og=%d posY=%.4f\n",
            m_wasOnGround ? 1 : 0, m_onGround ? 1 : 0, m_currentPosition.y());
@@ -1873,11 +1881,6 @@ void btKinematicCharacterController::playerStep(btCollisionWorld* collisionWorld
     }
   }
 
-  processJumpPads(collisionWorld, dt);
-  processBoostZones(collisionWorld, dt);
-  processDashTokens(collisionWorld);
-  processSensors(collisionWorld);
-
   btTransform xform = m_ghostObject->getWorldTransform();
   xform.setOrigin(m_currentPosition);
   m_ghostObject->setWorldTransform(xform);
@@ -1913,6 +1916,15 @@ void btKinematicCharacterController::playerStep(btCollisionWorld* collisionWorld
     KCC_GLOG("post-rec capped from dY=%+.4f to dY=%+.4f\n", verticalRecovery, capRecovery);
   }
 #endif
+
+  // Zone broadphase pairs must describe the final, recovered player pose. The recovery
+  // call above refreshes the player's AABB and both ghost pair caches even when there was
+  // no penetration. Processing zones before that refresh made entries one tick late and
+  // could miss short overlaps entirely.
+  processJumpPads(collisionWorld, dt);
+  processBoostZones(collisionWorld, dt);
+  processDashTokens(collisionWorld);
+  processSensors(collisionWorld);
 
   KCC_GLOG("post-rec iters=%d og=%d posY=%.4f dY=%+.4f\n",
            numPenetrationLoops, m_onGround ? 1 : 0, m_currentPosition.y(),

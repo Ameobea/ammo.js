@@ -19,6 +19,7 @@
   "scripts": {
     "test": "npm run test-js && npm run test-wasm",
     "test-js": "AMMO_PATH=builds/ammo.js ava",
-    "test-wasm": "AMMO_PATH=builds/ammo.wasm.js ava"
+    "test-wasm": "AMMO_PATH=builds/ammo.wasm.js ava",
+    "test-kcc-wasm": "node tests/surface_material.mjs && node tests/kcc_world_sweep.mjs && node tests/kcc_movement_regressions.mjs"
   }
 }

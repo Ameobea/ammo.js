@@ -322,7 +322,7 @@ public:
   /// btActionInterface interface
   void debugDraw(btIDebugDraw * debugDrawer) {}
 
-  void maybeApplyFloorLock(btCollisionWorld * collisionWorld);
+  void maybeApplyFloorLock(btCollisionWorld * collisionWorld, bool wasSupportedAtTickStart);
 
   void setUp(const btVector3& up);
 
