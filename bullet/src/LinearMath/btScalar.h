@@ -180,7 +180,8 @@ inline int	btGetVersion()
                 #include <emmintrin.h>
             #endif
         #endif //BT_USE_SSE
-    #elif defined( __ARM_NEON__ )
+    // The NEON path uses ARMv7 inline asm that doesn't assemble for aarch64 (Apple Silicon).
+    #elif defined( __ARM_NEON__ ) && !defined( __aarch64__ )
         #ifdef __clang__
             #define BT_USE_NEON 1
 			#define BT_USE_SIMD_VECTOR3

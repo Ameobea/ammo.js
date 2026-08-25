@@ -77,6 +77,12 @@ void btPairCachingGhostObject::addOverlappingObjectInternal(btBroadphaseProxy* o
 	int index = m_overlappingObjects.findLinearSearch(otherObject);
 	if (index==m_overlappingObjects.size())
 	{
+#if defined(KCC_LOG_GROUND_STATE) && KCC_LOG_GROUND_STATE
+		printf("[gpc] ADD pair ghost<->obj%d (ghostAabbY=[%.4f, %.4f] otherAabbY=[%.4f, %.4f])\n",
+		       otherObject->getUserIndex(),
+		       double(actualThisProxy->m_aabbMin.y()), double(actualThisProxy->m_aabbMax.y()),
+		       double(otherProxy->m_aabbMin.y()), double(otherProxy->m_aabbMax.y()));
+#endif
 		m_overlappingObjects.push_back(otherObject);
 		m_hashPairCache->addOverlappingPair(actualThisProxy,otherProxy);
 	}
@@ -92,6 +98,12 @@ void btPairCachingGhostObject::removeOverlappingObjectInternal(btBroadphaseProxy
 	int index = m_overlappingObjects.findLinearSearch(otherObject);
 	if (index<m_overlappingObjects.size())
 	{
+#if defined(KCC_LOG_GROUND_STATE) && KCC_LOG_GROUND_STATE
+		printf("[gpc] REMOVE pair ghost<->obj%d (ghostAabbY=[%.4f, %.4f] otherAabbY=[%.4f, %.4f])\n",
+		       otherObject->getUserIndex(),
+		       double(actualThisProxy->m_aabbMin.y()), double(actualThisProxy->m_aabbMax.y()),
+		       double(otherProxy->m_aabbMin.y()), double(otherProxy->m_aabbMax.y()));
+#endif
 		m_overlappingObjects[index] = m_overlappingObjects[m_overlappingObjects.size()-1];
 		m_overlappingObjects.pop_back();
 		m_hashPairCache->removeOverlappingPair(actualThisProxy,otherProxy,dispatcher);
@@ -118,6 +130,11 @@ void	btGhostObject::convexSweepTest(const btConvexShape* castShape, const btTran
 	/// go over all objects, and if the ray intersects their aabb + cast shape aabb,
 	// do a ray-shape query using convexCaster (CCD)
 	int i;
+#if defined(KCC_LOG_GROUND_STATE) && KCC_LOG_GROUND_STATE
+	printf("[gst] sweep fromY=%.4f toY=%.4f numOverlapping=%d castAabbY=[%.4f, %.4f]\n",
+	       double(convexFromWorld.getOrigin().y()), double(convexToWorld.getOrigin().y()),
+	       m_overlappingObjects.size(), double(castShapeAabbMin.y()), double(castShapeAabbMax.y()));
+#endif
 	for (i=0;i<m_overlappingObjects.size();i++)
 	{
 		btCollisionObject*	collisionObject= m_overlappingObjects[i];
@@ -129,7 +146,13 @@ void	btGhostObject::convexSweepTest(const btConvexShape* castShape, const btTran
 			AabbExpand (collisionObjectAabbMin, collisionObjectAabbMax, castShapeAabbMin, castShapeAabbMax);
 			btScalar hitLambda = btScalar(1.); //could use resultCallback.m_closestHitFraction, but needs testing
 			btVector3 hitNormal;
-			if (btRayAabb(convexFromWorld.getOrigin(),convexToWorld.getOrigin(),collisionObjectAabbMin,collisionObjectAabbMax,hitLambda,hitNormal))
+			bool rayHit = btRayAabb(convexFromWorld.getOrigin(),convexToWorld.getOrigin(),collisionObjectAabbMin,collisionObjectAabbMax,hitLambda,hitNormal);
+#if defined(KCC_LOG_GROUND_STATE) && KCC_LOG_GROUND_STATE
+			printf("[gst]   obj=%d expAabbY=[%.4f, %.4f] rayHit=%d\n",
+			       collisionObject->getUserIndex(), double(collisionObjectAabbMin.y()),
+			       double(collisionObjectAabbMax.y()), rayHit ? 1 : 0);
+#endif
+			if (rayHit)
 			{
 				btCollisionWorld::objectQuerySingle(castShape, convexFromTrans,convexToTrans,
 					collisionObject,

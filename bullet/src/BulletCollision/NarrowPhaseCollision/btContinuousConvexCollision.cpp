@@ -24,6 +24,13 @@ subject to the following restrictions:
 #include "btPointCollector.h"
 #include "BulletCollision/CollisionShapes/btStaticPlaneShape.h"
 
+#if defined(KCC_LOG_GROUND_STATE) && KCC_LOG_GROUND_STATE
+#include <cstdio>
+#define CCC_LOG(...) printf("[ccc] " __VA_ARGS__)
+#else
+#define CCC_LOG(...) ((void)0)
+#endif
+
 
 
 btContinuousConvexCollision::btContinuousConvexCollision ( const btConvexShape*	convexA,const btConvexShape*	convexB,btSimplexSolverInterface* simplexSolver, btConvexPenetrationDepthSolver* penetrationDepthSolver)
@@ -145,6 +152,14 @@ bool	btContinuousConvexCollision::calcTimeOfImpact(
 		c = pointCollector1.m_pointInWorld;
 	}
 
+	CCC_LOG("toi fromA.y=%.4f toA.y=%.4f hasResult=%d dist0=%.6f n=(%.3f,%.3f,%.3f) allowedPen=%.4f\n",
+	        double(fromA.getOrigin().y()), double(toA.getOrigin().y()), hasResult ? 1 : 0,
+	        hasResult ? double(pointCollector1.m_distance) : 0.0,
+	        hasResult ? double(pointCollector1.m_normalOnBInWorld.x()) : 0.0,
+	        hasResult ? double(pointCollector1.m_normalOnBInWorld.y()) : 0.0,
+	        hasResult ? double(pointCollector1.m_normalOnBInWorld.z()) : 0.0,
+	        double(result.m_allowedPenetration));
+
 	if (hasResult)
 	{
 		btScalar dist;
@@ -152,7 +167,10 @@ bool	btContinuousConvexCollision::calcTimeOfImpact(
 		n = pointCollector1.m_normalOnBInWorld;
 		btScalar projectedLinearVelocity = relLinVel.dot(n);
 		if ((projectedLinearVelocity+ maxAngularProjectedVelocity)<=SIMD_EPSILON)
+		{
+			CCC_LOG("toi early-out: projVel=%.6f\n", double(projectedLinearVelocity));
 			return false;
+		}
 
 		//not close enough
 		while (dist > radius)
@@ -172,20 +190,29 @@ bool	btContinuousConvexCollision::calcTimeOfImpact(
 			
 			dLambda = dist / (projectedLinearVelocity+ maxAngularProjectedVelocity);
 
-			
-			
+			CCC_LOG("toi iter=%d dist=%.6f projVel=%.6f dLambda=%.6f lambda=%.6f\n",
+			        numIter, double(dist), double(projectedLinearVelocity), double(dLambda),
+			        double(lambda + dLambda));
+
 			lambda = lambda + dLambda;
 
 			if (lambda > btScalar(1.))
+			{
+				CCC_LOG("toi exit: lambda>1\n");
 				return false;
+			}
 
 			if (lambda < btScalar(0.))
+			{
+				CCC_LOG("toi exit: lambda<0\n");
 				return false;
+			}
 
 
 			//todo: next check with relative epsilon
 			if (lambda <= lastLambda)
 			{
+				CCC_LOG("toi exit: lambda<=lastLambda (%.8f <= %.8f)\n", double(lambda), double(lastLambda));
 				return false;
 				//n.setValue(0,0,0);
 				break;
@@ -214,10 +241,11 @@ bool	btContinuousConvexCollision::calcTimeOfImpact(
 			if (pointCollector.m_hasResult)
 			{
 				dist = pointCollector.m_distance+result.m_allowedPenetration;
-				c = pointCollector.m_pointInWorld;		
+				c = pointCollector.m_pointInWorld;
 				n = pointCollector.m_normalOnBInWorld;
 			} else
 			{
+				CCC_LOG("toi exit: gjk no-result at lambda=%.6f\n", double(lambda));
 				result.reportFailure(-1, numIter);
 				return false;
 			}
@@ -230,12 +258,14 @@ bool	btContinuousConvexCollision::calcTimeOfImpact(
 			}
 		}
 	
+		CCC_LOG("toi HIT lambda=%.6f n=(%.3f,%.3f,%.3f)\n", double(lambda), double(n.x()), double(n.y()), double(n.z()));
 		result.m_fraction = lambda;
 		result.m_normal = n;
 		result.m_hitPoint = c;
 		return true;
 	}
 
+	CCC_LOG("toi exit: no initial gjk result\n");
 	return false;
 
 }

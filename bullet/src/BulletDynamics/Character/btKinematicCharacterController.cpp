@@ -56,8 +56,12 @@ static btVector3 getNormalizedVector(const btVector3& v) {
 // setting to higher values may reduce or prevent some cases where penetration cannot be recovered from
 #define PENETRATION_RECOVERY_PER_ITER 5.
 
+#ifndef KCC_LOG_RECOVERY_FAIL
 #define KCC_LOG_RECOVERY_FAIL 0
+#endif
+#ifndef KCC_LOG_GROUND_STATE
 #define KCC_LOG_GROUND_STATE 0
+#endif
 
 // Master flag for the v1 stepDown 4-fix stack (see STEPDOWN_FLICKER.md):
 //   - Fix 1: useCb2 path in floorBlk when runOnce && cb1 missed but cb2 hit
@@ -65,7 +69,9 @@ static btVector3 getNormalizedVector(const btVector3& v) {
 //   - Fix 3: extend runOnce when wasOG && both sweeps miss
 //   - Fix 4: tighten floorBlk gate to require an actual hit (not just runOnce)
 // Set to 0 to revert all four to pre-fix behavior for bisecting regressions.
+#ifndef KCC_STEPDOWN_FIXES
 #define KCC_STEPDOWN_FIXES 1
+#endif
 
 #if KCC_LOG_GROUND_STATE
   #define KCC_GLOG(...) do { printf("[ground] " __VA_ARGS__); } while (0)
@@ -200,11 +206,15 @@ protected:
 
 class btKinematicClosestNotMeConvexResultCallback : public btCollisionWorld::ClosestConvexResultCallback {
 public:
-  btKinematicClosestNotMeConvexResultCallback(btCollisionObject* me, const btVector3& up, btScalar minSlopeDot)
+  /// `controller` enables per-surface-material walkability thresholds; null uses the fixed
+  /// `minSlopeDot` for every hit (e.g. the stepUp ceiling filter).
+  btKinematicClosestNotMeConvexResultCallback(btCollisionObject* me, const btVector3& up, btScalar minSlopeDot,
+                                              const btKinematicCharacterController* controller = nullptr)
     : btCollisionWorld::ClosestConvexResultCallback(btVector3(0.0, 0.0, 0.0), btVector3(0.0, 0.0, 0.0))
     , m_me(me)
     , m_up(up)
     , m_minSlopeDot(minSlopeDot)
+    , m_controller(controller)
     , m_hitRawNormalWorld(0., 0., 0.)
     , m_hitTriangleValid(false)
     , m_hitShapePart(-1)
@@ -268,8 +278,11 @@ public:
       }
     }
 
+    btScalar minSlopeDot =
+      m_controller ? m_controller->effectiveMaxSlopeCos(convexResult.m_hitCollisionObject) : m_minSlopeDot;
+
     btScalar dotUp = m_up.dot(hitNormalWorld);
-    if (dotUp < m_minSlopeDot) {
+    if (dotUp < minSlopeDot) {
       return 1.0;
     }
 
@@ -287,7 +300,7 @@ public:
         btVector3 faceWorld =
           convexResult.m_hitCollisionObject->getWorldTransform().getBasis() *
           (faceLocal / btSqrt(faceLen2));
-        if (m_up.dot(faceWorld) < m_minSlopeDot) {
+        if (m_up.dot(faceWorld) < minSlopeDot) {
           return 1.0;
         }
       }
@@ -329,6 +342,7 @@ protected:
   btCollisionObject* m_me;
   const btVector3 m_up;
   btScalar m_minSlopeDot;
+  const btKinematicCharacterController* m_controller;
 };
 
 #if KCC_LOG_GROUND_STATE
@@ -455,6 +469,8 @@ bool btKinematicCharacterController::recoverFromPenetration(btCollisionWorld* co
     for (int j = 0; j < m_manifoldArray.size(); j++) {
       btPersistentManifold* manifold = m_manifoldArray[j];
       btScalar directionSign = manifold->getBody0() == m_ghostObject ? btScalar(-1.0) : btScalar(1.0);
+      const btScalar otherMaxSlopeCos = effectiveMaxSlopeCos(
+        manifold->getBody0() == m_ghostObject ? manifold->getBody1() : manifold->getBody0());
       for (int p = 0; p < manifold->getNumContacts(); p++) {
         btManifoldPoint& pt = manifold->getContactPoint(p);
 
@@ -501,7 +517,7 @@ bool btKinematicCharacterController::recoverFromPenetration(btCollisionWorld* co
           // Without this, the recovery push along the surface normal has a horizontal
           // component that causes the player to slide on inclines and slip off edges.
           btScalar normalDotUp = (pt.m_normalWorldOnB * directionSign).dot(m_up);
-          if (m_onGround && btFabs(normalDotUp) > m_maxSlopeCosine) {
+          if (m_onGround && btFabs(normalDotUp) > otherMaxSlopeCos) {
             btScalar verticalAmount = recovery.dot(m_up);
             recovery = m_up * verticalAmount;
           }
@@ -548,6 +564,7 @@ void btKinematicCharacterController::maybeApplyFloorLock(btCollisionWorld* colli
     // floor object has been removed from the collision world
     m_floorObject = nullptr;
     m_floorUserIndex = -1;
+    m_floorMaterialId = -1;
     return;
   }
 
@@ -922,6 +939,10 @@ void btKinematicCharacterController::stepForwardAndStrafe(btCollisionWorld* coll
         // Opposite sign convention from recoverFromPenetration, which combines this with
         // negative penetration depth to get a recovery vector.
         btScalar outwardSign = manifold->getBody0() == m_ghostObject ? btScalar(1.0) : btScalar(-1.0);
+#if PROJECTION_SKIP_WALKABLE_CONTACTS
+        const btScalar otherMaxSlopeCos = effectiveMaxSlopeCos(
+          manifold->getBody0() == m_ghostObject ? manifold->getBody1() : manifold->getBody0());
+#endif
         for (int p = 0; p < manifold->getNumContacts(); p++) {
           btManifoldPoint& pt = manifold->getContactPoint(p);
           if (pt.m_distance1 >= 0) continue;  // not penetrating, ignore
@@ -930,7 +951,7 @@ void btKinematicCharacterController::stepForwardAndStrafe(btCollisionWorld* coll
           btVector3 normal = pt.m_normalWorldOnB * outwardSign;
 
 #if PROJECTION_SKIP_WALKABLE_CONTACTS
-          if (normal.dot(m_up) > m_maxSlopeCosine) continue;
+          if (normal.dot(m_up) > otherMaxSlopeCos) continue;
 #endif
 
           btScalar walkDotN = projWalk.dot(normal);
@@ -1114,11 +1135,11 @@ void btKinematicCharacterController::stepDown(btCollisionWorld* collisionWorld, 
   btVector3 stepDrop = m_up * (m_currentStepOffset + downVelocity);
   m_targetPosition -= stepDrop;
 
-  btKinematicClosestNotMeConvexResultCallback callback(m_ghostObject, m_up, m_maxSlopeCosine);
+  btKinematicClosestNotMeConvexResultCallback callback(m_ghostObject, m_up, m_maxSlopeCosine, this);
   callback.m_collisionFilterGroup = m_ghostObject->getBroadphaseHandle()->m_collisionFilterGroup;
   callback.m_collisionFilterMask = m_ghostObject->getBroadphaseHandle()->m_collisionFilterMask;
 
-  btKinematicClosestNotMeConvexResultCallback callback2(m_ghostObject, m_up, m_maxSlopeCosine);
+  btKinematicClosestNotMeConvexResultCallback callback2(m_ghostObject, m_up, m_maxSlopeCosine, this);
   callback2.m_collisionFilterGroup = m_ghostObject->getBroadphaseHandle()->m_collisionFilterGroup;
   callback2.m_collisionFilterMask = m_ghostObject->getBroadphaseHandle()->m_collisionFilterMask;
 
@@ -1236,12 +1257,14 @@ void btKinematicCharacterController::stepDown(btCollisionWorld* collisionWorld, 
     if (callback.hasHit()) {
       m_floorObject = callback.m_hitCollisionObject;
       m_floorUserIndex = callback.m_hitCollisionObject->getUserIndex();
+      m_floorMaterialId = callback.m_hitCollisionObject->getSurfaceMaterialId();
       m_floorNormal = callback.m_hitNormalWorld;
     }
 #if KCC_STEPDOWN_FIXES
     else if (useCb2) {
       m_floorObject = callback2.m_hitCollisionObject;
       m_floorUserIndex = callback2.m_hitCollisionObject->getUserIndex();
+      m_floorMaterialId = callback2.m_hitCollisionObject->getSurfaceMaterialId();
       m_floorNormal = callback2.m_hitNormalWorld;
     }
     KCC_GLOG("stepDn floorBlk entered (cb1.hit=%d cb2.hit=%d runOnce=%d useCb2=%d) -> og=1 vy=0 floorIdx=%d\n",
@@ -1277,6 +1300,7 @@ void btKinematicCharacterController::stepDown(btCollisionWorld* collisionWorld, 
 
     m_floorObject = callback2.m_hitCollisionObject;
     m_floorUserIndex = callback2.m_hitCollisionObject->getUserIndex();
+    m_floorMaterialId = callback2.m_hitCollisionObject->getSurfaceMaterialId();
     m_floorNormal = callback2.m_hitNormalWorld;
 
     KCC_GLOG("stepDn cb2-rescue (cb1.hit=0 cb2.hit=1 runOnce=%d) -> og=1 vy=0 floorIdx=%d\n",
@@ -1301,6 +1325,18 @@ void btKinematicCharacterController::warp(const btVector3& origin) {
   m_ghostObject->setWorldTransform(xform);
   m_currentPosition = origin;
   m_targetPosition = origin;
+}
+
+btScalar btKinematicCharacterController::effectiveMaxSlopeCos(const btCollisionObject* obj) const {
+  return climbCos(obj ? resolveSurfaceMaterial(obj->getSurfaceMaterialId()) : nullptr);
+}
+
+bool btKinematicCharacterController::assignSurfaceMaterial(btCollisionObject* obj, int materialId) {
+  if (materialId >= 0 && !m_surfaceMaterials.find(btHashInt(materialId))) {
+    return false;
+  }
+  obj->setSurfaceMaterialId(materialId < 0 ? -1 : materialId);
+  return true;
 }
 
 void btKinematicCharacterController::preStep(btCollisionWorld* collisionWorld) {
@@ -1346,10 +1382,12 @@ btScalar btKinematicCharacterController::computeShapedGravity() const {
 }
 
 void btKinematicCharacterController::processInputPreamble(btScalar dt) {
-  m_extVelKillOnContact = m_onGround && m_hasCurrentFloorExtVelDamping &&
-    m_currentFloorExtVelGroundDamping.x() >= btScalar(1) &&
-    m_currentFloorExtVelGroundDamping.y() >= btScalar(1) &&
-    m_currentFloorExtVelGroundDamping.z() >= btScalar(1);
+  const btSurfaceMaterial* floorMat = resolveSurfaceMaterial(m_floorMaterialId);
+
+  m_extVelKillOnContact = m_onGround && floorMat && floorMat->m_hasExtVelGroundDamping &&
+    floorMat->m_extVelGroundDamping.x() >= btScalar(1) &&
+    floorMat->m_extVelGroundDamping.y() >= btScalar(1) &&
+    floorMat->m_extVelGroundDamping.z() >= btScalar(1);
 
   if (m_onGround) {
     m_lastGroundedTime = m_totalElapsedTime;
@@ -1396,7 +1434,7 @@ void btKinematicCharacterController::processInputPreamble(btScalar dt) {
   // not semantically tied to any one feature.
   const bool auxHeld = m_inputMovementEnabled && (m_inputKeyFlags & 64);
   const int  floorIx = m_floorUserIndex;
-  const bool onBoostStrip = m_onGround && m_currentFloorBoostTargetSpeed > btScalar(0);
+  const bool onBoostStrip = m_onGround && floorMat && floorMat->m_boostTargetSpeed > btScalar(0);
 
   // Snapshot previous tick's strict boost-active before we mutate it — used by the
   // leave-strip detection below.
@@ -1448,25 +1486,25 @@ void btKinematicCharacterController::processInputPreamble(btScalar dt) {
   m_boostChargeRatio = btScalar(0);
   if (boostActive) {
     btScalar t = btScalar(1);
-    if (m_currentFloorBoostRampSeconds > btScalar(0)) {
+    if (floorMat->m_boostRampSeconds > btScalar(0)) {
       if (moveDir.length2() > SIMD_EPSILON) {
-        m_boostChargeSeconds = btMin(m_currentFloorBoostRampSeconds, m_boostChargeSeconds + dt);
+        m_boostChargeSeconds = btMin(floorMat->m_boostRampSeconds, m_boostChargeSeconds + dt);
       } else {
         m_boostChargeSeconds = btMax(btScalar(0), m_boostChargeSeconds - dt);
       }
-      t = m_boostChargeSeconds / m_currentFloorBoostRampSeconds;
+      t = m_boostChargeSeconds / floorMat->m_boostRampSeconds;
     }
     const btScalar s = t * t * (btScalar(3) - btScalar(2) * t);
     const btScalar curve = s * s;
     boostedGroundSpeed = m_moveSpeedGround +
-      curve * (m_currentFloorBoostTargetSpeed - m_moveSpeedGround);
+      curve * (floorMat->m_boostTargetSpeed - m_moveSpeedGround);
     m_boostChargeRatio = curve;
     // Cache for use during coyote window after leaving.
     m_lastBoostedGroundSpeed = boostedGroundSpeed;
     m_lastBoostCurve         = curve;
-    m_lastBoostJumpRetention = m_currentFloorBoostJumpRetention;
+    m_lastBoostJumpRetention = floorMat->m_boostJumpRetention;
     m_lastBoostFloorNormal   = m_floorNormal;
-    m_lastBoostFollowSlope   = m_currentFloorBoostFollowSlope;
+    m_lastBoostFollowSlope   = floorMat->m_boostFollowSlope;
   }
 
   // Coyote-boost extension: mirror of the ramp curve — taper from cached boost speed back
@@ -1516,11 +1554,15 @@ void btKinematicCharacterController::processInputPreamble(btScalar dt) {
                     (m_totalElapsedTime - m_lastGroundedTime <= m_coyoteTimeDuration) &&
                     (m_totalElapsedTime - m_lastJumpTime > m_coyoteTimeDuration);
     bool cooldownOk = (m_totalElapsedTime - m_lastJumpTime > m_minJumpDelaySeconds);
+    // No jumping off surfaces steeper than the (per-material) max slope.  m_floorNormal is
+    // the normal of the last surface stepDown grounded on, so this also gates a coyote jump
+    // credited to that same too-steep surface.
+    bool slopeOk = m_floorNormal.dot(m_up) >= floorMaxSlopeCos();
 #if KCC_LOG_GROUND_STATE
     bool ogAtRequest = m_onGround;
 #endif
 
-    if ((m_onGround || coyoteOk) && cooldownOk) {
+    if ((m_onGround || coyoteOk) && cooldownOk && slopeOk) {
       btVector3 jumpVec(
         moveDir.x() * (m_defaultJumpSpeed * btScalar(0.18)),
         m_defaultJumpSpeed,
@@ -1535,9 +1577,9 @@ void btKinematicCharacterController::processInputPreamble(btScalar dt) {
       // Boost-surface retention: snapshot the live boosted walk velocity (or its tapered
       // coyote-window cache) into external velocity so it carries through the jump.  Direction
       // is projected onto the floor's tangent plane so a ramped strip launches along the ramp.
-      if (boostActive && m_currentFloorBoostJumpRetention > btScalar(0)) {
-        const btVector3 dir = projectOnSlope(moveDir, m_floorNormal, m_currentFloorBoostFollowSlope);
-        m_externalVelocity += dir * (boostedGroundSpeed * m_currentFloorBoostJumpRetention);
+      if (boostActive && floorMat->m_boostJumpRetention > btScalar(0)) {
+        const btVector3 dir = projectOnSlope(moveDir, m_floorNormal, floorMat->m_boostFollowSlope);
+        m_externalVelocity += dir * (boostedGroundSpeed * floorMat->m_boostJumpRetention);
       } else if (inBoostCoyote && m_lastBoostJumpRetention > btScalar(0)) {
         const btVector3 dir = projectOnSlope(moveDir, m_lastBoostFloorNormal, m_lastBoostFollowSlope);
         m_externalVelocity += dir * (coyoteFactor * m_lastBoostedGroundSpeed * m_lastBoostJumpRetention);
@@ -1551,8 +1593,8 @@ void btKinematicCharacterController::processInputPreamble(btScalar dt) {
       KCC_GLOG("jump fired og=%d coyote=%d vy=%.3f\n",
                ogAtRequest ? 1 : 0, coyoteOk ? 1 : 0, jumpVec.y());
     } else {
-      KCC_GLOG("jump pressed-denied og=%d coyote=%d cooldownOk=%d sinceGrounded=%.4f sinceJump=%.4f\n",
-               ogAtRequest ? 1 : 0, coyoteOk ? 1 : 0, cooldownOk ? 1 : 0,
+      KCC_GLOG("jump pressed-denied og=%d coyote=%d cooldownOk=%d slopeOk=%d sinceGrounded=%.4f sinceJump=%.4f\n",
+               ogAtRequest ? 1 : 0, coyoteOk ? 1 : 0, cooldownOk ? 1 : 0, slopeOk ? 1 : 0,
                m_totalElapsedTime - m_lastGroundedTime,
                m_totalElapsedTime - m_lastJumpTime);
     }
@@ -1706,15 +1748,16 @@ void btKinematicCharacterController::playerStep(btCollisionWorld* collisionWorld
 
   // apply damping to external velocity
   //
-  // The per-floor override is honored only while grounded: m_floorUserIndex (which JS uses
-  // to push the override) keeps the last-stood floor after going airborne, so applying the
-  // override in the air would let a surface's damping follow the player through jumps —
-  // and it bypassed the air-idle factor selection entirely.
+  // The material override is honored only while grounded: m_floorMaterialId keeps the
+  // last-stood floor after going airborne, so applying the override in the air would let a
+  // surface's damping follow the player through jumps.
   const bool airborneIdle = !m_wasOnGround && m_normalizedDirection.length2() <= btScalar(0);
+  const btSurfaceMaterial* floorMat = resolveSurfaceMaterial(m_floorMaterialId);
   btVector3 dampingFactor;
   if (m_wasOnGround) {
-    dampingFactor = m_hasCurrentFloorExtVelDamping ? m_currentFloorExtVelGroundDamping
-                                                   : m_externalVelocityGroundDampingFactor;
+    dampingFactor = (floorMat && floorMat->m_hasExtVelGroundDamping)
+                      ? floorMat->m_extVelGroundDamping
+                      : m_externalVelocityGroundDampingFactor;
   } else {
     dampingFactor = airborneIdle ? m_externalVelocityAirIdleDampingFactor
                                  : m_externalVelocityAirDampingFactor;
@@ -1783,21 +1826,49 @@ void btKinematicCharacterController::playerStep(btCollisionWorld* collisionWorld
            m_floorObject ? m_floorObject->getUserIndex() : -1);
 
   // Slope sliding: when on ground and the floor is steeper than the slide threshold,
-  // push the player downhill.  Speed scales linearly from 0 at minAngle to maxSpeed at maxSlope.
-  if (m_onGround && m_slopeSlideMinAngle > 0) {
-    btScalar floorDotUp = m_floorNormal.dot(m_up);
-    // floorDotUp < slopeSlideMinAngleCosine means the surface is steeper than minAngle
-    if (floorDotUp < m_slopeSlideMinAngleCosine && floorDotUp > m_maxSlopeCosine) {
-      // Compute downhill direction: project gravity onto the surface plane
-      btVector3 downhill = -m_up - m_floorNormal * (-m_up).dot(m_floorNormal);
-      btScalar downhillLen = downhill.length();
-      if (downhillLen > SIMD_EPSILON) {
-        downhill /= downhillLen;
-        // Interpolate speed: 0 at minAngle, maxSpeed at maxSlope
-        btScalar t = (m_slopeSlideMinAngleCosine - floorDotUp) /
-                     (m_slopeSlideMinAngleCosine - m_maxSlopeCosine);
-        btScalar speed = m_slopeSlideMaxSpeed * t;
-        m_currentPosition += downhill * speed * dt;
+  // push the player downhill.  Speed scales linearly from 0 at minAngle to maxSpeed at
+  // maxSlope.  The floor's surface material can override any of the three parameters
+  // (including enabling sliding on a scene whose global config has it off).
+  {
+    // Re-resolve: stepDown just ran and may have recorded a different floor than the one
+    // the damping step above saw.
+    const btSurfaceMaterial* slideMat = resolveSurfaceMaterial(m_floorMaterialId);
+    btScalar slideMinAngle = m_slopeSlideMinAngle;
+    btScalar slideMinCos   = m_slopeSlideMinAngleCosine;
+    btScalar slideMaxSpeed = m_slopeSlideMaxSpeed;
+    btScalar maxSlopeCos   = m_maxSlopeCosine;
+    if (slideMat) {
+      if (slideMat->m_slideMinAngle >= btScalar(0)) {
+        slideMinAngle = slideMat->m_slideMinAngle;
+        slideMinCos   = slideMat->m_slideMinCos;
+      }
+      if (slideMat->m_slideMaxSpeed >= btScalar(0)) {
+        slideMaxSpeed = slideMat->m_slideMaxSpeed;
+      }
+      // The material's climb range widens/narrows the slide window only when the material
+      // configures sliding itself; a climb-only override must not inherit the scene's slide
+      // into its extended walkable band (which would drag the player off surfaces the
+      // material just made walkable).
+      const bool matConfiguresSlide =
+        slideMat->m_slideMinAngle >= btScalar(0) || slideMat->m_slideMaxSpeed >= btScalar(0);
+      if (matConfiguresSlide && slideMat->m_maxClimbAngle >= btScalar(0)) {
+        maxSlopeCos = slideMat->m_maxClimbCos;
+      }
+    }
+    if (m_onGround && slideMinAngle > 0) {
+      btScalar floorDotUp = m_floorNormal.dot(m_up);
+      // floorDotUp < slideMinCos means the surface is steeper than minAngle
+      if (floorDotUp < slideMinCos && floorDotUp > maxSlopeCos) {
+        // Compute downhill direction: project gravity onto the surface plane
+        btVector3 downhill = -m_up - m_floorNormal * (-m_up).dot(m_floorNormal);
+        btScalar downhillLen = downhill.length();
+        if (downhillLen > SIMD_EPSILON) {
+          downhill /= downhillLen;
+          // Interpolate speed: 0 at minAngle, maxSpeed at maxSlope
+          btScalar t = (slideMinCos - floorDotUp) / (slideMinCos - maxSlopeCos);
+          btScalar speed = slideMaxSpeed * t;
+          m_currentPosition += downhill * speed * dt;
+        }
       }
     }
   }
@@ -2058,38 +2129,18 @@ void btKinematicCharacterController::processDashTokens(btCollisionWorld* collisi
   }
 }
 
+// NOTE: upstream Bullet rotated the ghost's world transform here so a Y-up capsule could
+// track an arbitrary up axis.  This fork's sweeps all use identity-basis transforms, so the
+// baked rotation only corrupted the paths that DO read the ghost basis (broadphase AABB
+// updates, penetration-recovery manifolds): the proxy AABB became a lying-down capsule,
+// dropping the ghost<->floor pair at rest height and oscillating onGround every tick.
+// The game is Y-up only and was shielded by warp() resetting the basis at spawn.
 void btKinematicCharacterController::setUpVector(const btVector3& up) {
-  if (m_up == up) {
-    return;
-  }
-
-  btVector3 oldUp = m_up;
-
   if (up.length2() > 0) {
     m_up = up.normalized();
   } else {
     m_up = btVector3(0.0, 0.0, 0.0);
   }
-
-  if (!m_ghostObject) {
-    return;
-  }
-  btQuaternion rot = getRotation(m_up, oldUp);
-
-  // set orientation with new up
-  btTransform xform = m_ghostObject->getWorldTransform();
-  btQuaternion orn = rot.inverse() * xform.getRotation();
-  xform.setRotation(orn);
-  m_ghostObject->setWorldTransform(xform);
-}
-
-btQuaternion btKinematicCharacterController::getRotation(btVector3& v0, btVector3& v1) const {
-  if (v0.length2() == 0.0f || v1.length2() == 0.0f) {
-    btQuaternion q;
-    return q;
-  }
-
-  return shortestArcQuatNormalize2(v0, v1);
 }
 
 float btKinematicCharacterController::cameraRayTest(

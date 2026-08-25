@@ -97,6 +97,10 @@ protected:
 	/// Secondary user index, unused by Bullet.  Applications may use this for per-object tags.
 	int m_userIndex2;
 
+	/// Surface material id referencing a btSurfaceMaterial registered on the character
+	/// controller.  -1 = no material (use global controller config).
+	int m_surfaceMaterialId;
+
 	/// time of impact calculation
 	btScalar		m_hitFraction; 
 	
@@ -437,6 +441,14 @@ public:
 
 	void setUserIndex2(int index) {
 		m_userIndex2 = index;
+	}
+
+	int getSurfaceMaterialId() const {
+		return m_surfaceMaterialId;
+	}
+
+	void setSurfaceMaterialId(int id) {
+		m_surfaceMaterialId = id;
 	}
 
 	int	getUpdateRevisionInternal() const {

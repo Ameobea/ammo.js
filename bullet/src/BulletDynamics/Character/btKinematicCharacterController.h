@@ -23,6 +23,8 @@ software.
 #include "LinearMath/btAlignedObjectArray.h"
 
 #include "btCharacterControllerInterface.h"
+#include "btSurfaceMaterial.h"
+#include "LinearMath/btHashMap.h"
 #include "btJumpPad.h"
 #include "btBoostZone.h"
 #include "btSensor.h"
@@ -211,12 +213,29 @@ protected:
   // downward component of m_externalVelocity) BEFORE applying the dash effect.
   bool m_dashCancelFallVelocity = false;
 
-  // Pushed from JS per-tick based on the entity under the player's feet (with a one-tick
-  // latency — uses the floor seen at the end of the previous step).  Zero means no boost.
-  btScalar m_currentFloorBoostTargetSpeed   = btScalar(0);
-  btScalar m_currentFloorBoostJumpRetention = btScalar(0);
-  btScalar m_currentFloorBoostRampSeconds   = btScalar(0);
-  bool     m_currentFloorBoostFollowSlope   = false;
+  // Surface material registry, keyed by application-chosen id.  Collision objects
+  // reference entries via btCollisionObject::m_surfaceMaterialId.
+  btHashMap<btHashInt, btSurfaceMaterial> m_surfaceMaterials;
+
+  /// Material id of the floor recorded by stepDown, cached as an int alongside
+  /// m_floorUserIndex so material resolution never dereferences m_floorObject (which can
+  /// dangle if JS removes the floor body between ticks).  -1 when the floor has no material.
+  int m_floorMaterialId = -1;
+
+  const btSurfaceMaterial* resolveSurfaceMaterial(int materialId) const {
+    if (materialId < 0) {
+      return nullptr;
+    }
+    return m_surfaceMaterials.find(btHashInt(materialId));
+  }
+
+  /// Walkable-slope cosine for a material: its climb override if set, else the global maxSlope.
+  btScalar climbCos(const btSurfaceMaterial* mat) const {
+    return (mat && mat->m_maxClimbAngle >= btScalar(0)) ? mat->m_maxClimbCos : m_maxSlopeCosine;
+  }
+
+  /// Max-walkable-slope cosine in effect for the floor recorded by stepDown.
+  btScalar floorMaxSlopeCos() const { return climbCos(resolveSurfaceMaterial(m_floorMaterialId)); }
 
   // Boost arm/edge tracking.  Must observe a rising edge of aux while standing on a boost
   // strip to engage; arm persists through air time so a coyote-jump still benefits, but
@@ -248,15 +267,6 @@ protected:
   btScalar  m_lastBoostJumpRetention      = btScalar(0);
   btVector3 m_lastBoostFloorNormal        = btVector3(0, 1, 0);
   bool      m_lastBoostFollowSlope        = false;
-
-  // Per-surface external-velocity damping override.  Pushed from JS per-tick based on the
-  // floor entity; when m_hasCurrentFloorExtVelDamping is true, the ground factor replaces
-  // the global m_externalVelocityGroundDampingFactor for grounded steps.  Airborne steps
-  // always use the global air/air-idle factors (the floor fields go stale once airborne).
-  // The air slot is retained only for IDL signature compatibility and is ignored.
-  btVector3 m_currentFloorExtVelGroundDamping = btVector3(0, 0, 0);
-  btVector3 m_currentFloorExtVelAirDamping    = btVector3(0, 0, 0);
-  bool      m_hasCurrentFloorExtVelDamping    = false;
 
   // Set each tick when standing on a floor whose ground factor is a full (1,1,1) brick wall.
   // Forces external velocity to zero in the damping step even when a same-tick re-jump flips
@@ -292,8 +302,6 @@ protected:
   virtual bool needsCollision(const btCollisionObject* body0, const btCollisionObject* body1);
 
   void setUpVector(const btVector3& up);
-
-  btQuaternion getRotation(btVector3 & v0, btVector3 & v1) const;
 
 public:
   BT_DECLARE_ALIGNED_ALLOCATOR();
@@ -403,13 +411,65 @@ public:
     m_moveSpeedInAir  = air;
   }
 
-  void setCurrentFloorBoost(btScalar targetSpeed, btScalar jumpRetention, btScalar rampSeconds,
-                            bool followSlope) {
-    m_currentFloorBoostTargetSpeed   = targetSpeed;
-    m_currentFloorBoostJumpRetention = jumpRetention;
-    m_currentFloorBoostRampSeconds   = rampSeconds;
-    m_currentFloorBoostFollowSlope   = followSlope;
+  /// Create or reset the material with the given id to default values.  Upserts, so it can
+  /// also be used to live-retune an existing material (all surfaces referencing the id see
+  /// the change immediately).
+  void defineSurfaceMaterial(int materialId) {
+    m_surfaceMaterials.insert(btHashInt(materialId), btSurfaceMaterial());
   }
+
+  /// Returns false (and does nothing) if no material with this id has been defined.
+  bool setSurfaceMaterialBoost(int materialId, btScalar targetSpeed, btScalar jumpRetention,
+                               btScalar rampSeconds, bool followSlope) {
+    btSurfaceMaterial* mat = m_surfaceMaterials.find(btHashInt(materialId));
+    if (!mat) {
+      return false;
+    }
+    mat->m_boostTargetSpeed   = targetSpeed;
+    mat->m_boostJumpRetention = jumpRetention;
+    mat->m_boostRampSeconds   = rampSeconds;
+    mat->m_boostFollowSlope   = followSlope;
+    return true;
+  }
+
+  /// Per-material climbability: surfaces steeper than maxClimbAngle never ground the player
+  /// (and deny jumps); the slide window/speed feed the slope-slide behavior.  Negative values
+  /// inherit the controller's global config.  Returns false if the id has not been defined.
+  bool setSurfaceMaterialClimb(int materialId, btScalar maxClimbAngle, btScalar slideMinAngle,
+                               btScalar slideMaxSpeed) {
+    btSurfaceMaterial* mat = m_surfaceMaterials.find(btHashInt(materialId));
+    if (!mat) {
+      return false;
+    }
+    mat->m_maxClimbAngle = maxClimbAngle;
+    mat->m_maxClimbCos   = maxClimbAngle >= btScalar(0) ? btCos(maxClimbAngle) : btScalar(1);
+    mat->m_slideMinAngle = slideMinAngle;
+    mat->m_slideMinCos   = slideMinAngle >= btScalar(0) ? btCos(slideMinAngle) : btScalar(1);
+    mat->m_slideMaxSpeed = slideMaxSpeed;
+    return true;
+  }
+
+  /// Max-walkable-slope cosine in effect for a swept/contacted object (per-material override
+  /// or the global maxSlope).  Safe for null obj.
+  btScalar effectiveMaxSlopeCos(const btCollisionObject* obj) const;
+
+  /// Returns false (and does nothing) if no material with this id has been defined.
+  bool setSurfaceMaterialExtVelGroundDamping(int materialId, btScalar x, btScalar y, btScalar z) {
+    btSurfaceMaterial* mat = m_surfaceMaterials.find(btHashInt(materialId));
+    if (!mat) {
+      return false;
+    }
+    mat->m_hasExtVelGroundDamping = true;
+    mat->m_extVelGroundDamping.setValue(x, y, z);
+    return true;
+  }
+
+  /// Assign a registered material to a collision object (materialId < 0 clears).  Returns
+  /// false without assigning if the id has never been defined, so JS can raise a visible
+  /// error instead of silently referencing a nonexistent material.
+  bool assignSurfaceMaterial(btCollisionObject* obj, int materialId);
+
+  int getFloorSurfaceMaterialId() const { return m_floorMaterialId; }
 
   bool isBoostEffective() const {
     return m_boostActive ||
@@ -417,14 +477,6 @@ public:
   }
 
   btScalar getBoostChargeRatio() const { return m_boostChargeRatio; }
-
-  void setCurrentFloorExtVelDamping(btScalar gx, btScalar gy, btScalar gz,
-                                    btScalar ax, btScalar ay, btScalar az,
-                                    bool active) {
-    m_currentFloorExtVelGroundDamping.setValue(gx, gy, gz);
-    m_currentFloorExtVelAirDamping.setValue(ax, ay, az);
-    m_hasCurrentFloorExtVelDamping = active;
-  }
 
   void setTopDownMode(bool topDown) { m_topDownMode = topDown; }
 
@@ -564,6 +616,8 @@ public:
     m_jumpAxis = m_up;
     m_floorObject = nullptr;
     m_floorUserIndex = -1;
+    m_floorMaterialId = -1;
+    m_floorNormal = m_up;
     m_totalElapsedTime = 0;
     m_cameraRayHitNX = 0;
     m_cameraRayHitNY = 0;
