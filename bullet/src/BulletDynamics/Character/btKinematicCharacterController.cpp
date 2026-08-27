@@ -33,6 +33,7 @@ software.
 #include "BulletCollision/CollisionShapes/btScaledBvhTriangleMeshShape.h"
 #include "BulletCollision/CollisionShapes/btTriangleShape.h"
 #include "BulletCollision/CollisionShapes/btCapsuleShape.h"
+#include "BulletCollision/CollisionShapes/btSphereShape.h"
 #include "BulletCollision/NarrowPhaseCollision/btRaycastCallback.h"
 #include "BulletCollision/CollisionDispatch/btInternalEdgeUtility.h"
 #include "BulletCollision/CollisionDispatch/btCollisionObjectWrapper.h"
@@ -2180,6 +2181,50 @@ float btKinematicCharacterController::cameraRayTest(
     m_cameraRayHitNZ = 0;
     m_cameraRayHitNonPermeable = false;
   }
+  return callback.m_closestHitFraction;
+}
+
+float btKinematicCharacterController::cameraSphereSweep(
+  btCollisionWorld* world,
+  btScalar fromX, btScalar fromY, btScalar fromZ,
+  btScalar toX,   btScalar toY,   btScalar toZ,
+  btScalar radius, bool nonPermeableOnly) {
+  class SweepCallback : public btCollisionWorld::ClosestConvexResultCallback {
+  public:
+    SweepCallback(btCollisionObject* me, bool nonPermeableOnly)
+      : btCollisionWorld::ClosestConvexResultCallback(btVector3(0., 0., 0.), btVector3(0., 0., 0.))
+      , m_me(me)
+      , m_nonPermeableOnly(nonPermeableOnly) {}
+
+    virtual btScalar addSingleResult(btCollisionWorld::LocalConvexResult& convexResult, bool normalInWorldSpace) {
+      if (convexResult.m_hitCollisionObject == m_me || !convexResult.m_hitCollisionObject->hasContactResponse()) {
+        return btScalar(1.);
+      }
+      if (m_nonPermeableOnly && convexResult.m_hitCollisionObject->getUserIndex2() <= 0) {
+        return btScalar(1.);
+      }
+      return ClosestConvexResultCallback::addSingleResult(convexResult, normalInWorldSpace);
+    }
+
+    btCollisionObject* m_me;
+    bool m_nonPermeableOnly;
+  };
+
+  btSphereShape sphere(radius);
+  btTransform start;
+  start.setIdentity();
+  start.setOrigin(btVector3(fromX, fromY, fromZ));
+  btTransform end;
+  end.setIdentity();
+  end.setOrigin(btVector3(toX, toY, toZ));
+
+  SweepCallback callback(m_ghostObject, nonPermeableOnly);
+  callback.m_collisionFilterMask = btBroadphaseProxy::StaticFilter | btBroadphaseProxy::DefaultFilter;
+
+  // Zero allowed penetration: the dispatcher default (0.04) would let the sweep report
+  // contact only after the sphere is already inside the surface, eating the clearance
+  // pad the radius exists to provide.
+  world->convexSweepTest(&sphere, start, end, callback, btScalar(0.));
   return callback.m_closestHitFraction;
 }
 

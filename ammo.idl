@@ -1184,6 +1184,10 @@ interface btKinematicCharacterController {
   float cameraRayTest(btDiscreteDynamicsWorld world,
                       float fromX, float fromY, float fromZ,
                       float toX,   float toY,   float toZ);
+  float cameraSphereSweep(btDiscreteDynamicsWorld world,
+                          float fromX, float fromY, float fromZ,
+                          float toX,   float toY,   float toZ,
+                          float radius, boolean nonPermeableOnly);
   float castShadowProbeGrid(btDiscreteDynamicsWorld world,
                             float centerX, float originY, float centerZ,
                             float radius, float maxDist, long n, VoidPtr outBuffer);

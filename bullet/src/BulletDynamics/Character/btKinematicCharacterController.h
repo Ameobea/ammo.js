@@ -586,6 +586,18 @@ public:
                       btScalar fromX, btScalar fromY, btScalar fromZ,
                       btScalar toX,   btScalar toY,   btScalar toZ);
 
+  /// Swept-sphere variant of cameraRayTest: returns the fraction along from->to at which a
+  /// sphere of `radius` first touches geometry (1.0 = clear), so the camera placed there has
+  /// `radius` of clearance in every direction -- a thin ray misses walls the camera's near
+  /// plane clips when pivoting flush against them. `nonPermeableOnly` restricts hits to
+  /// objects tagged non-permeable (userIndex2 > 0) so soft-occlusion/x-ray handling of
+  /// ordinary thin geometry is unaffected. Does NOT touch the cameraRayTest last-hit members
+  /// (a sweep normal has different semantics than the ray's unflipped triangle normal).
+  float cameraSphereSweep(btCollisionWorld* world,
+                          btScalar fromX, btScalar fromY, btScalar fromZ,
+                          btScalar toX,   btScalar toY,   btScalar toZ,
+                          btScalar radius, bool nonPermeableOnly);
+
   float getCameraRayHitNormalX() const { return m_cameraRayHitNX; }
   float getCameraRayHitNormalY() const { return m_cameraRayHitNY; }
   float getCameraRayHitNormalZ() const { return m_cameraRayHitNZ; }
